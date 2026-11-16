@@ -1,0 +1,75 @@
+description: "Databases, collections and indexes (SchemaService)."
+tests:
+  - id: TC-DRV-CONF-SCHEMA-001
+    description: "Create, list and drop a database; ifNotExists / ifExists make them idempotent."
+    covers: [Client.CreateDatabase, Client.ListDatabaseNames, Client.DropDatabase]
+    requires: [admin]
+    operations:
+      - {object: client, name: createDatabase, args: {name: "${database}_extra"}, expect: {result: {created: true}}}
+      - {object: client, name: createDatabase, args: {name: "${database}_extra", ifNotExists: true}, expect: {result: {created: false}}}
+      - {object: client, name: createDatabase, args: {name: "${database}_extra"}, expect: {error: {code: 1031, exception: Client}}}
+      - {object: client, name: listDatabaseNames, match: subset, ordered: false, expect: {result: ["${database}", "${database}_extra"]}}
+      - {object: client, name: dropDatabase, args: {name: "${database}_extra"}, expect: {result: {dropped: true}}}
+      - {object: client, name: dropDatabase, args: {name: "${database}_extra", ifExists: true}, expect: {result: {dropped: false}}}
+      - {object: client, name: dropDatabase, args: {name: "${database}_extra"}, expect: {error: {code: 1030, exception: Client}}}
+
+  - id: TC-DRV-CONF-SCHEMA-002
+    description: "Create, list and drop collections."
+    covers: [Database.CreateCollection, Database.ListCollectionNames, Database.DropCollection, Client.GetDatabase]
+    operations:
+      - {object: database, name: createCollection, args: {name: b_coll}, expect: {result: {created: true}}}
+      - {object: database, name: createCollection, args: {name: a_coll}, expect: {result: {created: true}}}
+      - {object: database, name: createCollection, args: {name: a_coll, ifNotExists: true}, expect: {result: {created: false}}}
+      - {object: database, name: listCollectionNames, expect: {result: ["a_coll", "b_coll"]}}
+      - {object: database, name: dropCollection, args: {name: a_coll}, expect: {result: {dropped: true}}}
+      - {object: database, name: dropCollection, args: {name: a_coll, ifExists: true}, expect: {result: {dropped: false}}}
+      - {object: database, name: listCollectionNames, expect: {result: ["b_coll"]}}
+
+  - id: TC-DRV-CONF-SCHEMA-003
+    description: "Create, list and drop an index; the driver waits until it is ready."
+    covers: [Collection.CreateIndex, Collection.ListIndexes, Collection.DropIndex]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "sku": "A", "qty": 1}, {"_id": 2, "sku": "B", "qty": 2}]}
+    operations:
+      - object: collection
+        name: createIndex
+        args: {name: by_sku_qty, keys: [{path: "sku"}, {path: "qty", descending: true}]}
+        expect: {result: {name: "by_sku_qty", state: ready}}
+      - object: collection
+        name: listIndexes
+        expect: {result: [{name: "by_sku_qty", keys: [{path: "sku", descending: false}, {path: "qty", descending: true}], unique: false, state: ready}]}
+      - {object: collection, name: createIndex, args: {name: by_sku_qty, keys: [{path: "sku"}]}, expect: {error: {code: 1020, name: "IndexAlreadyExists", exception: Client}}}
+      - {object: collection, name: dropIndex, args: {name: by_sku_qty}, expect: {result: {dropped: true}}}
+      - {object: collection, name: dropIndex, args: {name: by_sku_qty, ifExists: true}, expect: {result: {dropped: false}}}
+      - {object: collection, name: dropIndex, args: {name: by_sku_qty}, expect: {error: {code: 1021, name: "IndexNotFound", exception: Client}}}
+      - {object: collection, name: listIndexes, expect: {result: []}}
+
+  - id: TC-DRV-CONF-SCHEMA-004
+    description: "A unique index rejects duplicates with DuplicateKey."
+    covers: [Collection.CreateIndex, Collection.InsertOne, Behavior.ErrorMapping]
+    setup:
+      collections: [{name: users}]
+      indexes:
+        - {collection: users, name: by_email, keys: [{path: "email"}], unique: true}
+    operations:
+      - {object: collection, collection: users, name: insertOne, args: {document: {"_id": 1, "email": "a@example.com"}}}
+      - {object: collection, collection: users, name: insertOne, args: {document: {"_id": 2, "email": "a@example.com"}}, expect: {error: {code: 1005, exception: DuplicateKey}}}
+    outcome:
+      users: [{"_id": 1, "email": "a@example.com"}]
+
+  - id: TC-DRV-CONF-SCHEMA-005
+    description: "A collection created with a validator enforces it; a warn-only validator accepts the write."
+    covers: [Database.CreateCollection, Collection.InsertOne]
+    setup:
+      collections:
+        - name: strict_people
+          validator: {jsonSchema: {"required": ["name"]}, level: strict, action: error}
+        - name: lenient_people
+          validator: {jsonSchema: {"required": ["name"]}, level: strict, action: warn}
+    operations:
+      - {object: collection, collection: strict_people, name: insertOne, args: {document: {"_id": 1}}, expect: {error: {code: 1006, exception: DocumentValidation}}}
+      - {object: collection, collection: lenient_people, name: insertOne, args: {document: {"_id": 1}}, expect: {result: {insertedId: 1}}}
+    outcome:
+      strict_people: []
+      lenient_people: [{"_id": 1}]

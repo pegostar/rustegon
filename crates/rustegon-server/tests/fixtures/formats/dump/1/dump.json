@@ -1,0 +1,57 @@
+{
+  "format": "rustegon-dump",
+  "format_version": 1,
+  "timestamp": {
+    "wall": 1700000000001930000,
+    "logical": 0
+  },
+  "databases": [
+    {
+      "name": "shop",
+      "file": "shop.database.json",
+      "collections": [
+        {
+          "name": "Items",
+          "metadata": "shop/Items.metadata.json",
+          "data": "shop/Items.ndjson",
+          "documents": 1,
+          "checksum": "e90cba077bcc51881bb488b5abc1b4a7250f17313a6d4d06a366a342f28fd9ce"
+        },
+        {
+          "name": "items",
+          "metadata": "shop/case-1/items.metadata.json",
+          "data": "shop/case-1/items.ndjson",
+          "documents": 3,
+          "checksum": "35a8b2e5cbbb84cc4915ba32b9049ff8aae0f1ec3d9e59588f5748471352878b"
+        }
+      ]
+    }
+  ],
+  "files": [
+    {
+      "path": "shop.database.json",
+      "bytes": 109,
+      "blake3": "01ca9b03675ca45a760d9af577cbe29f60cb5a3dedc6993561053c0f83e09000"
+    },
+    {
+      "path": "shop/Items.metadata.json",
+      "bytes": 304,
+      "blake3": "a691bd8f3baa1eb1d0cb6391e51941f3e435eceb34b9679a930604347a2e61f5"
+    },
+    {
+      "path": "shop/Items.ndjson",
+      "bytes": 153,
+      "blake3": "a20aa6834cc5ab7c3d4c21e8905d2b0200fa65e42dcb4914a0edaac9f21765c7"
+    },
+    {
+      "path": "shop/case-1/items.metadata.json",
+      "bytes": 683,
+      "blake3": "ba8b0a93a9fc5b402c8a71e19f81b5916b11ab17571a284d6e3efca51ad2f734"
+    },
+    {
+      "path": "shop/case-1/items.ndjson",
+      "bytes": 552,
+      "blake3": "c984ebc0a17883f9fd954584e63c10b9505981fa068842e64fc14a66963f4298"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+<Project>
+  <!-- Central package management: every version of the driver solution is pinned here. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup Label="Driver">
+    <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
+    <PackageVersion Include="Grpc.Net.Client" Version="2.85.0" />
+    <PackageVersion Include="Grpc.StatusProto" Version="2.85.0" />
+    <PackageVersion Include="Grpc.Tools" Version="2.85.0" />
+    <PackageVersion Include="System.IO.Hashing" Version="10.0.14" />
+  </ItemGroup>
+  <ItemGroup Label="Source generator (compile time only, PrivateAssets=all)">
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+  </ItemGroup>
+  <ItemGroup Label="Tests">
+    <PackageVersion Include="xunit.v3" Version="4.0.3" />
+    <PackageVersion Include="FsCheck" Version="3.6.0" />
+    <PackageVersion Include="FsCheck.Xunit.v3" Version="3.6.0" />
+  </ItemGroup>
+</Project>

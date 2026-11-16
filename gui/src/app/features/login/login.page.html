@@ -1,0 +1,61 @@
+<main id="main" tabindex="-1">
+  <section class="rg-login-card rg-glass-strong">
+    <div class="rg-login-mark"><rg-logo [size]="56" /></div>
+    <h1 i18n="@@login.heading">Sign in to Rustegon</h1>
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <rg-field>
+        <label rgLabel i18n="@@login.user">User name</label>
+        <input
+          #userInput
+          rgControl
+          formControlName="user"
+          autocomplete="username"
+          autocapitalize="off"
+          spellcheck="false"
+          [rgDescribedBy]="error() ? 'login-error' : null"
+        />
+        @if (form.controls.user.hasError('required')) {
+          <rg-error i18n="@@login.userRequired">Enter your user name.</rg-error>
+        }
+      </rg-field>
+      <rg-field>
+        <label rgLabel i18n="@@login.password">Password</label>
+        <input
+          rgControl
+          type="password"
+          formControlName="password"
+          autocomplete="current-password"
+          [rgDescribedBy]="error() ? 'login-error' : null"
+        />
+        @if (form.controls.password.hasError('required')) {
+          <rg-error i18n="@@login.passwordRequired">Enter your password.</rg-error>
+        }
+      </rg-field>
+      <div id="login-error" class="rg-error" role="alert">{{ error() }}</div>
+      <button
+        class="btn btn-primary w-100"
+        type="submit"
+        [disabled]="busy() || countdown() > 0"
+        [attr.aria-busy]="busy()"
+      >
+        @if (busy()) {
+          <span class="spinner-border" aria-hidden="true"></span>
+        }
+        @if (countdown() > 0) {
+          <ng-container i18n="@@login.wait">Wait {{ countdown() }} s</ng-container>
+        } @else {
+          <ng-container i18n="@@login.submit">Sign in</ng-container>
+        }
+      </button>
+    </form>
+  </section>
+  <footer>
+    @if (serverInfo.value(); as info) {
+      <span i18n="@@login.serverVersion">Rustegon {{ info.serverVersion }}</span>
+    } @else if (serverInfo.error()) {
+      <span i18n="@@login.serverUnreachable"
+        >The server did not answer. Check the address and its TLS certificate.</span
+      >
+    }
+  </footer>
+</main>

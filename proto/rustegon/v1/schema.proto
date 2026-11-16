@@ -1,0 +1,347 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+syntax = "proto3";
+
+package rustegon.v1;
+
+import "rustegon/v1/common.proto";
+import "rustegon/v1/query_ast.proto";
+
+// Databases, collections, indexes and validators (protocol.md §2; data-model.md §5; indexing.md).
+// Tables and timeseries are added with their milestones. Options use the names of RGQL
+// `WITH (...)` options and RDoc values; index definitions reuse the structured RGQL form
+// (`AstCreateIndex`), so there is a single normative definition of an index (PD-045).
+service SchemaService {
+  // Creates a database.
+  rpc CreateDatabase(CreateDatabaseRequest) returns (CreateDatabaseResponse);
+  // Drops a database and everything in it.
+  rpc DropDatabase(DropDatabaseRequest) returns (DropDatabaseResponse);
+  // Lists databases visible to the caller.
+  rpc ListDatabases(ListDatabasesRequest) returns (ListDatabasesResponse);
+  // Creates a collection.
+  rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse);
+  // Drops a collection.
+  rpc DropCollection(DropCollectionRequest) returns (DropCollectionResponse);
+  // Changes collection options.
+  rpc AlterCollection(AlterCollectionRequest) returns (AlterCollectionResponse);
+  // Describes one collection.
+  rpc GetCollection(GetCollectionRequest) returns (GetCollectionResponse);
+  // Lists the collections of a database.
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+  // Creates an index (built in the background; see IndexBuildProgress).
+  rpc CreateIndex(CreateIndexRequest) returns (CreateIndexResponse);
+  // Drops an index.
+  rpc DropIndex(DropIndexRequest) returns (DropIndexResponse);
+  // Lists the indexes of a collection.
+  rpc ListIndexes(ListIndexesRequest) returns (ListIndexesResponse);
+  // Progress of an index build.
+  rpc IndexBuildProgress(IndexBuildProgressRequest) returns (IndexBuildProgressResponse);
+  // Reads the validator of a collection.
+  rpc GetValidator(GetValidatorRequest) returns (GetValidatorResponse);
+  // Sets or replaces the validator of a collection (existing documents are not checked).
+  rpc SetValidator(SetValidatorRequest) returns (SetValidatorResponse);
+  // Removes the validator of a collection.
+  rpc RemoveValidator(RemoveValidatorRequest) returns (RemoveValidatorResponse);
+}
+
+// Request of SchemaService.CreateDatabase.
+message CreateDatabaseRequest {
+  // Name.
+  string name = 1;
+  // Options (`WITH` option names).
+  map<string, Value> options = 2;
+  // Succeed without change if it exists (else RGN-1031 AlreadyExists).
+  bool if_not_exists = 3;
+}
+
+// Response of SchemaService.CreateDatabase.
+message CreateDatabaseResponse {
+  // False when `if_not_exists` found an existing database.
+  bool created = 1;
+}
+
+// Request of SchemaService.DropDatabase.
+message DropDatabaseRequest {
+  // Name.
+  string name = 1;
+  // Succeed without change if it does not exist (else RGN-1030 NotFound).
+  bool if_exists = 2;
+}
+
+// Response of SchemaService.DropDatabase.
+message DropDatabaseResponse {
+  // False when `if_exists` found nothing.
+  bool dropped = 1;
+}
+
+// Request of SchemaService.ListDatabases.
+message ListDatabasesRequest {}
+
+// Database summary.
+message DatabaseInfo {
+  // Name.
+  string name = 1;
+  // Options.
+  map<string, Value> options = 2;
+}
+
+// Response of SchemaService.ListDatabases.
+message ListDatabasesResponse {
+  // Databases, by name.
+  repeated DatabaseInfo databases = 1;
+}
+
+// Validation level (data-model.md §5).
+enum ValidationLevel {
+  // Not set (`strict`).
+  VALIDATION_LEVEL_UNSPECIFIED = 0;
+  // No validation.
+  VALIDATION_LEVEL_OFF = 1;
+  // All inserts and updates.
+  VALIDATION_LEVEL_STRICT = 2;
+  // Updates of already-invalid documents are not validated.
+  VALIDATION_LEVEL_MODERATE = 3;
+}
+
+// Validation action (data-model.md §5).
+enum ValidationAction {
+  // Not set (`error`).
+  VALIDATION_ACTION_UNSPECIFIED = 0;
+  // Reject with RGN-1006.
+  VALIDATION_ACTION_ERROR = 1;
+  // Accept and report a warning.
+  VALIDATION_ACTION_WARN = 2;
+}
+
+// A collection validator.
+message Validator {
+  // Definition as JSON text, exactly `{"$jsonSchema": <schema>}` (stored verbatim, PD-027).
+  string definition_json = 1;
+  // Level.
+  ValidationLevel level = 2;
+  // Action.
+  ValidationAction action = 3;
+}
+
+// Request of SchemaService.CreateCollection.
+message CreateCollectionRequest {
+  // Database.
+  string database = 1;
+  // Name.
+  string name = 2;
+  // Options (`WITH` option names).
+  map<string, Value> options = 3;
+  // Optional validator.
+  optional Validator validator = 4;
+  // Succeed without change if it exists.
+  bool if_not_exists = 5;
+}
+
+// Response of SchemaService.CreateCollection.
+message CreateCollectionResponse {
+  // False when `if_not_exists` found an existing collection.
+  bool created = 1;
+}
+
+// Request of SchemaService.DropCollection.
+message DropCollectionRequest {
+  // Database.
+  string database = 1;
+  // Name.
+  string name = 2;
+  // Succeed without change if it does not exist.
+  bool if_exists = 3;
+}
+
+// Response of SchemaService.DropCollection.
+message DropCollectionResponse {
+  // False when `if_exists` found nothing.
+  bool dropped = 1;
+}
+
+// Request of SchemaService.AlterCollection.
+message AlterCollectionRequest {
+  // Database.
+  string database = 1;
+  // Name.
+  string name = 2;
+  // Options to set.
+  map<string, Value> set_options = 3;
+  // Options to reset to their defaults.
+  repeated string unset_options = 4;
+}
+
+// Response of SchemaService.AlterCollection.
+message AlterCollectionResponse {}
+
+// Collection description.
+message CollectionInfo {
+  // Name.
+  string name = 1;
+  // Options.
+  map<string, Value> options = 2;
+  // Validator, if any.
+  optional Validator validator = 3;
+}
+
+// Request of SchemaService.GetCollection.
+message GetCollectionRequest {
+  // Database.
+  string database = 1;
+  // Name.
+  string name = 2;
+}
+
+// Response of SchemaService.GetCollection.
+message GetCollectionResponse {
+  // The collection.
+  CollectionInfo collection = 1;
+}
+
+// Request of SchemaService.ListCollections.
+message ListCollectionsRequest {
+  // Database.
+  string database = 1;
+}
+
+// Response of SchemaService.ListCollections.
+message ListCollectionsResponse {
+  // Collections, by name.
+  repeated CollectionInfo collections = 1;
+}
+
+// Index state.
+enum IndexState {
+  // Unknown state value.
+  INDEX_STATE_UNSPECIFIED = 0;
+  // Backfilling; not yet used by queries.
+  INDEX_STATE_BUILDING = 1;
+  // Usable by queries.
+  INDEX_STATE_READY = 2;
+  // Build failed (RGN-1022); see `error`.
+  INDEX_STATE_FAILED = 3;
+  // Hidden from the planner but maintained.
+  INDEX_STATE_HIDDEN = 4;
+}
+
+// Index description.
+message IndexInfo {
+  // Definition (structured `CREATE INDEX`).
+  AstCreateIndex definition = 1;
+  // State.
+  IndexState state = 2;
+  // Failure message when FAILED.
+  optional string error = 3;
+}
+
+// Request of SchemaService.CreateIndex.
+message CreateIndexRequest {
+  // Database of the indexed collection (`definition.on` may also qualify it).
+  string database = 1;
+  // Definition (structured `CREATE INDEX`).
+  AstCreateIndex definition = 2;
+  // Succeed without change if an identical index exists (else RGN-1020).
+  bool if_not_exists = 3;
+}
+
+// Response of SchemaService.CreateIndex.
+message CreateIndexResponse {
+  // The index (normally BUILDING).
+  IndexInfo index = 1;
+}
+
+// Request of SchemaService.DropIndex.
+message DropIndexRequest {
+  // Database.
+  string database = 1;
+  // Collection.
+  string collection = 2;
+  // Index name.
+  string name = 3;
+  // Succeed without change if it does not exist (else RGN-1021).
+  bool if_exists = 4;
+}
+
+// Response of SchemaService.DropIndex.
+message DropIndexResponse {
+  // False when `if_exists` found nothing.
+  bool dropped = 1;
+}
+
+// Request of SchemaService.ListIndexes.
+message ListIndexesRequest {
+  // Database.
+  string database = 1;
+  // Collection.
+  string collection = 2;
+}
+
+// Response of SchemaService.ListIndexes.
+message ListIndexesResponse {
+  // Indexes, by name.
+  repeated IndexInfo indexes = 1;
+}
+
+// Request of SchemaService.IndexBuildProgress.
+message IndexBuildProgressRequest {
+  // Database.
+  string database = 1;
+  // Collection.
+  string collection = 2;
+  // Index name.
+  string name = 3;
+}
+
+// Response of SchemaService.IndexBuildProgress.
+message IndexBuildProgressResponse {
+  // State.
+  IndexState state = 1;
+  // Documents processed by the backfill.
+  uint64 docs_processed = 2;
+  // Estimated documents to process.
+  uint64 docs_total = 3;
+  // Estimated remaining time, when known.
+  optional uint64 eta_ms = 4;
+}
+
+// Request of SchemaService.GetValidator.
+message GetValidatorRequest {
+  // Database.
+  string database = 1;
+  // Collection.
+  string collection = 2;
+}
+
+// Response of SchemaService.GetValidator.
+message GetValidatorResponse {
+  // The validator; absent when the collection has none.
+  optional Validator validator = 1;
+}
+
+// Request of SchemaService.SetValidator.
+message SetValidatorRequest {
+  // Database.
+  string database = 1;
+  // Collection.
+  string collection = 2;
+  // Validator (compiled on set; RGN-1001 if invalid).
+  Validator validator = 3;
+}
+
+// Response of SchemaService.SetValidator.
+message SetValidatorResponse {}
+
+// Request of SchemaService.RemoveValidator.
+message RemoveValidatorRequest {
+  // Database.
+  string database = 1;
+  // Collection.
+  string collection = 2;
+}
+
+// Response of SchemaService.RemoveValidator.
+message RemoveValidatorResponse {
+  // False when the collection had no validator.
+  bool removed = 1;
+}

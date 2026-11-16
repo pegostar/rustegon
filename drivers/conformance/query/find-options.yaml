@@ -1,0 +1,89 @@
+description: "find options: sort, limit, skip, projection, first (query-language.md §4.3 'Queries', 'Projection')."
+setup:
+  collections: [{name: products}]
+  data:
+    products:
+      - {"_id": 1, "name": "Rome pen", "price": 1.5, "qty": 10, "status": "paid", "maker": {"city": "Rome"}}
+      - {"_id": 2, "name": "Milan ink", "price": 3, "qty": 0, "status": "shipped", "maker": {"city": "Milan"}}
+      - {"_id": 3, "name": "Rome paper", "price": {"$decimal": "2.50"}, "qty": 25, "status": "paid", "maker": {"city": "Rome"}}
+      - {"_id": 4, "name": "Turin clip", "price": 0.5, "qty": 100, "status": "cancelled"}
+      - {"_id": 5, "name": "Naples box", "price": 12, "qty": 3, "status": "new", "maker": {"city": "Naples"}}
+tests:
+  - id: TC-DRV-CONF-QUERY-020
+    description: "Descending sort compares numbers across types."
+    covers: [Collection.Find, Find.Sort, Sort.Descending]
+    operations:
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {}, sort: ["-price"]}
+        match: subset
+        expect: {result: [{"_id": 5}, {"_id": 2}, {"_id": 3}, {"_id": 1}, {"_id": 4}]}
+
+  - id: TC-DRV-CONF-QUERY-021
+    description: "Two sort keys; rows with equal keys come back in _id order."
+    covers: [Collection.Find, Find.Sort, Sort.Ascending, Sort.Descending]
+    operations:
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {}, sort: ["status", "-qty"]}
+        match: subset
+        expect: {result: [{"_id": 4}, {"_id": 5}, {"_id": 3}, {"_id": 1}, {"_id": 2}]}
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {in: ["status", ["paid", "new"]]}, sort: ["-status"]}
+        match: subset
+        expect: {result: [{"_id": 1}, {"_id": 3}, {"_id": 5}]}
+
+  - id: TC-DRV-CONF-QUERY-022
+    description: "skip and limit after sorting."
+    covers: [Collection.Find, Find.Limit, Find.Skip, Find.Sort]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {}, sort: ["_id"], skip: 1, limit: 2}, match: subset, expect: {result: [{"_id": 2}, {"_id": 3}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {}, sort: ["_id"], limit: 1}, match: subset, expect: {result: [{"_id": 1}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {}, sort: ["_id"], skip: 4}, match: subset, expect: {result: [{"_id": 5}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {}, skip: 10}, expect: {result: []}}
+
+  - id: TC-DRV-CONF-QUERY-023
+    description: "Include projection: only the listed fields, _id not added implicitly, a path is named after its last field."
+    covers: [Collection.Find, Find.Project, Projection.Include]
+    operations:
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {eq: ["status", "paid"]}, sort: ["_id"], projection: {include: ["name", "maker.city"]}}
+        expect: {result: [{"name": "Rome pen", "city": "Rome"}, {"name": "Rome paper", "city": "Rome"}]}
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {id: 4}, projection: {include: ["_id", "maker.city"]}}
+        expect: {result: [{"_id": 4}]}
+
+  - id: TC-DRV-CONF-QUERY-024
+    description: "Exclude projection removes the listed fields from the whole document."
+    covers: [Collection.Find, Find.Project, Projection.Exclude]
+    operations:
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {eq: ["name", "Turin clip"]}, projection: {exclude: ["price", "qty"]}}
+        expect: {result: [{"_id": 4, "name": "Turin clip", "status": "cancelled"}]}
+
+  - id: TC-DRV-CONF-QUERY-025
+    description: "first returns the first row of the sorted result, or null."
+    covers: [Collection.Find, Find.First, Find.Sort]
+    operations:
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {eq: ["status", "paid"]}, sort: ["-qty"]}
+        then: first
+        expect: {result: {"_id": 3, "name": "Rome paper", "price": {"$decimal": "2.50"}, "qty": 25, "status": "paid", "maker": {"city": "Rome"}}}
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {eq: ["status", "lost"]}}
+        then: first
+        expect: {result: null}

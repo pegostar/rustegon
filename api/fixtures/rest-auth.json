@@ -1,0 +1,490 @@
+{
+  "description": "TC-API-003 REST authentication: two-call SCRAM, password login, cookie delivery, me, own password, logout.",
+  "steps": [
+    {
+      "capture": {
+        "token": "/finish/body/sessionToken"
+      },
+      "expect": {
+        "finish": {
+          "body": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "mustChangePassword": false,
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "${token}",
+            "user": "admin"
+          },
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "rgn-node-id": "7",
+            "rgn-server-time": "<unix-ms>",
+            "x-content-type-options": "nosniff"
+          },
+          "status": 200
+        },
+        "start": {
+          "body": {
+            "handshakeId": "<handshake>",
+            "serverFirst": "<scram-server-first>"
+          },
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "rgn-node-id": "7",
+            "rgn-server-time": "<unix-ms>",
+            "x-content-type-options": "nosniff"
+          },
+          "status": 200
+        }
+      },
+      "name": "SCRAM login, token delivery",
+      "scram": {
+        "delivery": "token",
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "finish": {
+          "body": {
+            "csrfToken": "<csrf>",
+            "expiresAtUnixMs": "<unix-ms>",
+            "mustChangePassword": false,
+            "serverFinal": "<scram-server-final>",
+            "user": "admin"
+          },
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "rgn-node-id": "7",
+            "rgn-server-time": "<unix-ms>",
+            "set-cookie": [
+              "rgn_session=<value>; Path=/; Secure; SameSite=Strict; HttpOnly; Max-Age=<seconds>",
+              "rgn_csrf=<value>; Path=/; Secure; SameSite=Strict; Max-Age=<seconds>"
+            ],
+            "x-content-type-options": "nosniff"
+          },
+          "status": 200
+        },
+        "start": {
+          "body": {
+            "handshakeId": "<handshake>",
+            "serverFirst": "<scram-server-first>"
+          },
+          "headers": {
+            "cache-control": "no-store",
+            "content-type": "application/json",
+            "rgn-node-id": "7",
+            "rgn-server-time": "<unix-ms>",
+            "x-content-type-options": "nosniff"
+          },
+          "status": 200
+        }
+      },
+      "name": "SCRAM login, cookie delivery (GUI)",
+      "scram": {
+        "delivery": "cookie",
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "body": {
+        "clientFinal": "c=biws,r=x,p=eA==",
+        "handshakeId": "00"
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 4001,
+            "details": {},
+            "message": "authentication failed",
+            "name": "Unauthenticated",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 401
+      },
+      "method": "POST",
+      "name": "unknown handshake is the uniform RGN-4001",
+      "path": "/api/v1/auth/scram/finish"
+    },
+    {
+      "body": {
+        "delivery": "token",
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      },
+      "capture": {
+        "second": "/body/sessionToken"
+      },
+      "expect": {
+        "body": {
+          "expiresAtUnixMs": "<unix-ms>",
+          "mustChangePassword": false,
+          "sessionToken": "${second}",
+          "user": "admin"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "POST",
+      "name": "password login, token delivery",
+      "path": "/api/v1/auth/login"
+    },
+    {
+      "body": {
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      },
+      "expect": {
+        "body": {
+          "csrfToken": "<csrf>",
+          "expiresAtUnixMs": "<unix-ms>",
+          "mustChangePassword": false,
+          "user": "admin"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "set-cookie": [
+            "rgn_session=<value>; Path=/; Secure; SameSite=Strict; HttpOnly; Max-Age=<seconds>",
+            "rgn_csrf=<value>; Path=/; Secure; SameSite=Strict; Max-Age=<seconds>"
+          ],
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "POST",
+      "name": "password login, cookie delivery",
+      "path": "/api/v1/auth/login"
+    },
+    {
+      "body": {
+        "password": "not the password",
+        "user": "admin"
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 4001,
+            "details": {},
+            "message": "authentication failed",
+            "name": "Unauthenticated",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 401
+      },
+      "method": "POST",
+      "name": "wrong password",
+      "path": "/api/v1/auth/login"
+    },
+    {
+      "expect": {
+        "body": {
+          "expiresAtUnixMs": "<unix-ms>",
+          "mechanism": "scram",
+          "roles": [
+            {
+              "resource": "cluster",
+              "role": "root"
+            }
+          ],
+          "user": "admin"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "me",
+      "path": "/api/v1/auth/me"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 4001,
+            "details": {},
+            "message": "authentication failed",
+            "name": "Unauthenticated",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 401
+      },
+      "method": "GET",
+      "name": "me without credentials",
+      "path": "/api/v1/auth/me"
+    },
+    {
+      "body": {
+        "mustChangePassword": true,
+        "name": "erin",
+        "password": "Zr8&uW3n!Kd5Qe2p"
+      },
+      "expect": {
+        "body": {
+          "user": {
+            "createdAtUnixMs": "<unix-ms>",
+            "disabled": false,
+            "mustChangePassword": true,
+            "name": "erin",
+            "roles": []
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create a user",
+      "path": "/api/v1/users"
+    },
+    {
+      "body": {
+        "delivery": "token",
+        "password": "Zr8&uW3n!Kd5Qe2p",
+        "user": "erin"
+      },
+      "capture": {
+        "erin": "/body/sessionToken"
+      },
+      "expect": {
+        "body": {
+          "expiresAtUnixMs": "<unix-ms>",
+          "mustChangePassword": true,
+          "sessionToken": "${erin}",
+          "user": "erin"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "POST",
+      "name": "erin logs in",
+      "path": "/api/v1/auth/login"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 4002,
+            "details": {
+              "reason": "password_change_required"
+            },
+            "message": "the password must be changed before any other operation",
+            "name": "PermissionDenied",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 403
+      },
+      "headers": {
+        "authorization": "Bearer ${erin}"
+      },
+      "method": "GET",
+      "name": "erin must change the password first",
+      "path": "/api/v1/databases"
+    },
+    {
+      "body": {
+        "currentPassword": "not the password",
+        "newPassword": "Nw4%pQ8!zL2#rT6x"
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 4001,
+            "details": {},
+            "message": "authentication failed",
+            "name": "Unauthenticated",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 401
+      },
+      "headers": {
+        "authorization": "Bearer ${erin}"
+      },
+      "method": "POST",
+      "name": "wrong current password",
+      "path": "/api/v1/auth/password"
+    },
+    {
+      "body": {
+        "currentPassword": "Zr8&uW3n!Kd5Qe2p",
+        "newPassword": "Nw4%pQ8!zL2#rT6x"
+      },
+      "expect": {
+        "body": {},
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${erin}"
+      },
+      "method": "POST",
+      "name": "change own password",
+      "path": "/api/v1/auth/password"
+    },
+    {
+      "expect": {
+        "body": {},
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "set-cookie": [
+            "rgn_session=; Path=/; Secure; SameSite=Strict; HttpOnly; Max-Age=0",
+            "rgn_csrf=; Path=/; Secure; SameSite=Strict; Max-Age=0"
+          ],
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "logout",
+      "path": "/api/v1/auth/logout"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 4005,
+            "details": {},
+            "message": "session expired",
+            "name": "SessionExpired",
+            "retryable": true,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 401
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "the session is gone",
+      "path": "/api/v1/auth/me"
+    },
+    {
+      "expect": {
+        "body": {
+          "expiresAtUnixMs": "<unix-ms>",
+          "mechanism": "scram",
+          "roles": [
+            {
+              "resource": "cluster",
+              "role": "root"
+            }
+          ],
+          "user": "admin"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${second}"
+      },
+      "method": "GET",
+      "name": "the other session still works",
+      "path": "/api/v1/auth/me"
+    }
+  ]
+}

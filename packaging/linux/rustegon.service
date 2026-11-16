@@ -1,0 +1,41 @@
+# Rustegon single node (linux.md §3). The DEB/RPM packages initialize a turnkey node on the first
+# install (`rustegon init --turnkey`, ADR-036) and enable and start this unit where systemd runs.
+[Unit]
+Description=Rustegon Database
+Documentation=file:///usr/share/doc/rustegon/README.md
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
+
+[Service]
+# rustegond does not call sd_notify yet (PD-054): readiness is `rustegon health --ready`.
+Type=simple
+User=rustegon
+Group=rustegon
+# Optional settings, e.g. RUSTEGON_INITIAL_ADMIN_PASSWORD_FILE for the first start.
+EnvironmentFile=-/etc/rustegon/rustegon.env
+ExecStart=/usr/bin/rustegond --config /etc/rustegon/rustegon.toml
+# SIGHUP reloads the certificates.
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGTERM
+TimeoutStopSec=90
+Restart=on-failure
+RestartSec=10
+LimitNOFILE=1048576
+LimitCORE=0
+# Hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+ReadWritePaths=/var/lib/rustegon /var/log/rustegon
+ReadOnlyPaths=/etc/rustegon
+
+[Install]
+WantedBy=multi-user.target

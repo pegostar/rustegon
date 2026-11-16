@@ -1,0 +1,9 @@
+user_key(alice) 0275616c696365
+user_prefix 0275
+api_key_key(AbCdEf012345) 026b416243644566303132333435
+api_key_prefix 026b
+session_key(ab*32) 026501abababababababababababababababababababababababababababababababab
+session_user_key(alice,ab*32) 026502616c69636500abababababababababababababababababababababababababababababababab
+session_user_prefix(alice) 026502616c69636500
+session_prefix 026501
+realm_key 026500

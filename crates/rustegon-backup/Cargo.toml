@@ -1,0 +1,45 @@
+[package]
+name = "rustegon-backup"
+description = "Backup, restore and point-in-time recovery with pluggable destinations."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+blake3.workspace = true
+bytes.workspace = true
+hmac.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+# S3 client (PD-065 option b): HTTP/1.1 over the sim-api `Network`, TLS from rustegon-net.
+hyper = { workspace = true, features = ["client", "http1"] }
+hyper-util = { workspace = true, features = ["tokio"] }
+rustegon-common.workspace = true
+# Physical backups, snapshots and offline restores drive the engine's backup primitives
+# (PD-062 edge `backup -> engine`; M13a lane BE).
+rustegon-engine.workspace = true
+rustegon-mvcc.workspace = true
+rustegon-net.workspace = true
+rustegon-sim-api.workspace = true
+rustegon-storage.workspace = true
+rustls-native-certs.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "time", "macros", "sync"] }
+tracing.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+hyper = { workspace = true, features = ["client", "http1", "server"] }
+rustegon-catalog.workspace = true
+rustegon-doc.workspace = true
+rustegon-sim.workspace = true
+tempfile.workspace = true

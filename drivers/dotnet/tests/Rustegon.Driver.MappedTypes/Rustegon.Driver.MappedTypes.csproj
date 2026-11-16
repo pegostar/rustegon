@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- TC-DRV-NET-021: mapped types of every supported shape, compiled with the trimming and AOT
+       analyzers on and warnings as errors, so any IL2xxx/IL3xxx in the generated codecs fails the
+       build. The tests use them as a library (codecs registered from another assembly). -->
+  <PropertyGroup>
+    <AssemblyName>Rustegon.Driver.MappedTypes</AssemblyName>
+    <RootNamespace>Rustegon.Driver.MappedTypes</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <!-- Mapped document types have settable collections and plain structs on purpose (that is
+         the shape under test); type names are domain words. -->
+    <NoWarn>$(NoWarn);CA2227;CA1815;CA1724</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rustegon.Driver\Rustegon.Driver.csproj" />
+    <ProjectReference Include="..\..\src\Rustegon.Driver.Generators\Rustegon.Driver.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

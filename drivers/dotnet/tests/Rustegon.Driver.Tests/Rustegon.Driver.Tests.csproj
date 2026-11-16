@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>Rustegon.Driver.Tests</AssemblyName>
+    <RootNamespace>Rustegon.Driver.Tests</RootNamespace>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="FsCheck" />
+    <PackageReference Include="FsCheck.Xunit.v3" />
+    <!-- Drives the source generator in tests (CSharpGeneratorDriver, TC-DRV-NET-021). -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Rustegon.Driver\Rustegon.Driver.csproj" />
+    <ProjectReference Include="..\Rustegon.Driver.TestServer\Rustegon.Driver.TestServer.csproj" />
+    <ProjectReference Include="..\Rustegon.Driver.MappedTypes\Rustegon.Driver.MappedTypes.csproj" />
+    <!-- As an analyzer (generates the codecs of the test types, as for a package user) and as an
+         assembly (the generator tests run it directly). -->
+    <ProjectReference Include="..\..\src\Rustegon.Driver.Generators\Rustegon.Driver.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="true" />
+  </ItemGroup>
+
+</Project>

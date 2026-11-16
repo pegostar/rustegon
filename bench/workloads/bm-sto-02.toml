@@ -1,0 +1,7 @@
+id = "BM-STO-02"
+kind = "write_batches"
+# 1 Mi sequential puts of 1 KiB values in batches of 16, background flush + compaction.
+keys = 1048576
+value_size = 1024
+batch_size = 16
+seed = 2

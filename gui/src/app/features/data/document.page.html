@@ -1,0 +1,140 @@
+<header class="rg-page-header">
+  <div>
+    <nav class="rg-crumbs" i18n-aria-label="@@data.breadcrumb" aria-label="Breadcrumb">
+      <ol>
+        <li>
+          <a routerLink="/data"
+            ><rg-icon name="data" [size]="16" /><span i18n="@@data.databases.heading"
+              >Databases</span
+            ></a
+          >
+        </li>
+        <li>
+          <a [routerLink]="['/db', db()]">{{ db() }}</a>
+        </li>
+        <li>
+          <a [routerLink]="['/db', db(), 'c', coll()]">{{ coll() }}</a>
+        </li>
+      </ol>
+    </nav>
+    <div class="rg-title">
+      <span class="rg-title-icon"><rg-icon [name]="isNew() ? 'add' : 'edit'" [size]="22" /></span>
+      @if (isNew()) {
+        <h1 i18n="@@data.doc.newHeading">New document in {{ coll() }}</h1>
+      } @else {
+        <h1 i18n="@@data.doc.heading">Document {{ id() }}</h1>
+      }
+    </div>
+  </div>
+  <div class="rg-actions">
+    @if (!isNew()) {
+      <button class="btn btn-glass" type="button" (click)="reload()">
+        <rg-icon name="refresh" /><span i18n="@@data.doc.reload">Reload</span>
+      </button>
+      @if (perms.can('insert', { db: db() })) {
+        <button
+          class="btn btn-glass"
+          type="button"
+          [disabled]="!!syntaxError()"
+          (click)="duplicate()"
+        >
+          <rg-icon name="copy" /><span i18n="@@data.doc.duplicate">Duplicate</span>
+        </button>
+      }
+      @if (canDelete()) {
+        <button class="btn btn-outline-danger" type="button" [disabled]="busy()" (click)="remove()">
+          <rg-icon name="delete" /><span i18n="@@data.doc.delete">Delete document</span>
+        </button>
+      }
+    }
+    @if (canWrite()) {
+      <button
+        class="btn btn-primary"
+        type="button"
+        [disabled]="busy() || !!syntaxError() || tooBig()"
+        (click)="save()"
+      >
+        <rg-icon name="check" />
+        @if (isNew()) {
+          <span i18n="@@data.doc.insert">Insert document</span>
+        } @else {
+          <span i18n="@@data.doc.save">Save document</span>
+        }
+      </button>
+    }
+  </div>
+</header>
+
+@if (conflict()) {
+  <div class="rg-banner" role="alert">
+    <rg-icon name="warning" />
+    <p i18n="@@data.doc.conflict">
+      The document changed since you opened it (RGN-2009). Reload it to see the current version, or
+      overwrite it with your text.
+    </p>
+    <button class="btn btn-glass" type="button" (click)="reload()" i18n="@@data.doc.reload">
+      Reload
+    </button>
+    <button class="btn btn-primary" type="button" (click)="save(true)" i18n="@@data.doc.overwrite">
+      Overwrite
+    </button>
+  </div>
+}
+@if (failure(); as f) {
+  <div class="mb-3">
+    <rg-error-panel [error]="f" />
+    @if (failedPath(); as path) {
+      <p class="rg-chip-error" i18n="@@data.doc.failedPath">
+        Field that failed validation: {{ path }}
+      </p>
+    }
+  </div>
+}
+
+<rg-skeleton [loading]="doc.isLoading()" [lines]="8">
+  @if (doc.error(); as e) {
+    <rg-error-panel [error]="e" (retry)="doc.reload()" />
+  } @else {
+    <div class="rg-doc-layout rg-stagger">
+      <div class="rg-panel">
+        <rg-json-editor
+          [(value)]="text"
+          i18n-label="@@data.doc.json"
+          label="Document (JSON)"
+          [readOnly]="!canWrite()"
+          [height]="440"
+          describedBy="rg-doc-status"
+          [invalid]="!!syntaxError() || tooBig()"
+        />
+        <p id="rg-doc-status" class="rg-doc-status" aria-live="polite">
+          {{ syntaxError() }}
+          @if (tooBig()) {
+            <ng-container i18n="@@data.doc.tooBig">The document exceeds 16 MiB.</ng-container>
+          }
+        </p>
+      </div>
+      <section class="rg-panel rg-meta" aria-labelledby="rg-doc-meta">
+        <div class="rg-panel-head">
+          <h2 id="rg-doc-meta">
+            <rg-icon name="info" [size]="20" /><span i18n="@@data.doc.metadata">Metadata</span>
+          </h2>
+        </div>
+        <dl>
+          @for (m of metaRows(); track m.k) {
+            <dt>{{ m.k }}</dt>
+            <dd>
+              <code>{{ m.v }}</code>
+            </dd>
+          }
+          <dt i18n="@@data.doc.size">Size</dt>
+          <dd>
+            <span i18n="@@data.doc.sizeValue">{{ bytes() }} of {{ maxBytes }} bytes</span>
+            <div class="rg-meter" aria-hidden="true">
+              <span [style.width.%]="(bytes() / maxBytes) * 100"></span>
+            </div>
+          </dd>
+        </dl>
+      </section>
+    </div>
+  }
+</rg-skeleton>

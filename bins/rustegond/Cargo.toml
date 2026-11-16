@@ -1,0 +1,50 @@
+[package]
+name = "rustegond"
+description = "Rustegon server daemon."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+clap.workspace = true
+rustegon-backup.workspace = true
+rustegon-common.workspace = true
+rustegon-engine.workspace = true
+rustegon-index.workspace = true
+rustegon-net.workspace = true
+rustegon-security.workspace = true
+rustegon-server.workspace = true
+rustegon-sim-api.workspace = true
+rustegon-storage.workspace = true
+rust-embed.workspace = true
+serde.workspace = true
+# `signal`: SIGTERM/SIGINT/SIGHUP and Windows console events for graceful shutdown and
+# certificate reload (PD-054).
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "signal", "time"] }
+# Image defaults of `--config-from-env` merged under the configuration file (PD-148).
+toml.workspace = true
+tracing.workspace = true
+zeroize.workspace = true
+
+# SCM integration of `--service` (windows.md §3, PD-054, PD-206).
+[target.'cfg(windows)'.dependencies]
+windows-service.workspace = true
+
+[dev-dependencies]
+http.workspace = true
+hyper-util = { workspace = true, features = ["tokio"] }
+rustegon-doc.workspace = true
+rustegon-mvcc.workspace = true
+rustegon-proto.workspace = true
+rustegon-query.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "io-util"] }
+tonic.workspace = true
+tower = { workspace = true, features = ["util"] }

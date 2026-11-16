@@ -1,0 +1,253 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+//! SASLprep and SCRAM-SHA-256 vectors for the drivers (FR-DRV-001/002, PD-074).
+//!
+//! Both drivers hand-write SASLprep (RFC 4013) and the SCRAM client (RFC 5802/7677, gs2
+//! header `n,,`: no channel binding, PD-074). This test writes the vectors they check against
+//! to `drivers/conformance/scram/vectors.yaml`:
+//! - `saslprep`: inputs with their prepared output, or `error: true` when SASLprep refuses
+//!   them (produced by the `stringprep` crate the server uses);
+//! - `exchanges`: complete handshakes with a fixed client nonce, salt and iteration count —
+//!   client-first, server-first, client-final (with the proof) and server-final — produced by
+//!   the server's `ScramClient` and recomputed here from RFC 5802 §3, so a driver given the
+//!   same nonce must produce byte-identical messages and accept the server-final.
+//!
+//! A stale file fails the test; re-bless with
+//! `RGN_FIXTURES_BLESS=1 cargo nextest run -p rustegon-security --test driver_scram`.
+
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    clippy::doc_markdown
+)]
+
+use std::{fmt::Write as _, path::Path};
+
+use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
+use hmac::{Hmac, KeyInit, Mac};
+use rustegon_security::authn::{
+    scram::{ClientBinding, ScramClient},
+    secret,
+};
+use rustegon_sim_api::Rng;
+use sha2::{Digest, Sha256};
+
+const BLESS_COMMAND: &str = "cargo nextest run -p rustegon-security --test driver_scram";
+
+/// A deterministic "random" source: the client nonce is then a fixed function of `seed`.
+struct FixedRng(u8);
+
+impl Rng for FixedRng {
+    fn fill_bytes(&self, buf: &mut [u8]) {
+        for (i, b) in buf.iter_mut().enumerate() {
+            // Truncation is intended: a repeating byte pattern.
+            #[allow(clippy::cast_possible_truncation)]
+            let x = (i as u8).wrapping_mul(37).wrapping_add(self.0);
+            *b = x;
+        }
+    }
+}
+
+fn yq(s: &str) -> String {
+    let mut out = String::from("\"");
+    for ch in s.chars() {
+        match ch {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            c if (c as u32) < 0x20 || (0x7F..=0x9F).contains(&(c as u32)) || (c as u32) >= 0x80 => {
+                // Everything outside printable ASCII is escaped, so invisible characters
+                // (the point of SASLprep) stay visible in the file.
+                let mut buf = [0u16; 2];
+                for unit in c.encode_utf16(&mut buf) {
+                    let _ = write!(out, "\\u{unit:04x}");
+                }
+            }
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+fn hmac(key: &[u8], data: &[u8]) -> [u8; 32] {
+    let mut mac = <Hmac<Sha256> as KeyInit>::new_from_slice(key).unwrap();
+    mac.update(data);
+    mac.finalize().into_bytes().into()
+}
+
+/// SASLprep cases: RFC 4013 §3 examples plus the mappings drivers get wrong most often.
+fn saslprep_cases() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("ascii", "pencil"),
+        ("rfc4013_soft_hyphen_removed", "I\u{00AD}X"),
+        ("rfc4013_unchanged", "user"),
+        ("rfc4013_case_preserved", "USER"),
+        ("rfc4013_nfkc_ordinal", "\u{00AA}"),
+        ("rfc4013_nfkc_roman_numeral", "\u{2168}"),
+        ("rfc4013_prohibited_control", "\u{0007}"),
+        ("rfc4013_bidi_violation", "\u{0627}\u{0031}"),
+        ("non_ascii_space_maps_to_space", "a\u{00A0}b"),
+        ("ideographic_space_maps_to_space", "a\u{3000}b"),
+        ("zero_width_space_is_a_non_ascii_space", "a\u{200B}b"),
+        ("composed_and_decomposed_e", "e\u{0301}"),
+        ("latin1", "p\u{00E4}ssw\u{00F6}rd"),
+        ("fullwidth_letters_nfkc", "\u{FF21}\u{FF22}"),
+        ("unassigned_or_private_use_prohibited", "\u{E000}"),
+        ("ascii_space_kept", "pass word"),
+        ("empty", ""),
+    ]
+}
+
+/// One handshake: `(name, user, password, seed, server nonce suffix, salt, iterations)`.
+type Exchange = (
+    &'static str,
+    &'static str,
+    &'static str,
+    u8,
+    &'static str,
+    &'static [u8],
+    u32,
+);
+
+fn exchange_cases() -> Vec<Exchange> {
+    vec![
+        (
+            "ascii_user_and_password",
+            "app_user",
+            "correct horse battery",
+            1,
+            "S3rv3rN0nc3Abcdefghijklm",
+            b"salt-0123456789ab",
+            4096,
+        ),
+        (
+            "saslname_escaping",
+            "a,b=c",
+            "s3cret-pass-word",
+            2,
+            "OtherServerNonce12345678",
+            b"\x00\x01\x02\x03\xfe\xff",
+            4096,
+        ),
+        (
+            "password_needing_saslprep",
+            "anna",
+            "p\u{00E4}ss\u{00A0}w\u{00F6}rd\u{00AD}!",
+            3,
+            "ThirdNonceForSaslprep123",
+            b"random-salt",
+            5000,
+        ),
+    ]
+}
+
+fn vectors_yaml() -> String {
+    let mut o = String::from(
+        "# GENERATED by crates/rustegon-security/tests/driver_scram.rs - do not edit.\n# Re-bless: RGN_FIXTURES_BLESS=1 cargo nextest run -p rustegon-security --test driver_scram\n# SASLprep (RFC 4013) and SCRAM-SHA-256 without channel binding (gs2 header `n,,`, PD-074).\n# Strings escape every non-ASCII character as \\uXXXX (UTF-16 units).\nversion: 1\nsaslprep:\n",
+    );
+    for (name, input) in saslprep_cases() {
+        match stringprep::saslprep(input) {
+            Ok(out) => {
+                let _ = writeln!(
+                    o,
+                    "  - {{name: {}, input: {}, output: {}}}",
+                    yq(name),
+                    yq(input),
+                    yq(&out)
+                );
+            }
+            Err(_) => {
+                let _ = writeln!(
+                    o,
+                    "  - {{name: {}, input: {}, error: true}}",
+                    yq(name),
+                    yq(input)
+                );
+            }
+        }
+    }
+    o.push_str("# Complete handshakes. A driver given `clientNonce` must send exactly `clientFirst` and,\n# after `serverFirst`, exactly `clientFinal`; it must accept `serverFinal` and reject any other.\nexchanges:\n");
+    for (name, user, password, seed, server_suffix, salt, iterations) in exchange_cases() {
+        let pw = secret(password);
+        let (client, _mechanism, client_first) =
+            ScramClient::new(user, &pw, ClientBinding::Unsupported, &FixedRng(seed));
+        let bare = client_first.strip_prefix("n,,").expect("gs2 header n,,");
+        let client_nonce = bare.split(",r=").nth(1).unwrap().to_owned();
+        let nonce = format!("{client_nonce}{server_suffix}");
+        let server_first = format!("r={nonce},s={},i={iterations}", B64.encode(salt));
+        let (final_state, client_final) = client.server_first(&server_first).unwrap();
+
+        // RFC 5802 §3, computed independently of ScramClient.
+        let prepared = stringprep::saslprep(password).unwrap();
+        let salted = pbkdf2::pbkdf2_hmac_array::<Sha256, 32>(prepared.as_bytes(), salt, iterations);
+        let client_key = hmac(&salted, b"Client Key");
+        let stored_key: [u8; 32] = Sha256::digest(client_key).into();
+        let server_key = hmac(&salted, b"Server Key");
+        let without_proof = format!("c={},r={nonce}", B64.encode("n,,"));
+        let auth_message = format!("{bare},{server_first},{without_proof}");
+        let client_signature = hmac(&stored_key, auth_message.as_bytes());
+        let proof: Vec<u8> = client_key
+            .iter()
+            .zip(client_signature)
+            .map(|(k, s)| k ^ s)
+            .collect();
+        assert_eq!(
+            client_final,
+            format!("{without_proof},p={}", B64.encode(&proof)),
+            "{name}: client-final"
+        );
+        let server_final = format!(
+            "v={}",
+            B64.encode(hmac(&server_key, auth_message.as_bytes()))
+        );
+        final_state
+            .server_final(&server_final)
+            .unwrap_or_else(|e| panic!("{name}: {e:?}"));
+
+        let _ = write!(
+            o,
+            "  - name: {}\n    user: {}\n    password: {}\n    clientNonce: {}\n    clientFirst: {}\n    serverFirst: {}\n    clientFinal: {}\n    serverFinal: {}\n    saltedPasswordHex: {}\n",
+            yq(name),
+            yq(user),
+            yq(password),
+            yq(&client_nonce),
+            yq(&client_first),
+            yq(&server_first),
+            yq(&client_final),
+            yq(&server_final),
+            yq(&salted.iter().fold(String::new(), |mut s, b| {
+                let _ = write!(s, "{b:02x}");
+                s
+            })),
+        );
+    }
+    o
+}
+
+/// PD-074: the SASLprep and SCRAM vectors for the drivers are current.
+#[test]
+fn tc_drv_conf_scram_vectors_are_current() {
+    let path =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../drivers/conformance/scram/vectors.yaml");
+    let content = vectors_yaml();
+    if std::env::var("RGN_FIXTURES_BLESS").is_ok_and(|v| v == "1") {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, content).unwrap();
+        return;
+    }
+    let committed = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| {
+            panic!(
+                "{}: {e} (generate with RGN_FIXTURES_BLESS=1 {BLESS_COMMAND})",
+                path.display()
+            )
+        })
+        .replace("\r\n", "\n");
+    assert!(
+        committed == content,
+        "{} is stale; re-bless with RGN_FIXTURES_BLESS=1 {BLESS_COMMAND}",
+        path.display()
+    );
+}

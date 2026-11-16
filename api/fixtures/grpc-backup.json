@@ -1,0 +1,397 @@
+{
+  "description": "TC-API-003 BackupService over gRPC (M13a, PD-062, PD-077): list, get and verify a seeded local backup; engine operations without a backend fail with RGN-5007 not_implemented.",
+  "steps": [
+    {
+      "capture": {
+        "token": "/ok/success/sessionToken"
+      },
+      "expect": {
+        "ok": {
+          "success": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "${token}",
+            "user": "admin"
+          }
+        }
+      },
+      "name": "login",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "ok": {
+          "backups": [
+            {
+              "backupId": "20261109T101500Z-3fa85f64",
+              "consistency": {
+                "appliedIndex": "42",
+                "appliedTerm": "1",
+                "storageSeqno": "100",
+                "timestamp": {
+                  "logical": 1,
+                  "wallNs": "1794219300000000000"
+                }
+              },
+              "createdAtUnixMs": "<unix-ms>",
+              "encryption": "BACKUP_ENCRYPTION_MODE_PLAINTEXT",
+              "fileCount": "4",
+              "formatVersion": 1,
+              "sourceClusterId": "cluster-test",
+              "sourceNodeId": "7",
+              "sourceServerVersion": "0.1.0",
+              "totalBytes": "4132"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "list backups",
+      "request": {
+        "destination": "${backup_dest}"
+      },
+      "rpc": "rustegon.v1.BackupService/ListBackups"
+    },
+    {
+      "expect": {
+        "ok": {
+          "backup": {
+            "backupId": "20261109T101500Z-3fa85f64",
+            "consistency": {
+              "appliedIndex": "42",
+              "appliedTerm": "1",
+              "storageSeqno": "100",
+              "timestamp": {
+                "logical": 1,
+                "wallNs": "1794219300000000000"
+              }
+            },
+            "createdAtUnixMs": "<unix-ms>",
+            "encryption": "BACKUP_ENCRYPTION_MODE_PLAINTEXT",
+            "fileCount": "4",
+            "formatVersion": 1,
+            "sourceClusterId": "cluster-test",
+            "sourceNodeId": "7",
+            "sourceServerVersion": "0.1.0",
+            "totalBytes": "4132"
+          },
+          "files": [
+            {
+              "blake3": "8d906a7714de7b7787d6f1656dd0b98c5be0c7cbbee4f4648e96a96f69591837",
+              "path": "lsm/000005.rsst",
+              "size": "4096"
+            },
+            {
+              "blake3": "b3dcfeebe6bb17d2543367404a3dc45ad745f55041c8a453e7a62c777d02c9f9",
+              "path": "lsm/000009.rsst",
+              "size": "9"
+            },
+            {
+              "blake3": "9b36410e416aaa4da4d95733ec1fe1dfc357f178d1cf73bf546d799ce05dc768",
+              "path": "lsm/CURRENT",
+              "size": "16"
+            },
+            {
+              "blake3": "0b8f6a65e2c077246ffa2964c6887be0c89bf958791a8ca18b2651c84cad0727",
+              "path": "lsm/MANIFEST-000002",
+              "size": "11"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get backup",
+      "request": {
+        "backupId": "20261109T101500Z-3fa85f64",
+        "destination": "${backup_dest}"
+      },
+      "rpc": "rustegon.v1.BackupService/GetBackup"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1030,
+            "name": "NotFound",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "NotFound",
+          "message": "backup 20261109T101500Z-00000000 not found (absent or incomplete) at ${backup_dest}"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get unknown backup",
+      "request": {
+        "backupId": "20261109T101500Z-00000000",
+        "destination": "${backup_dest}"
+      },
+      "rpc": "rustegon.v1.BackupService/GetBackup"
+    },
+    {
+      "expect": {
+        "ok": {
+          "backup": {
+            "backupId": "20261109T101500Z-3fa85f64",
+            "consistency": {
+              "appliedIndex": "42",
+              "appliedTerm": "1",
+              "storageSeqno": "100",
+              "timestamp": {
+                "logical": 1,
+                "wallNs": "1794219300000000000"
+              }
+            },
+            "createdAtUnixMs": "<unix-ms>",
+            "encryption": "BACKUP_ENCRYPTION_MODE_PLAINTEXT",
+            "fileCount": "4",
+            "formatVersion": 1,
+            "sourceClusterId": "cluster-test",
+            "sourceNodeId": "7",
+            "sourceServerVersion": "0.1.0",
+            "totalBytes": "4132"
+          },
+          "bytesHashed": "4132",
+          "filesChecked": "4"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "deep verify",
+      "request": {
+        "backupId": "20261109T101500Z-3fa85f64",
+        "deep": true,
+        "destination": "${backup_dest}"
+      },
+      "rpc": "rustegon.v1.BackupService/VerifyBackup"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1001,
+            "details": {
+              "field": "destination"
+            },
+            "name": "InvalidArgument",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "InvalidArgument",
+          "message": "a local destination on the server must be an absolute path"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "relative destination",
+      "request": {
+        "destination": "relative/backups"
+      },
+      "rpc": "rustegon.v1.BackupService/ListBackups"
+    },
+    {
+      "expect": {
+        "ok": {
+          "backup": {
+            "backupId": "<volatile>",
+            "consistency": {
+              "appliedIndex": "<volatile>",
+              "appliedTerm": "<volatile>",
+              "storageSeqno": "<volatile>",
+              "timestamp": {
+                "wallNs": "<volatile>"
+              }
+            },
+            "createdAtUnixMs": "<unix-ms>",
+            "encryption": "BACKUP_ENCRYPTION_MODE_PLAINTEXT",
+            "fileCount": "<volatile>",
+            "formatVersion": 1,
+            "sourceClusterId": "single-node",
+            "sourceNodeId": "node7",
+            "sourceServerVersion": "test",
+            "totalBytes": "<volatile>"
+          },
+          "warnings": [
+            {
+              "kind": "plaintext_backup",
+              "message": "the store is not encrypted at rest, so this backup is stored in plaintext; protect the destination accordingly (PD-064)"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create backup",
+      "request": {
+        "destination": "${backup_dest}"
+      },
+      "rpc": "rustegon.v1.BackupService/CreateBackup",
+      "volatile": [
+        "backupId",
+        "wallNs",
+        "-logical",
+        "appliedIndex",
+        "appliedTerm",
+        "storageSeqno",
+        "fileCount",
+        "totalBytes"
+      ]
+    },
+    {
+      "expect": {
+        "ok": {
+          "snapshot": {
+            "consistency": {
+              "appliedIndex": "<volatile>",
+              "appliedTerm": "<volatile>",
+              "storageSeqno": "<volatile>",
+              "timestamp": {
+                "wallNs": "<volatile>"
+              }
+            },
+            "createdAtUnixMs": "<unix-ms>",
+            "fileCount": "<volatile>",
+            "name": "pre-upgrade",
+            "totalBytes": "<volatile>"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create snapshot",
+      "request": {
+        "name": "pre-upgrade"
+      },
+      "rpc": "rustegon.v1.BackupService/CreateSnapshot",
+      "volatile": [
+        "wallNs",
+        "-logical",
+        "appliedIndex",
+        "appliedTerm",
+        "storageSeqno",
+        "fileCount",
+        "totalBytes"
+      ]
+    },
+    {
+      "expect": {
+        "ok": {
+          "snapshots": [
+            {
+              "consistency": {
+                "appliedIndex": "<volatile>",
+                "appliedTerm": "<volatile>",
+                "storageSeqno": "<volatile>",
+                "timestamp": {
+                  "wallNs": "<volatile>"
+                }
+              },
+              "createdAtUnixMs": "<unix-ms>",
+              "fileCount": "<volatile>",
+              "name": "pre-upgrade",
+              "totalBytes": "<volatile>"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "list snapshots",
+      "rpc": "rustegon.v1.BackupService/ListSnapshots",
+      "volatile": [
+        "wallNs",
+        "-logical",
+        "appliedIndex",
+        "appliedTerm",
+        "storageSeqno",
+        "fileCount",
+        "totalBytes"
+      ]
+    },
+    {
+      "expect": {
+        "ok": {
+          "deleted": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "delete snapshot",
+      "request": {
+        "name": "pre-upgrade"
+      },
+      "rpc": "rustegon.v1.BackupService/DeleteSnapshot"
+    },
+    {
+      "expect": {
+        "messages": [
+          {
+            "started": {
+              "wallNs": "<volatile>"
+            }
+          },
+          {
+            "chunk": {
+              "data": "<volatile>",
+              "endOfFile": true,
+              "path": "dump.json"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "dump every database",
+      "request": {},
+      "rpc": "rustegon.v1.BackupService/Dump",
+      "volatile": [
+        "data",
+        "wallNs",
+        "-logical"
+      ]
+    },
+    {
+      "expect": {
+        "ok": {
+          "sourceTimestamp": {
+            "wallNs": "1794219300000000000"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "logical restore of an empty dump",
+      "requests": [
+        {
+          "options": {
+            "dropExisting": false
+          }
+        },
+        {
+          "chunk": {
+            "data": "eyJmb3JtYXQiOiAicnVzdGVnb24tZHVtcCIsICJmb3JtYXRfdmVyc2lvbiI6IDEsICJ0aW1lc3RhbXAiOiB7IndhbGwiOiAxNzk0MjE5MzAwMDAwMDAwMDAwLCAibG9naWNhbCI6IDB9LCAiZGF0YWJhc2VzIjogW10sICJmaWxlcyI6IFtdfQ==",
+            "endOfFile": true,
+            "path": "dump.json"
+          }
+        }
+      ],
+      "rpc": "rustegon.v1.BackupService/LogicalRestore"
+    }
+  ]
+}

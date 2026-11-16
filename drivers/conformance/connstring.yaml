@@ -1,0 +1,245 @@
+# Connection-string conformance (DEC-014, dotnet-driver.md §3, java-driver.md §2 and §11).
+# Runner: parse `uri` with Settings.FromConnectionString; for `valid: true` compare the
+# resulting settings with `defaults` overlaid by `expect` (only the listed keys are checked,
+# every other setting must equal its default); for `valid: false` the parse must fail with the
+# language's argument exception (.NET ArgumentException or a subclass, Java
+# IllegalArgumentException or a subclass) before any network I/O, and the message must not
+# contain the password of the string.
+#
+# Grammar (R1):
+#   uri      = scheme "://" [ userinfo "@" ] hostlist [ "/" [ database ] ] [ "?" options ]
+#   scheme   = "rustegon"                        ; "rustegon+srv" is reserved (deferred, M5)
+#   userinfo = user [ ":" password ]             ; percent-encoded (RFC 3986), user non-empty
+#   hostlist = host [ ":" port ] *( "," host [ ":" port ] )
+#   host     = reg-name | IPv4address | "[" IPv6address "]"   ; non-empty, case-insensitive
+#   port     = 1*5DIGIT in 1..65535, default 7700
+#   database = 1*pchar, percent-decoded
+#   options  = key "=" value *( "&" key "=" value )   ; keys case-insensitive, unique;
+#              values percent-decoded; booleans are `true` / `false` (any case);
+#              enumeration values case-insensitive; unknown keys are an error.
+# Option keys and the setting they set:
+#   tls (bool) -> tls | tlsCaFile -> tlsCaFile | tlsServerName -> tlsServerName
+#   tlsCertificateFile + tlsKeyFile (both or neither) -> tlsCertificateFile, tlsKeyFile
+#   authMechanism (SCRAM-SHA-256 | X509 | APIKEY, alias API-KEY) -> authMechanism
+#   apiKey (secret; implies APIKEY, which needs it and no user; refused with SCRAM-SHA-256 or X509)
+#   TLS is off by default (ADR-034: plain text is the single-node server default). Without an
+#   explicit `tls`, any of tlsCaFile, tlsServerName, tlsCertificateFile/tlsKeyFile or
+#   authMechanism=X509 turns TLS on; tls=false with any other tls* option or with
+#   authMechanism=X509 is an error
+#   appName -> applicationName | connectTimeoutMs -> connectTimeoutMs | operationTimeoutMs -> operationTimeoutMs
+#   readConsistency (linearizable | bounded_staleness | follower) -> readConsistency
+#   maxStalenessMs -> maxStalenessMs (required by bounded_staleness)
+#   writeConcern (majority | all) -> writeConcern
+#   retryReads (bool) | retryWrites (bool) | maxRetries (0..10) | connectionsPerEndpoint (1..64)
+# Passwords and API keys in connection strings are accepted but discouraged; they are secrets
+# (never logged, excluded from ToString()/toString(), never quoted in an error).
+version: 1
+defaults:
+  hosts: [{host: "localhost", port: 7700}]
+  user: null
+  password: null
+  database: null
+  tls: false
+  tlsCaFile: null
+  tlsServerName: null
+  tlsCertificateFile: null
+  tlsKeyFile: null
+  authMechanism: null          # SCRAM-SHA-256 when a user is given and no mechanism is set
+  applicationName: null
+  connectTimeoutMs: 10000
+  operationTimeoutMs: 30000
+  readConsistency: null        # server default (linearizable)
+  maxStalenessMs: null
+  writeConcern: null           # server default (majority)
+  retryReads: true
+  retryWrites: true
+  maxRetries: 1
+  connectionsPerEndpoint: 2
+cases:
+  # -------------------------------------------------------------- valid
+  - name: host_only
+    uri: "rustegon://db1.example.com"
+    valid: true
+    expect: {hosts: [{host: "db1.example.com", port: 7700}]}
+  - name: host_and_port
+    uri: "rustegon://db1.example.com:7701"
+    valid: true
+    expect: {hosts: [{host: "db1.example.com", port: 7701}]}
+  - name: dec_014_full_form
+    uri: "rustegon://app_user:s3cret@db1.example.com:7700/shop"
+    valid: true
+    expect:
+      hosts: [{host: "db1.example.com", port: 7700}]
+      user: "app_user"
+      password: "s3cret"
+      database: "shop"
+      authMechanism: "SCRAM-SHA-256"
+  - name: several_seeds
+    uri: "rustegon://node1:7700,node2:7701,node3/shop"
+    valid: true
+    expect:
+      hosts: [{host: "node1", port: 7700}, {host: "node2", port: 7701}, {host: "node3", port: 7700}]
+      database: "shop"
+  - name: spec_example_dotnet
+    uri: "rustegon://node1:7700,node2:7700/shop?tls=true&authMechanism=SCRAM-SHA-256&appName=orders"
+    valid: true
+    expect:
+      hosts: [{host: "node1", port: 7700}, {host: "node2", port: 7700}]
+      database: "shop"
+      tls: true
+      authMechanism: "SCRAM-SHA-256"
+      applicationName: "orders"
+  - name: trailing_slash_without_database
+    uri: "rustegon://db1/"
+    valid: true
+    expect: {hosts: [{host: "db1", port: 7700}], database: null}
+  - name: percent_encoded_user_password_and_database
+    uri: "rustegon://us%40er:p%3Ass%2Fw%25rd%40@db1/my%20db"
+    valid: true
+    expect:
+      hosts: [{host: "db1", port: 7700}]
+      user: "us@er"
+      password: "p:ss/w%rd@"
+      database: "my db"
+      authMechanism: "SCRAM-SHA-256"
+  - name: non_ascii_password_percent_encoded
+    uri: "rustegon://anna:p%C3%A4ss@db1"
+    valid: true
+    expect: {user: "anna", password: "päss", hosts: [{host: "db1", port: 7700}], authMechanism: "SCRAM-SHA-256"}
+  - name: user_without_password
+    uri: "rustegon://app_user@db1/shop"
+    valid: true
+    expect: {user: "app_user", password: null, database: "shop", hosts: [{host: "db1", port: 7700}], authMechanism: "SCRAM-SHA-256"}
+  - name: empty_password
+    uri: "rustegon://app_user:@db1"
+    valid: true
+    expect: {user: "app_user", password: "", hosts: [{host: "db1", port: 7700}], authMechanism: "SCRAM-SHA-256"}
+  - name: ipv4
+    uri: "rustegon://127.0.0.1:7700"
+    valid: true
+    expect: {hosts: [{host: "127.0.0.1", port: 7700}]}
+  - name: ipv6
+    uri: "rustegon://[::1]:7702,[2001:db8::7]/shop"
+    valid: true
+    expect: {hosts: [{host: "::1", port: 7702}, {host: "2001:db8::7", port: 7700}], database: "shop"}
+  - name: host_is_lowercased
+    uri: "rustegon://DB1.Example.COM"
+    valid: true
+    expect: {hosts: [{host: "db1.example.com", port: 7700}]}
+  - name: tls_false
+    uri: "rustegon://localhost/?tls=false"
+    valid: true
+    expect: {tls: false}
+  - name: option_keys_and_booleans_case_insensitive
+    uri: "rustegon://localhost/?TLS=FALSE&RetryReads=False"
+    valid: true
+    expect: {tls: false, retryReads: false}
+  - name: timeouts
+    uri: "rustegon://localhost/?connectTimeoutMs=2500&operationTimeoutMs=60000"
+    valid: true
+    expect: {connectTimeoutMs: 2500, operationTimeoutMs: 60000}
+  - name: consistency_and_concern
+    uri: "rustegon://localhost/?readConsistency=bounded_staleness&maxStalenessMs=5000&writeConcern=ALL"
+    valid: true
+    expect: {readConsistency: "bounded_staleness", maxStalenessMs: 5000, writeConcern: "all"}
+  - name: retries_and_pool
+    uri: "rustegon://localhost/?retryReads=false&retryWrites=false&maxRetries=0&connectionsPerEndpoint=4"
+    valid: true
+    expect: {retryReads: false, retryWrites: false, maxRetries: 0, connectionsPerEndpoint: 4}
+  - name: x509_without_user
+    uri: "rustegon://db1/shop?authMechanism=X509&tlsCaFile=%2Fetc%2Frustegon%2Fca.crt"
+    valid: true
+    expect: {authMechanism: "X509", tls: true, tlsCaFile: "/etc/rustegon/ca.crt", database: "shop", hosts: [{host: "db1", port: 7700}]}
+  - name: percent_encoded_option_value
+    uri: "rustegon://localhost/?appName=orders%20service%26co"
+    valid: true
+    expect: {applicationName: "orders service&co"}
+  - name: port_max
+    uri: "rustegon://localhost:65535"
+    valid: true
+    expect: {hosts: [{host: "localhost", port: 65535}]}
+  - name: api_key
+    uri: "rustegon://db1/?authMechanism=APIKEY&apiKey=rgn_a_b"
+    valid: true
+    expect: {authMechanism: "APIKEY", hosts: [{host: "db1", port: 7700}]}
+  - name: api_key_implies_the_mechanism
+    uri: "rustegon://db1/?apiKey=rgn_a_b"
+    valid: true
+    expect: {authMechanism: "APIKEY", hosts: [{host: "db1", port: 7700}]}
+  - name: api_key_mechanism_alias
+    uri: "rustegon://db1/?authMechanism=api-key&apiKey=rgn_a_b"
+    valid: true
+    expect: {authMechanism: "APIKEY", hosts: [{host: "db1", port: 7700}]}
+  - name: tls_client_certificate_and_server_name
+    uri: "rustegon://db1/?authMechanism=X509&tlsCertificateFile=c%2Fclient.crt&tlsKeyFile=client.key&tlsServerName=node1"
+    valid: true
+    expect:
+      hosts: [{host: "db1", port: 7700}]
+      authMechanism: "X509"
+      tls: true
+      tlsCertificateFile: "c/client.crt"
+      tlsKeyFile: "client.key"
+      tlsServerName: "node1"
+  - name: plain_text_by_default
+    uri: "rustegon://admin:pwd@localhost:7700/shop"
+    valid: true
+    expect: {user: "admin", password: "pwd", database: "shop", authMechanism: "SCRAM-SHA-256", tls: false}
+  - name: tls_ca_file_implies_tls
+    uri: "rustegon://localhost/?tlsCaFile=ca.crt"
+    valid: true
+    expect: {tls: true, tlsCaFile: "ca.crt"}
+  - name: tls_server_name_implies_tls
+    uri: "rustegon://localhost/?tlsServerName=node1"
+    valid: true
+    expect: {tls: true, tlsServerName: "node1"}
+  - name: tls_client_certificate_implies_tls
+    uri: "rustegon://localhost/?tlsCertificateFile=c.crt&tlsKeyFile=c.key"
+    valid: true
+    expect: {tls: true, tlsCertificateFile: "c.crt", tlsKeyFile: "c.key"}
+  - name: x509_implies_tls
+    uri: "rustegon://localhost/?authMechanism=X509"
+    valid: true
+    expect: {tls: true, authMechanism: "X509"}
+  - name: tls_true_with_ca_file
+    uri: "rustegon://localhost/?tls=true&tlsCaFile=ca.crt"
+    valid: true
+    expect: {tls: true, tlsCaFile: "ca.crt"}
+  # -------------------------------------------------------------- invalid
+  - {name: tls_ca_file_with_tls_off, uri: "rustegon://db1/?tls=false&tlsCaFile=ca.crt", valid: false}
+  - {name: tls_client_certificate_with_tls_off, uri: "rustegon://db1/?tls=false&tlsCertificateFile=c.crt&tlsKeyFile=c.key", valid: false}
+  - {name: x509_with_tls_off, uri: "rustegon://db1/?tls=false&authMechanism=X509", valid: false}
+  - {name: api_key_mechanism_without_key, uri: "rustegon://db1/?authMechanism=APIKEY", valid: false}
+  - {name: api_key_with_user, uri: "rustegon://u@db1/?apiKey=rgn_a_b", valid: false}
+  - {name: api_key_with_scram, uri: "rustegon://db1/?authMechanism=SCRAM-SHA-256&apiKey=rgn_a_b", valid: false}
+  - {name: api_key_with_x509, uri: "rustegon://db1/?authMechanism=X509&apiKey=rgn_a_b", valid: false}
+  - {name: api_key_empty, uri: "rustegon://db1/?apiKey=", valid: false}
+  - {name: tls_certificate_without_key, uri: "rustegon://db1/?tlsCertificateFile=c.crt", valid: false}
+  - {name: tls_key_without_certificate, uri: "rustegon://db1/?tlsKeyFile=c.key", valid: false}
+  - {name: tls_server_name_empty, uri: "rustegon://db1/?tlsServerName=", valid: false}
+  - {name: tls_server_name_with_tls_off, uri: "rustegon://db1/?tls=false&tlsServerName=node1", valid: false}
+  - {name: wrong_scheme, uri: "mongodb://localhost", valid: false}
+  - {name: missing_scheme, uri: "localhost:7700", valid: false}
+  - {name: scheme_upper_case_is_not_accepted, uri: "RUSTEGON://localhost", valid: false}
+  - {name: srv_not_supported_in_r1, uri: "rustegon+srv://cluster.example.com/shop", valid: false}
+  - {name: empty_host, uri: "rustegon:///shop", valid: false}
+  - {name: empty_host_in_list, uri: "rustegon://node1,,node2", valid: false}
+  - {name: port_zero, uri: "rustegon://localhost:0", valid: false}
+  - {name: port_too_large, uri: "rustegon://localhost:65536", valid: false}
+  - {name: port_not_numeric, uri: "rustegon://localhost:77a0", valid: false}
+  - {name: port_empty, uri: "rustegon://localhost:", valid: false}
+  - {name: ipv6_without_brackets, uri: "rustegon://::1:7700", valid: false}
+  - {name: empty_user, uri: "rustegon://:secret@localhost", valid: false}
+  - {name: unescaped_at_in_password, uri: "rustegon://u:p@ss@localhost", valid: false}
+  - {name: bad_percent_encoding, uri: "rustegon://u:p%zz@localhost", valid: false}
+  - {name: unknown_option, uri: "rustegon://localhost/?tlss=true", valid: false}
+  - {name: duplicate_option, uri: "rustegon://localhost/?tls=true&TLS=false", valid: false}
+  - {name: boolean_not_true_false, uri: "rustegon://localhost/?tls=yes", valid: false}
+  - {name: option_without_value, uri: "rustegon://localhost/?tls", valid: false}
+  - {name: unknown_auth_mechanism, uri: "rustegon://u:p@localhost/?authMechanism=PLAIN", valid: false}
+  - {name: unknown_read_consistency, uri: "rustegon://localhost/?readConsistency=eventual", valid: false}
+  - {name: bounded_staleness_without_bound, uri: "rustegon://localhost/?readConsistency=bounded_staleness", valid: false}
+  - {name: negative_timeout, uri: "rustegon://localhost/?connectTimeoutMs=-1", valid: false}
+  - {name: max_retries_out_of_range, uri: "rustegon://localhost/?maxRetries=11", valid: false}
+  - {name: x509_with_password, uri: "rustegon://u:p@localhost/?authMechanism=X509", valid: false}
+  - {name: database_with_slash, uri: "rustegon://localhost/shop/orders", valid: false}
+  - {name: whitespace, uri: "rustegon://local host", valid: false}

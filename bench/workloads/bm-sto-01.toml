@@ -1,0 +1,8 @@
+id = "BM-STO-01"
+kind = "point_get"
+# 1 Mi keys x 1 KiB ~ 1 GiB loaded; engine block cache disabled so every block read misses it.
+keys = 1048576
+value_size = 1024
+ops = 200000
+block_cache_size = 0
+seed = 1

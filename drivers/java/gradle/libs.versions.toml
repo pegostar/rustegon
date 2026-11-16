@@ -1,0 +1,34 @@
+# Version catalog of the Java driver (java-driver.md §1). Runtime dependencies are limited to
+# gRPC (netty-shaded transport), protobuf-java and slf4j-api; everything else is test-only.
+[versions]
+grpc = "1.85.1"
+# Runtime and protoc share one version: generated code needs a runtime >= its protoc.
+protobuf = "4.36.2"
+slf4j = "2.0.17"
+# Needed at compile time by the generated stubs (ListenableFuture); same flavour as gRPC's.
+guava = "33.6.0-android"
+junit = "5.14.4"
+jqwik = "1.10.2"
+# Test-only: independent XXH3 implementation the hand-written port is checked against.
+zero-allocation-hashing = "2026.0"
+snakeyaml-engine = "3.2"
+gradle-protobuf-plugin = "0.9.6"
+
+[libraries]
+grpc-netty-shaded = { module = "io.grpc:grpc-netty-shaded", version.ref = "grpc" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc" }
+grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc" }
+grpc-api = { module = "io.grpc:grpc-api", version.ref = "grpc" }
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+jqwik = { module = "net.jqwik:jqwik", version.ref = "jqwik" }
+zero-allocation-hashing = { module = "net.openhft:zero-allocation-hashing", version.ref = "zero-allocation-hashing" }
+snakeyaml-engine = { module = "org.snakeyaml:snakeyaml-engine", version.ref = "snakeyaml-engine" }
+
+[plugins]
+protobuf = { id = "com.google.protobuf", version.ref = "gradle-protobuf-plugin" }

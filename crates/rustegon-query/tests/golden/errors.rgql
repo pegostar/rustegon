@@ -1,0 +1,211 @@
+=== empty_input
+
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 1: found end of input, expected one of: FROM, INSERT, UPDATE, UPSERT, DELETE, EXPLAIN, CREATE, ALTER, DROP, SHOW, KILL, BEGIN, SAVEPOINT, ROLLBACK, RELEASE, COMMIT
+=== unknown_statement
+SELECT * FROM t
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 1: found "SELECT", expected one of: FROM, INSERT, UPDATE, UPSERT, DELETE, EXPLAIN, CREATE, ALTER, DROP, SHOW, KILL, BEGIN, SAVEPOINT, ROLLBACK, RELEASE, COMMIT
+=== missing_from_source
+FROM WHERE a = 1
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 6: found "WHERE", expected one of: '(', identifier
+=== reserved_word_as_identifier
+FROM t SELECT value
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 20: found end of input, expected expression
+=== missing_expression_after_where
+FROM t WHERE
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 13: found end of input, expected expression
+=== dangling_operator
+FROM t WHERE a = 1 AND
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 23: found end of input, expected expression
+=== unclosed_paren
+FROM t WHERE (a = 1
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 20: found end of input, expected one of: operator, ')'
+=== unclosed_array
+FROM t WHERE a IN [1, 2
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 24: found end of input, expected one of: operator, ',', ']'
+=== trailing_comma_in_call
+FROM t SELECT f(a, )
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 20: found ")", expected expression
+=== chained_comparison
+FROM t WHERE a < b < c
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 20: found "<" (comparison operators are non-associative; add parentheses)
+=== clause_out_of_order
+FROM t SELECT a WHERE b = 1
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 17: found "WHERE", expected one of: operator, AS, ',', ORDER, LIMIT, OFFSET, INCLUDE, OPTIONS, '|>', ';', end of input
+=== junk_after_query
+FROM t LIMIT 5 6
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 16: found "6", expected one of: operator, OFFSET, INCLUDE, OPTIONS, '|>', ';', end of input
+=== unterminated_string
+FROM t WHERE a = 'abc
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 18: found "'" (unterminated string literal)
+=== unterminated_block_comment
+FROM t /* never closed
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 8: found "/" (unterminated block comment)
+=== unterminated_quoted_identifier
+FROM `t
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 6: found "`" (unterminated quoted identifier)
+=== empty_quoted_identifier
+FROM ``
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 6: found "`" (empty quoted identifier)
+=== invalid_escape
+FROM t WHERE a = 'C:\path'
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 21: found "\\" (invalid escape (allowed: \n \t \\ \' \u{…}))
+=== invalid_unicode_escape
+FROM t WHERE a = '\u{110000}'
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 19: found "\\" (invalid \u{…} escape)
+=== unexpected_character
+FROM t WHERE a = #1
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 18: found "#" (unexpected character)
+=== malformed_number
+FROM t LIMIT 12abc
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 14: found "1" (malformed number: letters directly after the digits)
+=== exponent_without_digits
+FROM t LIMIT 1e
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 14: found "1" (malformed number: exponent has no digits)
+=== integer_overflow
+FROM t LIMIT 9223372036854775808
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 14: found "9223372036854775808" (integer literal out of the int64 range)
+=== float_overflow
+FROM t WHERE a = 1e999
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 18: found "1e999" (float literal out of the float64 range)
+=== decimal_inexact
+FROM t WHERE a = 1.0000000000000000000000000000000000001m
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 18: found "1.000000000000000000000000000000"… (decimal literal not representable exactly)
+=== bad_date_literal
+FROM t WHERE d = DATE '2026-13-01'
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 23: found "'2026-13-01'" (invalid DATE literal (expected 'YYYY-MM-DD' or 'YYYY-MM-DDTHH:MM:SS[.fff]Z'))
+=== bad_oid_literal
+FROM t WHERE _id = OID 'xyz'
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 24: found "'xyz'" (invalid OID literal (expected 24 hex digits))
+=== bad_uuid_literal
+FROM t WHERE u = UUID '1234'
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 23: found "'1234'" (invalid UUID literal)
+=== param_without_name
+FROM t WHERE a = $
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 18: found "$" (expected a parameter name or position after `$`)
+=== param_leading_zero
+FROM t WHERE a = $01
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 18: found "$" (expected a parameter name or position after `$`)
+=== is_without_null
+FROM t WHERE a IS 5
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 19: found "5", expected one of: NOT, NULL, MISSING
+=== between_without_and
+FROM t WHERE a BETWEEN 1 OR 2
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 26: found "OR", expected one of: operator, AND
+=== case_without_when
+FROM t SELECT CASE ELSE 1 END
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 20: found "ELSE", expected one of: WHEN, expression
+=== case_without_end
+FROM t SELECT CASE WHEN a THEN 1
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 33: found end of input, expected one of: operator, WHEN, ELSE, END
+=== wildcard_on_call
+FROM t SELECT f(a).*
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 19: found "." (`.*` applies to a field path only)
+=== bad_stage
+FROM t |> TELEPORT x
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 11: found "TELEPORT", expected one of: MATCH, PROJECT, SET, UNSET, GROUP, SORT, LIMIT, SKIP, UNWIND, LOOKUP, COUNT, FACET, BUCKET, SAMPLE, REPLACE, GRAPH, UNION, WINDOW, OUT, MERGE
+=== merge_bad_action
+FROM t |> MERGE INTO u ON _id WHEN MATCHED EXPLODE
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 44: found "EXPLODE", expected one of: REPLACE, UPDATE, KEEP, FAIL
+=== update_without_ops
+UPDATE t WHERE a = 1
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 10: found "WHERE", expected one of: '.', AS, REPLACE, SET, UNSET, INC, MUL, PUSH, PULL, ADD, POP, RENAME, MIN, MAX, CURRENT
+=== replace_with_other_ops
+UPDATE t REPLACE WITH {} SET a = 1
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 26: found "SET", expected one of: operator, WHERE, LIMIT, OPTIONS, RETURNING, ';', end of input
+=== insert_without_rows
+INSERT INTO t
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 14: found end of input, expected one of: '.', '(', VALUE, VALUES, FROM
+=== explain_ddl
+EXPLAIN CREATE DATABASE x
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 9: found "CREATE", expected one of: ANALYZE, FROM, UPDATE, DELETE
+=== table_without_partition_key
+CREATE TABLE t (DISTRIBUTION hashed)
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 36: found ")" (CREATE TABLE requires PARTITION KEY (…))
+=== table_item_twice
+CREATE TABLE t (PARTITION KEY (a string), DISTRIBUTION hashed, DISTRIBUTION range)
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 64: found "DISTRIBUTION" (table item given twice)
+=== timeseries_without_time_field
+CREATE TIMESERIES t (GRANULARITY hours)
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 39: found ")" (CREATE TIMESERIES requires TIME FIELD)
+=== index_name_too_short
+DROP INDEX idx
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 15: found end of input (index names are [database.]collection.index)
+=== create_unknown
+CREATE WIDGET w
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 8: found "WIDGET", expected one of: UNIQUE, TTL, FULLTEXT, VECTOR, GEO, LOCAL, INDEX, DATABASE, COLLECTION, TABLE, TIMESERIES, MAPREDUCE, CONTINUOUS, CHANGE
+=== begin_bad_isolation
+BEGIN ISOLATION LEVEL CHAOS
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 23: found "CHAOS", expected one of: SERIALIZABLE, SNAPSHOT, READ
+=== multiple_statements_outside_script
+FROM a; FROM b
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 9: found "FROM" (multiple statements are allowed only in BEGIN … COMMIT scripts)
+=== script_without_commit
+BEGIN; FROM a
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 8: found "FROM" (multiple statements are allowed only in BEGIN … COMMIT scripts)
+=== error_on_later_line
+FROM shop.orders
+WHERE status = 'paid'
+  AND total >
+SELECT _id
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 4, column 1: found "SELECT", expected expression
+=== error_after_unicode
+FROM t WHERE name = 'café' AND AND
+--- error
+RGN-1010 QuerySyntaxError: syntax error at line 1, column 32: found "AND", expected expression
+=== nesting_too_deep
+FROM t WHERE ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((a))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+--- error
+RGN-1013 QueryTooComplex: query too complex at line 1, column 134: nesting deeper than 128 levels
+=== operator_chain_too_long
+FROM t SELECT VALUE a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a+a
+--- error
+RGN-1013 QueryTooComplex: query too complex at line 1, column 259: nesting deeper than 128 levels

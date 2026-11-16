@@ -1,0 +1,1 @@
+{"index_format":1,"type":"index","id":105,"database_id":100,"collection_id":102,"name":"uniq_email","kind":"secondary","fields":[{"path":"email","order":"asc"}],"unique":true,"sparse":false,"hidden":false,"scope":"global","state":"dropping","origin":"manual","version":7,"include":[],"multikey":false,"created_at":{"$date":"1969-12-31T23:59:59.999Z"}}

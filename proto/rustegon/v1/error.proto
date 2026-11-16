@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+syntax = "proto3";
+
+package rustegon.v1;
+
+// Error detail carried in google.rpc.Status.details (protocol.md §3, §7).
+// Codes and names come from proto/errors.yaml.
+message ErrorDetail {
+  // Numeric error code (RGN-<code>).
+  uint32 code = 1;
+  // Stable error name, e.g. "DuplicateKey".
+  string name = 2;
+  // Whether the client may retry the operation.
+  bool retryable = 3;
+  // For commit errors: whether the transaction is known to have committed.
+  optional bool committed = 4;
+  // Structured details (never document contents or secrets).
+  map<string, string> details = 5;
+  // W3C trace id of the failed request.
+  string trace_id = 6;
+  // Suggested wait before retrying (RateLimited and similar).
+  optional uint32 retry_after_ms = 7;
+}

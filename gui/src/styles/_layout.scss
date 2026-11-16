@@ -1,0 +1,198 @@
+// Screen building blocks shared by every feature (see gui/README.md "Design system").
+
+// Page header: <header class="rg-page-header"><div><h1>…</h1><p class="rg-subtitle">…</p></div>
+//              <div class="rg-actions">…buttons…</div></header>
+.rg-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-bottom: calc(var(--rg-space) * 1.5);
+
+  h1 {
+    margin: 0;
+  }
+}
+
+.rg-subtitle {
+  max-width: 70ch;
+  margin: 0.35rem 0 0;
+  color: var(--rg-text-muted);
+}
+
+.rg-actions,
+.rg-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rg-toolbar {
+  margin-bottom: var(--rg-space);
+}
+
+.rg-spacer {
+  flex: 1 1 auto;
+}
+
+// Vertical rhythm for a page's sections.
+.rg-stack {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--rg-space) * 1.25);
+}
+
+// Glass panel = a section of a page (same material as .card, with its own heading row).
+.rg-panel {
+  position: relative;
+  padding: calc(var(--rg-space) * 1.25);
+  border-radius: var(--rg-radius-lg);
+
+  @include glass-surface;
+  @include glass-rim;
+
+  > h2,
+  > header h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  > header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+
+    h2 {
+      margin: 0;
+    }
+  }
+}
+
+// Responsive tile grid: <div class="rg-tiles"><section class="rg-panel rg-stat">…
+.rg-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr));
+  gap: var(--rg-space);
+}
+
+.rg-stat {
+  .rg-stat-label {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rg-text-muted);
+  }
+
+  .rg-stat-value {
+    margin: 0.25rem 0 0;
+    font-size: 1.9rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+}
+
+// Key/value list: <dl class="rg-kv"><dt>Version</dt><dd>1.0</dd>…</dl>
+.rg-kv {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: 0.4rem 1.25rem;
+  margin: 0;
+
+  dt {
+    font-weight: 600;
+    color: var(--rg-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+// Forms: a column of rg-field with a width cap; .rg-form-grid lays fields side by side.
+.rg-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 40rem;
+}
+
+.rg-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
+  gap: 0 1rem;
+}
+
+// rg-field (shared/field.ts): label, control, hint/error under it.
+.rg-field {
+  display: block;
+  margin-bottom: 0.9rem;
+
+  &.rg-required > .form-label::after {
+    content: ' *' / '';
+    color: var(--rg-danger);
+  }
+}
+
+.rg-hint,
+.rg-error {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8125rem;
+}
+
+.rg-hint {
+  color: var(--rg-text-muted);
+}
+
+.rg-error {
+  font-weight: 600;
+}
+
+.rg-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 0.9rem;
+}
+
+.rg-muted {
+  color: var(--rg-text-muted);
+}
+
+.rg-mono {
+  font-family: var(--bs-font-monospace);
+  font-size: 0.875em;
+}
+
+// Toast stack (core/notification.service.ts → shared/toasts.ts).
+.rg-toasts {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1090;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-width: calc(100vw - 2rem);
+}
+
+.rg-toasts .toast {
+  animation: rg-rise var(--rg-dur-slow) var(--rg-ease-spring) both;
+}
+
+.rg-toasts .toast-body {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}

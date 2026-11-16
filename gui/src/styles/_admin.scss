@@ -1,0 +1,190 @@
+// Screen kit of the dashboard, security, backup, settings, error and placeholder screens
+// (ADR-033): hero page headers, section sub-navigation, glass tables with a hover sheen,
+// callouts, notes and staggered entrances. Global so the component style budgets stay small.
+
+// Hero page header:
+// <header class="rg-page-header rg-hero">
+//   <div class="rg-hero-title"><span class="rg-page-icon"><rg-icon name="users" /></span>
+//     <div><h1>…</h1><p class="rg-subtitle">…</p></div></div>
+//   <div class="rg-actions">…</div>
+// </header>
+.rg-hero {
+  align-items: center;
+}
+
+.rg-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+// Gradient icon chip with a glossy top and the accent glow (decorative: aria-hidden icon).
+.rg-page-icon {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 1rem;
+  color: var(--rg-on-accent);
+  background-color: #4338ca;
+  background-image: var(--rg-gradient-primary);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 35%),
+    var(--rg-glow);
+
+  svg {
+    width: 1.6rem;
+    height: 1.6rem;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 1px 1px 52%;
+    border-radius: 0.95rem 0.95rem 0.5rem 0.5rem;
+    background: linear-gradient(180deg, rgb(255 255 255 / 32%), transparent);
+    pointer-events: none;
+  }
+
+  &.danger {
+    background-color: #b91c1c;
+    background-image: var(--rg-gradient-danger);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 35%),
+      0 6px 20px -6px rgb(190 18 60 / 55%);
+  }
+
+  &.sm {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.7rem;
+
+    svg {
+      width: 1.2rem;
+      height: 1.2rem;
+    }
+
+    &::after {
+      border-radius: 0.65rem 0.65rem 0.35rem 0.35rem;
+    }
+  }
+}
+
+// Section sub-navigation (security, backup): `nav.nav.nav-tabs.rg-subnav` > `a.nav-link`.
+.rg-subnav {
+  align-self: flex-start;
+  flex-wrap: wrap;
+
+  .nav-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem 1rem;
+    transition:
+      background-color var(--rg-dur) var(--rg-ease),
+      color var(--rg-dur) var(--rg-ease),
+      box-shadow var(--rg-dur) var(--rg-ease);
+
+    svg {
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+  }
+}
+
+// Glass tables: rows get a light sweep and an accent edge on hover.
+.rg-table {
+  .table > tbody > tr {
+    @include sheen(12%);
+  }
+
+  .table-hover > tbody > tr:hover > :first-child {
+    box-shadow:
+      inset 3px 0 0 var(--rg-accent),
+      inset 0 0 0 9999px var(--bs-table-hover-bg);
+  }
+
+  .table > tbody > tr:last-child > * {
+    border-bottom: 0;
+  }
+
+  caption + thead th:first-child,
+  thead th:first-child {
+    padding-left: 1.15rem;
+  }
+
+  tbody th,
+  tbody td {
+    vertical-align: middle;
+  }
+
+  tbody > tr > :first-child {
+    padding-left: 1.15rem;
+  }
+}
+
+// Attention panel (e.g. a secret shown once): accent-tinted glass with a glow.
+.rg-callout {
+  border-color: color-mix(in srgb, var(--rg-accent) 45%, transparent);
+  background-image: linear-gradient(120deg, var(--rg-accent-soft) 0%, transparent 65%);
+  box-shadow:
+    inset 0 1px 0 var(--rg-glass-highlight),
+    var(--rg-glow),
+    var(--rg-shadow-lg);
+}
+
+.rg-callout-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  h2 {
+    margin: 0;
+  }
+}
+
+// Small glass note for a line of status text outside a panel (status colors need glass).
+.rg-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--rg-glass-edge);
+  border-radius: var(--rg-radius);
+  background: var(--rg-glass-fill-strong);
+  box-shadow: var(--rg-shadow-sm);
+}
+
+// .rg-stagger (children glide in one after another) lives in _data.scss: one definition only.
+
+// Status pill whose dot breathes while healthy: <rg-status-badge class="rg-live" status="ok">.
+@keyframes rg-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--rg-success-soft);
+  }
+
+  50% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+}
+
+.rg-status.rg-live {
+  padding: 0.3rem 0.9rem;
+  font-size: 0.875rem;
+  box-shadow: var(--rg-shadow-sm);
+
+  &.ok .rg-status-dot {
+    animation: rg-live-pulse 2.4s var(--rg-ease) infinite;
+  }
+}
+
+.rg-stack > .rg-page-header {
+  margin-bottom: 0;
+}

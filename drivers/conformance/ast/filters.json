@@ -1,0 +1,3824 @@
+{
+  "cases": [
+    {
+      "filter": {
+        "eq": [
+          "status",
+          "paid"
+        ]
+      },
+      "name": "eq_string",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "status"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "qty",
+          5
+        ]
+      },
+      "name": "eq_int64",
+      "params": {
+        "f0": {
+          "ext_json": "5",
+          "hex": "030a"
+        }
+      },
+      "rgql": "FROM `c` WHERE `qty` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "qty"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "qty"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "price",
+          9.5
+        ]
+      },
+      "name": "eq_float64",
+      "params": {
+        "f0": {
+          "ext_json": "9.5",
+          "hex": "040000000000002340"
+        }
+      },
+      "rgql": "FROM `c` WHERE `price` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "price"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "price"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "note",
+          null
+        ]
+      },
+      "name": "eq_null",
+      "params": {
+        "f0": {
+          "ext_json": "null",
+          "hex": "01"
+        }
+      },
+      "rgql": "FROM `c` WHERE `note` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "note"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "note"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "active",
+          true
+        ]
+      },
+      "name": "eq_bool",
+      "params": {
+        "f0": {
+          "ext_json": "true",
+          "hex": "0201"
+        }
+      },
+      "rgql": "FROM `c` WHERE `active` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "active"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "active"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "total",
+          {
+            "$decimal": "100.00"
+          }
+        ]
+      },
+      "name": "eq_decimal",
+      "params": {
+        "f0": {
+          "ext_json": "{\"$decimal\":\"100.00\"}",
+          "hex": "0510270000000000000000000000003c30"
+        }
+      },
+      "rgql": "FROM `c` WHERE `total` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "total"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "total"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "createdAt",
+          {
+            "$date": "2026-01-01T00:00:00.000Z"
+          }
+        ]
+      },
+      "name": "eq_datetime",
+      "params": {
+        "f0": {
+          "ext_json": "{\"$date\":\"2026-01-01T00:00:00.000Z\"}",
+          "hex": "0880a0d5edee66"
+        }
+      },
+      "rgql": "FROM `c` WHERE `createdAt` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "createdAt"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "createdAt"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "ref",
+          {
+            "$oid": "65a1b2c3d4e5f60718293a4b"
+          }
+        ]
+      },
+      "name": "eq_object_id",
+      "params": {
+        "f0": {
+          "ext_json": "{\"$oid\":\"65a1b2c3d4e5f60718293a4b\"}",
+          "hex": "0a65a1b2c3d4e5f60718293a4b"
+        }
+      },
+      "rgql": "FROM `c` WHERE `ref` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "ref"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "ref"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "key",
+          {
+            "$uuid": "01234567-89ab-cdef-0123-456789abcdef"
+          }
+        ]
+      },
+      "name": "eq_uuid",
+      "params": {
+        "f0": {
+          "ext_json": "{\"$uuid\":\"01234567-89ab-cdef-0123-456789abcdef\"}",
+          "hex": "0b0123456789abcdef0123456789abcdef"
+        }
+      },
+      "rgql": "FROM `c` WHERE `key` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "key"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "key"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "blob",
+          {
+            "$binary": {
+              "base64": "AQID",
+              "subType": "00"
+            }
+          }
+        ]
+      },
+      "name": "eq_binary",
+      "params": {
+        "f0": {
+          "ext_json": "{\"$binary\":{\"base64\":\"AQID\",\"subType\":\"00\"}}",
+          "hex": "070003010203"
+        }
+      },
+      "rgql": "FROM `c` WHERE `blob` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "blob"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "blob"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "big",
+          {
+            "$int64": "9223372036854775807"
+          }
+        ]
+      },
+      "name": "eq_int64_wrapped",
+      "params": {
+        "f0": {
+          "ext_json": "{\"$int64\":\"9223372036854775807\"}",
+          "hex": "03feffffffffffffffff01"
+        }
+      },
+      "rgql": "FROM `c` WHERE `big` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "big"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "big"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "address",
+          {
+            "city": "Rome",
+            "zip": "00100"
+          }
+        ]
+      },
+      "name": "eq_embedded_document",
+      "params": {
+        "f0": {
+          "ext_json": "{\"city\":\"Rome\",\"zip\":\"00100\"}",
+          "hex": "0d0216346800000000f2ff0b00000004636974790604526f6d65037a697006053030313030"
+        }
+      },
+      "rgql": "FROM `c` WHERE `address` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "address"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "address"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "tags",
+          [
+            "a",
+            "b"
+          ]
+        ]
+      },
+      "name": "eq_array_value",
+      "params": {
+        "f0": {
+          "ext_json": "[\"a\",\"b\"]",
+          "hex": "0c02060000000003000000060161060162"
+        }
+      },
+      "rgql": "FROM `c` WHERE `tags` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "tags"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "tags"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "id": 42
+      },
+      "name": "id",
+      "params": {
+        "f0": {
+          "ext_json": "42",
+          "hex": "0354"
+        }
+      },
+      "rgql": "FROM `c` WHERE `_id` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "_id"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "_id"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "ne": [
+          "status",
+          "cancelled"
+        ]
+      },
+      "name": "ne",
+      "params": {
+        "f0": {
+          "ext_json": "\"cancelled\"",
+          "hex": "060963616e63656c6c6564"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` != $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_NE",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "status"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_NE",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "gt": [
+          "qty",
+          10
+        ]
+      },
+      "name": "gt",
+      "params": {
+        "f0": {
+          "ext_json": "10",
+          "hex": "0314"
+        }
+      },
+      "rgql": "FROM `c` WHERE `qty` > $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "qty"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_GT",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "qty"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_GT",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "gte": [
+          "total",
+          {
+            "$decimal": "100"
+          }
+        ]
+      },
+      "name": "gte",
+      "params": {
+        "f0": {
+          "ext_json": "{\"$decimal\":\"100\"}",
+          "hex": "0564000000000000000000000000004030"
+        }
+      },
+      "rgql": "FROM `c` WHERE `total` >= $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "total"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_GE",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "total"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_GE",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "lt": [
+          "price",
+          2.5
+        ]
+      },
+      "name": "lt",
+      "params": {
+        "f0": {
+          "ext_json": "2.5",
+          "hex": "040000000000000440"
+        }
+      },
+      "rgql": "FROM `c` WHERE `price` < $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "price"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_LT",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "price"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_LT",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "lte": [
+          "createdAt",
+          {
+            "$date": "2026-06-30T23:59:59.999Z"
+          }
+        ]
+      },
+      "name": "lte",
+      "params": {
+        "f0": {
+          "ext_json": "{\"$date\":\"2026-06-30T23:59:59.999Z\"}",
+          "hex": "08fecfcdafe367"
+        }
+      },
+      "rgql": "FROM `c` WHERE `createdAt` <= $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "createdAt"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_LE",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "createdAt"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_LE",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "in": [
+          "status",
+          [
+            "paid",
+            "shipped"
+          ]
+        ]
+      },
+      "name": "in",
+      "params": {
+        "f0": {
+          "ext_json": "[\"paid\",\"shipped\"]",
+          "hex": "0c020f0000000006000000060470616964060773686970706564"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` IN $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_IN",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "status"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_IN",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "nin": [
+          "status",
+          [
+            "cancelled"
+          ]
+        ]
+      },
+      "name": "nin",
+      "params": {
+        "f0": {
+          "ext_json": "[\"cancelled\"]",
+          "hex": "0c010b00000000060963616e63656c6c6564"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` NOT IN $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_NOT_IN",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "status"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_NOT_IN",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "in": [
+          "status",
+          []
+        ]
+      },
+      "name": "in_empty_list",
+      "params": {
+        "f0": {
+          "ext_json": "[]",
+          "hex": "0c0000"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` IN $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_IN",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "status"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_IN",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "exists": [
+          "email",
+          true
+        ]
+      },
+      "name": "exists_true",
+      "params": {},
+      "rgql": "FROM `c` WHERE `email` IS NOT MISSING",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "is": {
+              "expr": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "email"
+                      }
+                    ]
+                  }
+                }
+              },
+              "negated": true,
+              "test": "AST_IS_TEST_MISSING"
+            }
+          }
+        }
+      },
+      "where": {
+        "is": {
+          "expr": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "email"
+                  }
+                ]
+              }
+            }
+          },
+          "negated": true,
+          "test": "AST_IS_TEST_MISSING"
+        }
+      }
+    },
+    {
+      "filter": {
+        "exists": [
+          "email",
+          false
+        ]
+      },
+      "name": "exists_false",
+      "params": {},
+      "rgql": "FROM `c` WHERE `email` IS MISSING",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "is": {
+              "expr": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "email"
+                      }
+                    ]
+                  }
+                }
+              },
+              "test": "AST_IS_TEST_MISSING"
+            }
+          }
+        }
+      },
+      "where": {
+        "is": {
+          "expr": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "email"
+                  }
+                ]
+              }
+            }
+          },
+          "test": "AST_IS_TEST_MISSING"
+        }
+      }
+    },
+    {
+      "filter": {
+        "isNull": "deletedAt"
+      },
+      "name": "is_null",
+      "params": {},
+      "rgql": "FROM `c` WHERE `deletedAt` IS NULL",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "is": {
+              "expr": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "deletedAt"
+                      }
+                    ]
+                  }
+                }
+              },
+              "test": "AST_IS_TEST_NULL"
+            }
+          }
+        }
+      },
+      "where": {
+        "is": {
+          "expr": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "deletedAt"
+                  }
+                ]
+              }
+            }
+          },
+          "test": "AST_IS_TEST_NULL"
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "customer.address.city",
+          "Rome"
+        ]
+      },
+      "name": "nested_path",
+      "params": {
+        "f0": {
+          "ext_json": "\"Rome\"",
+          "hex": "0604526f6d65"
+        }
+      },
+      "rgql": "FROM `c` WHERE `customer`.`address`.`city` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "customer"
+                      },
+                      {
+                        "field": "address"
+                      },
+                      {
+                        "field": "city"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "customer"
+                  },
+                  {
+                    "field": "address"
+                  },
+                  {
+                    "field": "city"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "items.0.sku",
+          "A-1"
+        ]
+      },
+      "name": "array_position_path",
+      "params": {
+        "f0": {
+          "ext_json": "\"A-1\"",
+          "hex": "0603412d31"
+        }
+      },
+      "rgql": "FROM `c` WHERE `items`.0.`sku` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "items"
+                      },
+                      {
+                        "position": 0
+                      },
+                      {
+                        "field": "sku"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "items"
+                  },
+                  {
+                    "position": 0
+                  },
+                  {
+                    "field": "sku"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "eq": [
+          "value.order",
+          1
+        ]
+      },
+      "name": "reserved_word_field_names",
+      "params": {
+        "f0": {
+          "ext_json": "1",
+          "hex": "0302"
+        }
+      },
+      "rgql": "FROM `c` WHERE `value`.`order` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "value"
+                      },
+                      {
+                        "field": "order"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "value"
+                  },
+                  {
+                    "field": "order"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_EQ",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "contains": [
+          "tags",
+          "red"
+        ]
+      },
+      "name": "contains",
+      "params": {
+        "f0": {
+          "ext_json": "\"red\"",
+          "hex": "0603726564"
+        }
+      },
+      "rgql": "FROM `c` WHERE `tags` CONTAINS $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "tags"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_CONTAINS",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "tags"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_CONTAINS",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "containsAny": [
+          "tags",
+          [
+            "red",
+            "blue"
+          ]
+        ]
+      },
+      "name": "contains_any",
+      "params": {
+        "f0": {
+          "ext_json": "[\"red\",\"blue\"]",
+          "hex": "0c020b000000000500000006037265640604626c7565"
+        }
+      },
+      "rgql": "FROM `c` WHERE `tags` CONTAINS ANY $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "tags"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_CONTAINS_ANY",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "tags"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_CONTAINS_ANY",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "containsAll": [
+          "tags",
+          [
+            "red",
+            "blue"
+          ]
+        ]
+      },
+      "name": "contains_all",
+      "params": {
+        "f0": {
+          "ext_json": "[\"red\",\"blue\"]",
+          "hex": "0c020b000000000500000006037265640604626c7565"
+        }
+      },
+      "rgql": "FROM `c` WHERE `tags` CONTAINS ALL $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "tags"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_CONTAINS_ALL",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "tags"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_CONTAINS_ALL",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "elemMatch": [
+          "items",
+          {
+            "and": [
+              {
+                "gt": [
+                  "qty",
+                  2
+                ]
+              },
+              {
+                "lt": [
+                  "price",
+                  10
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "name": "elem_match",
+      "params": {
+        "f0": {
+          "ext_json": "2",
+          "hex": "0304"
+        },
+        "f1": {
+          "ext_json": "10",
+          "hex": "0314"
+        }
+      },
+      "rgql": "FROM `c` WHERE ELEM MATCH (`items`, `qty` > $f0 AND `price` < $f1)",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "elemMatch": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "items"
+                  }
+                ]
+              },
+              "predicate": {
+                "and": {
+                  "args": [
+                    {
+                      "binary": {
+                        "left": {
+                          "path": {
+                            "path": {
+                              "segments": [
+                                {
+                                  "field": "qty"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "op": "AST_BINARY_OP_GT",
+                        "right": {
+                          "param": {
+                            "name": "f0"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "binary": {
+                        "left": {
+                          "path": {
+                            "path": {
+                              "segments": [
+                                {
+                                  "field": "price"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "op": "AST_BINARY_OP_LT",
+                        "right": {
+                          "param": {
+                            "name": "f1"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "elemMatch": {
+          "path": {
+            "segments": [
+              {
+                "field": "items"
+              }
+            ]
+          },
+          "predicate": {
+            "and": {
+              "args": [
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "qty"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_GT",
+                    "right": {
+                      "param": {
+                        "name": "f0"
+                      }
+                    }
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "price"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_LT",
+                    "right": {
+                      "param": {
+                        "name": "f1"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "like": [
+          "name",
+          "Ro%"
+        ]
+      },
+      "name": "like",
+      "params": {
+        "f0": {
+          "ext_json": "\"Ro%\"",
+          "hex": "0603526f25"
+        }
+      },
+      "rgql": "FROM `c` WHERE `name` LIKE $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "name"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_LIKE",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "name"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_LIKE",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "regex": [
+          "name",
+          "^R.*e$"
+        ]
+      },
+      "name": "regex",
+      "params": {
+        "f0": {
+          "ext_json": "\"^R.*e$\"",
+          "hex": "06065e522e2a6524"
+        }
+      },
+      "rgql": "FROM `c` WHERE `name` MATCHES $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "name"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_MATCHES",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "binary": {
+          "left": {
+            "path": {
+              "path": {
+                "segments": [
+                  {
+                    "field": "name"
+                  }
+                ]
+              }
+            }
+          },
+          "op": "AST_BINARY_OP_MATCHES",
+          "right": {
+            "param": {
+              "name": "f0"
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "and": [
+          {
+            "eq": [
+              "status",
+              "paid"
+            ]
+          },
+          {
+            "gte": [
+              "total",
+              100
+            ]
+          }
+        ]
+      },
+      "name": "and",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        },
+        "f1": {
+          "ext_json": "100",
+          "hex": "03c801"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` = $f0 AND `total` >= $f1",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "and": {
+              "args": [
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "status"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f0"
+                      }
+                    }
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "total"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_GE",
+                    "right": {
+                      "param": {
+                        "name": "f1"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "where": {
+        "and": {
+          "args": [
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "status"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f0"
+                  }
+                }
+              }
+            },
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "total"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_GE",
+                "right": {
+                  "param": {
+                    "name": "f1"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "filter": {
+        "and": [
+          {
+            "eq": [
+              "a",
+              1
+            ]
+          },
+          {
+            "eq": [
+              "b",
+              2
+            ]
+          },
+          {
+            "eq": [
+              "c",
+              3
+            ]
+          }
+        ]
+      },
+      "name": "and_three",
+      "params": {
+        "f0": {
+          "ext_json": "1",
+          "hex": "0302"
+        },
+        "f1": {
+          "ext_json": "2",
+          "hex": "0304"
+        },
+        "f2": {
+          "ext_json": "3",
+          "hex": "0306"
+        }
+      },
+      "rgql": "FROM `c` WHERE `a` = $f0 AND `b` = $f1 AND `c` = $f2",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "and": {
+              "args": [
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "a"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f0"
+                      }
+                    }
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "b"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f1"
+                      }
+                    }
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "c"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f2"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "where": {
+        "and": {
+          "args": [
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "a"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f0"
+                  }
+                }
+              }
+            },
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "b"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f1"
+                  }
+                }
+              }
+            },
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "c"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f2"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "filter": {
+        "and": [
+          {
+            "and": [
+              {
+                "eq": [
+                  "a",
+                  1
+                ]
+              },
+              {
+                "eq": [
+                  "b",
+                  2
+                ]
+              }
+            ]
+          },
+          {
+            "eq": [
+              "c",
+              3
+            ]
+          }
+        ]
+      },
+      "name": "and_nested_is_flattened",
+      "params": {
+        "f0": {
+          "ext_json": "1",
+          "hex": "0302"
+        },
+        "f1": {
+          "ext_json": "2",
+          "hex": "0304"
+        },
+        "f2": {
+          "ext_json": "3",
+          "hex": "0306"
+        }
+      },
+      "rgql": "FROM `c` WHERE `a` = $f0 AND `b` = $f1 AND `c` = $f2",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "and": {
+              "args": [
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "a"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f0"
+                      }
+                    }
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "b"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f1"
+                      }
+                    }
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "c"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f2"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "where": {
+        "and": {
+          "args": [
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "a"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f0"
+                  }
+                }
+              }
+            },
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "b"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f1"
+                  }
+                }
+              }
+            },
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "c"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f2"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "filter": {
+        "or": [
+          {
+            "eq": [
+              "status",
+              "paid"
+            ]
+          },
+          {
+            "eq": [
+              "status",
+              "shipped"
+            ]
+          }
+        ]
+      },
+      "name": "or",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        },
+        "f1": {
+          "ext_json": "\"shipped\"",
+          "hex": "060773686970706564"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` = $f0 OR `status` = $f1",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "or": {
+              "args": [
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "status"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f0"
+                      }
+                    }
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "status"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f1"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "where": {
+        "or": {
+          "args": [
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "status"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f0"
+                  }
+                }
+              }
+            },
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "status"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f1"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "filter": {
+        "and": [
+          {
+            "or": [
+              {
+                "eq": [
+                  "a",
+                  1
+                ]
+              },
+              {
+                "eq": [
+                  "b",
+                  2
+                ]
+              }
+            ]
+          },
+          {
+            "eq": [
+              "c",
+              3
+            ]
+          }
+        ]
+      },
+      "name": "or_inside_and",
+      "params": {
+        "f0": {
+          "ext_json": "1",
+          "hex": "0302"
+        },
+        "f1": {
+          "ext_json": "2",
+          "hex": "0304"
+        },
+        "f2": {
+          "ext_json": "3",
+          "hex": "0306"
+        }
+      },
+      "rgql": "FROM `c` WHERE (`a` = $f0 OR `b` = $f1) AND `c` = $f2",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "and": {
+              "args": [
+                {
+                  "or": {
+                    "args": [
+                      {
+                        "binary": {
+                          "left": {
+                            "path": {
+                              "path": {
+                                "segments": [
+                                  {
+                                    "field": "a"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "op": "AST_BINARY_OP_EQ",
+                          "right": {
+                            "param": {
+                              "name": "f0"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "binary": {
+                          "left": {
+                            "path": {
+                              "path": {
+                                "segments": [
+                                  {
+                                    "field": "b"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "op": "AST_BINARY_OP_EQ",
+                          "right": {
+                            "param": {
+                              "name": "f1"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "c"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f2"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "where": {
+        "and": {
+          "args": [
+            {
+              "or": {
+                "args": [
+                  {
+                    "binary": {
+                      "left": {
+                        "path": {
+                          "path": {
+                            "segments": [
+                              {
+                                "field": "a"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "op": "AST_BINARY_OP_EQ",
+                      "right": {
+                        "param": {
+                          "name": "f0"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "binary": {
+                      "left": {
+                        "path": {
+                          "path": {
+                            "segments": [
+                              {
+                                "field": "b"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "op": "AST_BINARY_OP_EQ",
+                      "right": {
+                        "param": {
+                          "name": "f1"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "c"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f2"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "filter": {
+        "or": [
+          {
+            "and": [
+              {
+                "eq": [
+                  "a",
+                  1
+                ]
+              },
+              {
+                "eq": [
+                  "b",
+                  2
+                ]
+              }
+            ]
+          },
+          {
+            "eq": [
+              "c",
+              3
+            ]
+          }
+        ]
+      },
+      "name": "and_inside_or",
+      "params": {
+        "f0": {
+          "ext_json": "1",
+          "hex": "0302"
+        },
+        "f1": {
+          "ext_json": "2",
+          "hex": "0304"
+        },
+        "f2": {
+          "ext_json": "3",
+          "hex": "0306"
+        }
+      },
+      "rgql": "FROM `c` WHERE (`a` = $f0 AND `b` = $f1) OR `c` = $f2",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "or": {
+              "args": [
+                {
+                  "and": {
+                    "args": [
+                      {
+                        "binary": {
+                          "left": {
+                            "path": {
+                              "path": {
+                                "segments": [
+                                  {
+                                    "field": "a"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "op": "AST_BINARY_OP_EQ",
+                          "right": {
+                            "param": {
+                              "name": "f0"
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "binary": {
+                          "left": {
+                            "path": {
+                              "path": {
+                                "segments": [
+                                  {
+                                    "field": "b"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          "op": "AST_BINARY_OP_EQ",
+                          "right": {
+                            "param": {
+                              "name": "f1"
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "c"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f2"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "where": {
+        "or": {
+          "args": [
+            {
+              "and": {
+                "args": [
+                  {
+                    "binary": {
+                      "left": {
+                        "path": {
+                          "path": {
+                            "segments": [
+                              {
+                                "field": "a"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "op": "AST_BINARY_OP_EQ",
+                      "right": {
+                        "param": {
+                          "name": "f0"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "binary": {
+                      "left": {
+                        "path": {
+                          "path": {
+                            "segments": [
+                              {
+                                "field": "b"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "op": "AST_BINARY_OP_EQ",
+                      "right": {
+                        "param": {
+                          "name": "f1"
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "c"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "f2"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "filter": {
+        "not": {
+          "eq": [
+            "status",
+            "paid"
+          ]
+        }
+      },
+      "name": "not_eq",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        }
+      },
+      "rgql": "FROM `c` WHERE NOT (`status` = $f0)",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "not": {
+              "expr": {
+                "binary": {
+                  "left": {
+                    "path": {
+                      "path": {
+                        "segments": [
+                          {
+                            "field": "status"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "op": "AST_BINARY_OP_EQ",
+                  "right": {
+                    "param": {
+                      "name": "f0"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "not": {
+          "expr": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "not": {
+          "and": [
+            {
+              "eq": [
+                "a",
+                1
+              ]
+            },
+            {
+              "eq": [
+                "b",
+                2
+              ]
+            }
+          ]
+        }
+      },
+      "name": "not_and",
+      "params": {
+        "f0": {
+          "ext_json": "1",
+          "hex": "0302"
+        },
+        "f1": {
+          "ext_json": "2",
+          "hex": "0304"
+        }
+      },
+      "rgql": "FROM `c` WHERE NOT (`a` = $f0 AND `b` = $f1)",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "not": {
+              "expr": {
+                "and": {
+                  "args": [
+                    {
+                      "binary": {
+                        "left": {
+                          "path": {
+                            "path": {
+                              "segments": [
+                                {
+                                  "field": "a"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "op": "AST_BINARY_OP_EQ",
+                        "right": {
+                          "param": {
+                            "name": "f0"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "binary": {
+                        "left": {
+                          "path": {
+                            "path": {
+                              "segments": [
+                                {
+                                  "field": "b"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "op": "AST_BINARY_OP_EQ",
+                        "right": {
+                          "param": {
+                            "name": "f1"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "not": {
+          "expr": {
+            "and": {
+              "args": [
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "a"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f0"
+                      }
+                    }
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "b"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f1"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "filter": {
+        "not": {
+          "exists": [
+            "email",
+            true
+          ]
+        }
+      },
+      "name": "not_exists",
+      "params": {},
+      "rgql": "FROM `c` WHERE NOT (`email` IS NOT MISSING)",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "not": {
+              "expr": {
+                "is": {
+                  "expr": {
+                    "path": {
+                      "path": {
+                        "segments": [
+                          {
+                            "field": "email"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "negated": true,
+                  "test": "AST_IS_TEST_MISSING"
+                }
+              }
+            }
+          }
+        }
+      },
+      "where": {
+        "not": {
+          "expr": {
+            "is": {
+              "expr": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "email"
+                      }
+                    ]
+                  }
+                }
+              },
+              "negated": true,
+              "test": "AST_IS_TEST_MISSING"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "collection": "c",
+  "description": "Filter builder -> AstExpr (`where`) and the AstStatement of FROM `c` WHERE <filter>. Parameters f0, f1, ... in DSL order.",
+  "generatedBy": "crates/rustegon-server/tests/driver_ast.rs (re-bless: RGN_FIXTURES_BLESS=1 cargo nextest run -p rustegon-server --test driver_ast); format: drivers/conformance/README.md",
+  "version": 1
+}

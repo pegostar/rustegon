@@ -1,0 +1,473 @@
+{
+  "description": "TC-API-003 QueryService over gRPC: Execute (server streaming), GetMore, KillCursor, Explain.",
+  "steps": [
+    {
+      "capture": {
+        "token": "/ok/success/sessionToken"
+      },
+      "expect": {
+        "ok": {
+          "success": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "${token}",
+            "user": "admin"
+          }
+        }
+      },
+      "name": "login",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "ok": {
+          "created": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create database",
+      "request": {
+        "name": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateDatabase"
+    },
+    {
+      "expect": {
+        "ok": {
+          "created": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create collection",
+      "request": {
+        "database": "shop",
+        "name": "items"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateCollection"
+    },
+    {
+      "expect": {
+        "messages": [
+          {
+            "batch": {
+              "stats": {
+                "docsAffected": "5",
+                "executionTimeUs": "<us>"
+              }
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "insert by statement",
+      "request": {
+        "database": "shop",
+        "rgql": "INSERT INTO items VALUES {_id: 1, n: 1, tag: 'odd'}, {_id: 2, n: 2, tag: 'even'}, {_id: 3, n: 3, tag: 'odd'}, {_id: 4, n: 4, tag: 'even'}, {_id: 5, n: 5, tag: 'odd'}"
+      },
+      "rpc": "rustegon.v1.QueryService/Execute"
+    },
+    {
+      "expect": {
+        "messages": [
+          {
+            "batch": {
+              "continuationToken": "<continuation-token>",
+              "docs": [
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 2,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 2,
+                      "tag": "even"
+                    }
+                  }
+                },
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 3,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 3,
+                      "tag": "odd"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "batch": {
+              "docs": [
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 4,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 4,
+                      "tag": "even"
+                    }
+                  }
+                },
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 5,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 5,
+                      "tag": "odd"
+                    }
+                  }
+                }
+              ],
+              "stats": {
+                "docsReturned": "4",
+                "executionTimeUs": "<us>"
+              }
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "query with a parameter, two batches streamed",
+      "request": {
+        "database": "shop",
+        "options": {
+          "batchSize": 2
+        },
+        "params": {
+          "min": {
+            "rdocValue": {
+              "$rdocValue": 2
+            }
+          }
+        },
+        "rgql": "FROM items WHERE n >= $min ORDER BY _id"
+      },
+      "rpc": "rustegon.v1.QueryService/Execute"
+    },
+    {
+      "expect": {
+        "messages": [
+          {
+            "batch": {
+              "docs": [
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 1,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 1,
+                      "tag": "odd"
+                    }
+                  }
+                },
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 5,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 5,
+                      "tag": "odd"
+                    }
+                  }
+                },
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 4,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 4,
+                      "tag": "even"
+                    }
+                  }
+                },
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 2,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 2,
+                      "tag": "even"
+                    }
+                  }
+                },
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 3,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 3,
+                      "tag": "odd"
+                    }
+                  }
+                }
+              ],
+              "stats": {
+                "docsReturned": "5",
+                "executionTimeUs": "<us>"
+              }
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "structured statement (AST)",
+      "request": {
+        "ast": {
+          "query": {
+            "from": {
+              "source": {
+                "collection": {
+                  "name": "items"
+                }
+              }
+            }
+          }
+        },
+        "database": "shop"
+      },
+      "rpc": "rustegon.v1.QueryService/Execute"
+    },
+    {
+      "capture": {
+        "cursor": "/messages/0/batch/cursorId"
+      },
+      "expect": {
+        "messages": [
+          {
+            "batch": {
+              "continuationToken": "<continuation-token>",
+              "cursorId": "${cursor}",
+              "docs": [
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 1,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 1,
+                      "tag": "odd"
+                    }
+                  }
+                },
+                {
+                  "rdoc": {
+                    "$rdoc": {
+                      "_createdAt": "<datetime>",
+                      "_id": 2,
+                      "_rev": "<rev>",
+                      "_updatedAt": "<datetime>",
+                      "n": 2,
+                      "tag": "even"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "first batch only, cursor kept",
+      "request": {
+        "database": "shop",
+        "options": {
+          "batchSize": 2,
+          "maxBatches": 1
+        },
+        "rgql": "FROM items ORDER BY _id"
+      },
+      "rpc": "rustegon.v1.QueryService/Execute"
+    },
+    {
+      "expect": {
+        "ok": {
+          "batch": {
+            "continuationToken": "<continuation-token>",
+            "cursorId": "${cursor}",
+            "docs": [
+              {
+                "rdoc": {
+                  "$rdoc": {
+                    "_createdAt": "<datetime>",
+                    "_id": 3,
+                    "_rev": "<rev>",
+                    "_updatedAt": "<datetime>",
+                    "n": 3,
+                    "tag": "odd"
+                  }
+                }
+              },
+              {
+                "rdoc": {
+                  "$rdoc": {
+                    "_createdAt": "<datetime>",
+                    "_id": 4,
+                    "_rev": "<rev>",
+                    "_updatedAt": "<datetime>",
+                    "n": 4,
+                    "tag": "even"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get more",
+      "request": {
+        "batchSize": 2,
+        "cursorId": "${cursor}"
+      },
+      "rpc": "rustegon.v1.QueryService/GetMore"
+    },
+    {
+      "expect": {
+        "ok": {
+          "killed": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "kill cursor",
+      "request": {
+        "cursorId": "${cursor}"
+      },
+      "rpc": "rustegon.v1.QueryService/KillCursor"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1030,
+            "details": {
+              "kind": "cursor"
+            },
+            "name": "NotFound",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "NotFound",
+          "message": "cursor not found"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get more after kill",
+      "request": {
+        "cursorId": "${cursor}"
+      },
+      "rpc": "rustegon.v1.QueryService/GetMore"
+    },
+    {
+      "expect": {
+        "ok": {
+          "planJson": "{\"explain_format\":1,\"statement\":\"query\",\"analyze\":false,\"indexes_used\":[],\"est_cost\":null,\"plan\":{\"op\":\"Filter\",\"detail\":\"(tag = 'odd')\",\"index\":null,\"est_rows\":null,\"children\":[{\"op\":\"CollectionScan\",\"detail\":\"CollectionScan shop.items\",\"index\":null,\"est_rows\":null,\"children\":[]}]},\"execution\":null,\"logical\":\"Filter (tag = 'odd')\\n  Scan shop.items\",\"physical\":\"Filter (tag = 'odd')\\n  CollectionScan shop.items\"}"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "explain",
+      "request": {
+        "database": "shop",
+        "rgql": "FROM items WHERE tag = 'odd'"
+      },
+      "rpc": "rustegon.v1.QueryService/Explain"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1010,
+            "details": {
+              "column": "17",
+              "expected": "expression",
+              "found": "end of input",
+              "line": "1"
+            },
+            "name": "QuerySyntaxError",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "InvalidArgument",
+          "message": "syntax error at line 1, column 17: found end of input, expected expression"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "syntax error",
+      "request": {
+        "database": "shop",
+        "rgql": "FROM items WHERE"
+      },
+      "rpc": "rustegon.v1.QueryService/Execute"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1030,
+            "details": {
+              "kind": "database",
+              "name": "nope"
+            },
+            "name": "NotFound",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "NotFound",
+          "message": "database not found: nope"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "unknown database",
+      "request": {
+        "database": "nope",
+        "rgql": "FROM items"
+      },
+      "rpc": "rustegon.v1.QueryService/Execute"
+    }
+  ]
+}

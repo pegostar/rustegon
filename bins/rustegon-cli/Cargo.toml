@@ -1,0 +1,42 @@
+[package]
+name = "rustegon-cli"
+description = "Rustegon command-line tool (rustegon)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "rustegon"
+path = "src/main.rs"
+
+[dependencies]
+# `env`: connection options from RUSTEGON_HOST/PORT/CA/USER (no new crate).
+clap = { workspace = true, features = ["env"] }
+hyper-util = { workspace = true, features = ["tokio"] }
+rpassword.workspace = true
+rustegon-backup.workspace = true
+rustegon-common.workspace = true
+rustegon-doc.workspace = true
+rustegon-net.workspace = true
+rustegon-proto.workspace = true
+rustegon-query.workspace = true
+rustegon-security.workspace = true
+rustegon-sim-api.workspace = true
+# KEK providers of an encrypted backup's offline restore (M13a lane BE).
+rustegon-storage.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "io-util"] }
+toml.workspace = true
+tonic.workspace = true
+tower = { workspace = true, features = ["util"] }
+zeroize.workspace = true
+
+[dev-dependencies]
+# REST and /metrics checks of the end-to-end backup suite.
+serde_json.workspace = true
+tempfile.workspace = true

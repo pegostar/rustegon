@@ -1,0 +1,21 @@
+[package]
+name = "rustegon-doc"
+description = "Document model: Value, RDoc codec, JSON and extended JSON, key encoding and update operators."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+rustegon-common.workspace = true
+rustegon-sim-api.workspace = true
+thiserror.workspace = true
+twox-hash.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

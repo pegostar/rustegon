@@ -1,0 +1,183 @@
+=== stmt_start
+@@SELEKT 1
+=== from_missing_source
+FROM @@;
+=== where_missing_expr_eof
+FROM t WHERE @@
+=== and_missing_operand
+FROM t WHERE a = 1 AND @@OR b
+=== or_missing_operand
+FROM t WHERE a OR @@)
+=== unclosed_paren_eof
+FROM t WHERE (a = 1@@
+=== extra_close_paren
+FROM t WHERE a = 1@@)
+=== comparison_chain
+FROM t WHERE a = b @@= c
+=== between_missing_and
+FROM t WHERE a BETWEEN 1 @@, 2
+=== is_bad
+FROM t WHERE a IS @@TRUE
+=== call_missing_close
+FROM t SELECT f(a, b@@
+=== call_trailing_comma
+FROM t SELECT f(a, @@)
+=== array_trailing_comma
+FROM t SELECT VALUE [1, @@]
+=== object_missing_colon
+FROM t SELECT VALUE {a @@1}
+=== object_bad_key
+FROM t SELECT VALUE {@@1: 2}
+=== path_bad_segment
+FROM t SELECT a.@@(b)
+=== index_unclosed
+FROM t SELECT a[1@@
+=== select_reserved_alias
+FROM t SELECT a AS @@select
+=== order_by_missing_by
+FROM t ORDER @@a
+=== group_by_missing_by
+FROM t GROUP @@a
+=== limit_missing_expr
+FROM t LIMIT @@OFFSET 5
+=== options_missing_paren
+FROM t OPTIONS @@allow_scan = true
+=== options_missing_eq
+FROM t OPTIONS (allow_scan @@true)
+=== include_bad
+FROM t INCLUDE @@5
+=== lookup_missing_on
+FROM t LOOKUP u @@INTO x
+=== lookup_missing_eq
+FROM t LOOKUP u ON a @@< b INTO x
+=== lookup_missing_into
+FROM t LOOKUP u ON a = b @@AS x
+=== pipe_missing_stage
+FROM t |> @@
+=== pipe_unknown_stage
+FROM t |> @@FILTER a
+=== unwind_bad
+FROM t |> UNWIND @@5
+=== group_stage_missing_by
+FROM t |> GROUP @@AGG n = count(*)
+=== agg_missing_eq
+FROM t |> GROUP BY a AGG n @@count(*)
+=== facet_missing_paren
+FROM t |> FACET a @@MATCH x
+=== facet_empty
+FROM t |> FACET a (@@)
+=== bucket_missing_boundaries
+FROM t |> BUCKET BY a @@DEFAULT 'x'
+=== graph_missing_connect
+FROM t |> GRAPH LOOKUP u START WITH a @@INTO x
+=== window_missing_compute
+FROM t |> WINDOW PARTITION BY a @@
+=== merge_missing_on
+FROM t |> MERGE INTO u @@WHEN MATCHED KEEP
+=== union_missing_paren
+FROM t |> UNION WITH @@FROM u
+=== subquery_unclosed
+FROM (FROM t WHERE a = 1@@
+=== multiline_where
+FROM shop.orders
+WHERE status = 'paid'
+  AND @@
+=== multiline_select
+FROM shop.orders AS o
+WHERE o.total > 5
+SELECT o._id,
+       o.total AS @@,
+       o.status
+=== multiline_comment_before
+/* a comment
+   spanning lines */
+FROM t
+-- line comment
+WHERE a = @@)
+=== unicode_string_before
+FROM t WHERE name = 'ñandú café' AND @@AND
+=== unicode_quoted_ident_before
+FROM `données` WHERE `prix €` > 1 @@2
+=== tabs_before
+FROM t	WHERE	a	=	@@)
+=== multiline_string_before
+FROM t WHERE note = 'line one
+line two' AND @@)
+=== lexer_bad_char
+FROM t WHERE a = @@#
+=== lexer_bad_char_line3
+FROM t
+WHERE a = 1
+  AND b = @@^2
+=== lexer_unterminated_string
+FROM t WHERE a = @@'abc
+=== lexer_unterminated_comment
+FROM t @@/* open
+=== lexer_bad_escape
+FROM t WHERE a = 'x@@\q'
+=== lexer_bad_param
+FROM t WHERE a = @@$
+=== lexer_number_letters
+FROM t LIMIT @@5x
+=== literal_int_overflow
+FROM t LIMIT @@99999999999999999999
+=== literal_negative_overflow
+FROM t LIMIT @@-9223372036854775809
+=== literal_bad_date
+FROM t WHERE d > DATE @@'yesterday'
+=== insert_missing_values
+INSERT INTO t (a, b) @@(1, 2)
+=== insert_tuple_unclosed
+INSERT INTO t (a, b) VALUES (1, 2@@
+=== insert_on_conflict_bad
+INSERT INTO t VALUE {} ON CONFLICT DO @@ABORT
+=== update_no_ops
+UPDATE t @@WHERE a = 1
+=== update_inc_missing_by
+UPDATE t INC a @@1
+=== update_pop_bad_end
+UPDATE t POP a @@MIDDLE
+=== update_rename_missing_to
+UPDATE t RENAME a @@b
+=== upsert_missing_value
+UPSERT INTO t @@{a: 1}
+=== delete_missing_from
+DELETE a, b @@t
+=== returning_bad_image
+DELETE FROM t RETURNING @@ALL
+=== create_index_missing_on
+CREATE INDEX ix @@shop.orders (a)
+=== create_index_missing_paren
+CREATE INDEX ix ON shop.orders @@a
+=== create_table_bad_item
+CREATE TABLE t (PARTITION KEY (a string), @@PRIMARY KEY (a))
+=== create_timeseries_bad_item
+CREATE TIMESERIES t (TIME FIELD ts, @@SPAN 1 hours)
+=== alter_collection_bad
+ALTER COLLECTION t @@DROP x
+=== drop_unknown
+DROP @@TABLE t
+=== show_unknown
+SHOW @@USERS
+=== kill_unknown
+KILL @@SESSION 'x'
+=== begin_bad_priority
+BEGIN PRIORITY @@URGENT
+=== rollback_to_missing_savepoint
+ROLLBACK TO @@s1
+=== explain_insert
+EXPLAIN @@INSERT INTO t VALUE {}
+=== script_second_statement
+FROM a; @@FROM b
+=== quantifier_missing_satisfies
+FROM t WHERE ANY x IN a @@x > 1
+=== case_missing_then
+FROM t SELECT CASE WHEN a @@1 END
+=== elem_match_missing_comma
+FROM t WHERE ELEM MATCH (items @@qty > 1)
+=== lambda_missing_body
+FROM t SELECT map(a, x -> @@)
+=== extract_missing_expr
+FROM t SELECT extract(day FROM @@)
+=== deep_nesting_too_complex
+FROM t WHERE ((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((@@(a)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))

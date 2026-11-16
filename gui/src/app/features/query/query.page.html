@@ -1,0 +1,388 @@
+<header class="rg-page-header">
+  <div class="rg-title">
+    <span class="rg-title-icon"><rg-icon name="query" [size]="22" /></span>
+    <h1 i18n="@@query.heading">Query</h1>
+  </div>
+</header>
+
+<rg-skeleton [loading]="databases.isLoading()" [lines]="2">
+  @if (databases.error(); as e) {
+    <rg-error-panel [error]="e" (retry)="databases.reload()" />
+  } @else if (databases.value()?.length === 0) {
+    <rg-empty-state
+      class="rg-panel rg-empty-card rg-glide"
+      icon="query"
+      i18n-heading="@@query.noDatabases"
+      heading="No databases yet"
+      i18n-message="@@query.noDatabasesMessage"
+      message="Queries run against a database. Create one first."
+    >
+      <a class="btn btn-primary" routerLink="/data" i18n="@@query.createDatabase"
+        >Create a database</a
+      >
+    </rg-empty-state>
+  } @else {
+    <div class="rg-stack rg-stagger">
+      <section class="rg-panel rg-workbench" aria-labelledby="query-editor-heading">
+        <h2 id="query-editor-heading" class="cdk-visually-hidden" i18n="@@query.editor">Editor</h2>
+        <nav class="rg-qtabs" i18n-aria-label="@@query.tabs" aria-label="Query tabs">
+          @for (t of tabs(); track t.id; let i = $index) {
+            <span class="rg-qtab" [class.active]="t.id === tab().id">
+              <button
+                class="rg-qtab-open"
+                type="button"
+                [attr.aria-current]="t.id === tab().id ? 'true' : null"
+                (click)="activeId.set(t.id)"
+              >
+                <rg-icon name="query" [size]="15" />
+                <span class="rg-qtab-title">{{ tabTitle(t, i) }}</span>
+              </button>
+              <button
+                class="rg-qtab-close"
+                type="button"
+                [attr.aria-label]="closeLabel(i)"
+                (click)="closeTab(t.id)"
+              >
+                <rg-icon name="close" [size]="15" />
+              </button>
+            </span>
+          }
+          <button class="btn btn-ghost btn-sm rg-qtab-add" type="button" (click)="addTab()">
+            <rg-icon name="add" [size]="16" /><span i18n="@@query.newTab">New tab</span>
+          </button>
+        </nav>
+
+        <div class="rg-qbar">
+          <rg-field class="rg-qdb">
+            <label rgLabel i18n="@@query.database">Database</label>
+            <select rgControl (change)="patchTab({ db: $any($event.target).value })">
+              @for (d of databases.value(); track d) {
+                <option [value]="d" [selected]="d === tab().db">{{ d }}</option>
+              }
+            </select>
+          </rg-field>
+          <span class="rg-spacer"></span>
+          <div class="rg-actions">
+            @if (running()) {
+              <button class="btn btn-ghost" type="button" (click)="cancel()">
+                <rg-icon name="close" /><span i18n="@@query.cancel">Cancel</span>
+              </button>
+            }
+            <button
+              class="btn btn-glass"
+              type="button"
+              [disabled]="running()"
+              (click)="explain(false)"
+              i18n="@@query.explain"
+            >
+              Explain
+            </button>
+            <button
+              class="btn btn-glass"
+              type="button"
+              [disabled]="running()"
+              (click)="explain(true)"
+              i18n="@@query.explainAnalyze"
+            >
+              Explain analyze
+            </button>
+            <button
+              class="btn btn-glass"
+              type="button"
+              [disabled]="running()"
+              (click)="run('selection')"
+              i18n="@@query.runSelection"
+            >
+              Run selection
+            </button>
+            <button
+              class="btn btn-primary rg-run"
+              type="button"
+              [disabled]="running()"
+              (click)="run()"
+            >
+              @if (running()) {
+                <span class="spinner-border" aria-hidden="true"></span>
+              } @else {
+                <rg-icon name="play" />
+              }
+              <span i18n="@@query.run">Run</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="rg-qgrid">
+          <div class="rg-qmain">
+            <div class="rg-editor-frame" [class.rg-busy]="running()">
+              <rg-rgql-editor
+                i18n-label="@@query.editorLabel"
+                label="RGQL query"
+                [value]="tab().text"
+                (valueChange)="patchTab({ text: $event })"
+                (run)="run()"
+              />
+            </div>
+            <p class="rg-qhint" id="query-keys" i18n="@@query.keys">
+              Ctrl+Enter (⌘+Enter) runs the query, Escape cancels it. In the editor Tab moves focus;
+              Ctrl+M switches Tab to indentation, Alt+F1 opens the editor's accessibility help.
+            </p>
+          </div>
+
+          <div class="rg-qside">
+            <rg-field class="rg-qparams">
+              <label rgLabel i18n="@@query.params">Parameters (JSON object)</label>
+              <textarea
+                rgControl
+                rows="4"
+                spellcheck="false"
+                [value]="tab().params"
+                (input)="patchTab({ params: $any($event.target).value })"
+              ></textarea>
+              @if (paramsError(); as e) {
+                <rg-error role="alert">{{ e }}</rg-error>
+              }
+            </rg-field>
+
+            <details class="rg-disclosure">
+              <summary>
+                <rg-icon name="settings" [size]="18" /><span i18n="@@query.options">Options</span>
+              </summary>
+              <div class="rg-disclosure-body">
+                <rg-field>
+                  <label rgLabel i18n="@@query.consistency">Consistency</label>
+                  <select rgControl (change)="consistency.set($any($event.target).value)">
+                    <option
+                      value=""
+                      [selected]="consistency() === ''"
+                      i18n="@@query.consistencyDefault"
+                    >
+                      Server default
+                    </option>
+                    <option value="linearizable" [selected]="consistency() === 'linearizable'">
+                      linearizable
+                    </option>
+                    <option value="follower" [selected]="consistency() === 'follower'">
+                      follower
+                    </option>
+                  </select>
+                </rg-field>
+                <rg-field>
+                  <label rgLabel i18n="@@query.maxTime">Max time (ms)</label>
+                  <input
+                    rgControl
+                    type="number"
+                    min="0"
+                    [value]="maxTimeMs() ?? ''"
+                    (input)="maxTimeMs.set($any($event.target).valueAsNumber || null)"
+                  />
+                </rg-field>
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="query-allow-disk"
+                    [checked]="allowDiskUse()"
+                    (change)="allowDiskUse.set($any($event.target).checked)"
+                  />
+                  <label class="form-check-label" for="query-allow-disk" i18n="@@query.allowDiskUse"
+                    >Allow disk use</label
+                  >
+                </div>
+              </div>
+            </details>
+
+            <details class="rg-disclosure">
+              <summary>
+                <rg-icon name="history" [size]="18" /><span i18n="@@query.history">History</span>
+                @if (history().length) {
+                  <span class="rg-count" aria-hidden="true">{{ history().length }}</span>
+                }
+              </summary>
+              <div class="rg-disclosure-body">
+                <rg-field>
+                  <label rgLabel i18n="@@query.historySearch">Search history</label>
+                  <input
+                    rgControl
+                    [value]="historyFilter()"
+                    (input)="historyFilter.set($any($event.target).value)"
+                  />
+                </rg-field>
+                @if (filteredHistory().length === 0) {
+                  <p class="rg-muted" i18n="@@query.historyEmpty">No queries in the history.</p>
+                } @else {
+                  <ul class="rg-history">
+                    @for (h of filteredHistory(); track h.at) {
+                      <li>
+                        <button type="button" (click)="useHistory(h)">
+                          <code>{{ h.db }}</code> <span>{{ h.text }}</span>
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="rg-panel rg-results" aria-labelledby="query-results-heading">
+        <div class="rg-panel-head">
+          <h2 id="query-results-heading">
+            <rg-icon name="dashboard" [size]="20" /><span i18n="@@query.results">Results</span>
+          </h2>
+          <p class="status" role="status">{{ status() }}</p>
+        </div>
+        @if (error(); as e) {
+          <rg-error-panel [error]="e" />
+          @if (errorAt(); as at) {
+            <button
+              class="btn btn-glass mt-3"
+              type="button"
+              (click)="goToError()"
+              i18n="@@query.goToError"
+            >
+              Go to line {{ at.line }}, column {{ at.column }}
+            </button>
+          }
+        } @else if (plan(); as p) {
+          <rg-explain-plan [plan]="p" />
+        } @else if (result(); as r) {
+          <dl class="rg-qstats">
+            <div>
+              <dt i18n="@@query.statRows">Rows</dt>
+              <dd>{{ r.rows.length | number }}</dd>
+            </div>
+            @if (r.stats; as s) {
+              <div>
+                <dt i18n="@@query.statAffected">Documents written</dt>
+                <dd>{{ s.docsAffected | number }}</dd>
+              </div>
+            }
+            <div>
+              <dt i18n="@@query.statTime">Time</dt>
+              <dd>{{ r.elapsedMs | number: '1.0-1' }} ms</dd>
+            </div>
+          </dl>
+          @if (r.warnings.length) {
+            <ul class="rg-qwarnings" i18n-aria-label="@@query.warnings" aria-label="Warnings">
+              @for (w of r.warnings; track $index) {
+                <li>
+                  <rg-icon name="warning" [size]="18" />
+                  <span
+                    ><code>{{ w.kind }}</code> {{ w.message }}</span
+                  >
+                </li>
+              }
+            </ul>
+          }
+          @if (r.rows.length === 0) {
+            <rg-empty-state
+              icon="query"
+              i18n-heading="@@query.noRows"
+              heading="No rows"
+              i18n-message="@@query.noRowsMessage"
+              message="The statement ran and returned no rows."
+            />
+          } @else {
+            <div class="rg-results-bar">
+              <div
+                class="rg-segmented"
+                role="radiogroup"
+                i18n-aria-label="@@query.view"
+                aria-label="Result view"
+              >
+                <label class="btn">
+                  <input
+                    type="radio"
+                    name="query-view"
+                    [checked]="view() === 'grid'"
+                    (change)="view.set('grid')"
+                  />
+                  <rg-icon name="indexes" [size]="18" />
+                  <span i18n="@@query.viewGrid">Grid</span>
+                </label>
+                <label class="btn">
+                  <input
+                    type="radio"
+                    name="query-view"
+                    [checked]="view() === 'json'"
+                    (change)="view.set('json')"
+                  />
+                  <rg-icon name="document" [size]="18" />
+                  <span i18n="@@query.viewJson">JSON</span>
+                </label>
+              </div>
+              <span class="rg-spacer"></span>
+              <span class="rg-export">
+                <rg-icon name="download" [size]="18" />
+                <span i18n="@@query.export">Export</span>
+                <button
+                  class="btn btn-ghost btn-sm"
+                  type="button"
+                  i18n-aria-label="@@query.exportJSON"
+                  aria-label="Export as JSON"
+                  (click)="export('json')"
+                >
+                  JSON
+                </button>
+                <button
+                  class="btn btn-ghost btn-sm"
+                  type="button"
+                  i18n-aria-label="@@query.exportNDJSON"
+                  aria-label="Export as NDJSON"
+                  (click)="export('ndjson')"
+                >
+                  NDJSON
+                </button>
+                <button
+                  class="btn btn-ghost btn-sm"
+                  type="button"
+                  i18n-aria-label="@@query.exportCSV"
+                  aria-label="Export as CSV"
+                  (click)="export('csv')"
+                >
+                  CSV
+                </button>
+              </span>
+            </div>
+            @if (view() === 'grid') {
+              <div class="rg-embed rg-glide">
+                <rg-data-grid
+                  [columns]="columns()"
+                  [rows]="gridRows()"
+                  [height]="fitGrid(gridRows().length, 480)"
+                  i18n-label="@@query.gridLabel"
+                  label="Query results"
+                />
+              </div>
+            } @else {
+              <rg-code-block class="rg-glide" language="JSON" [code]="json()" />
+            }
+            @if (r.cursorId) {
+              <div class="rg-pager">
+                <button
+                  class="btn btn-glass"
+                  type="button"
+                  [disabled]="running()"
+                  (click)="loadMore()"
+                  i18n="@@query.loadMore"
+                >
+                  Load more
+                </button>
+              </div>
+            }
+          }
+        } @else if (!running()) {
+          <rg-empty-state
+            icon="play"
+            i18n-heading="@@query.noResult"
+            heading="No results yet"
+            i18n-message="@@query.noResultMessage"
+            message="Write an RGQL statement, for example FROM orders LIMIT 10, and run it."
+          />
+        }
+      </section>
+    </div>
+  }
+</rg-skeleton>

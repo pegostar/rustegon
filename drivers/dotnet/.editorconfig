@@ -1,0 +1,53 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,csproj,props,targets,json,yaml,md}]
+indent_style = space
+indent_size = 4
+
+[*.{csproj,props,targets,json,yaml}]
+indent_size = 2
+
+# Analyzer configuration (AnalysisLevel latest-all, warnings as errors; coding-standards.md §4).
+# Every rule switched off here carries the reason.
+[*.cs]
+# Driver messages are developer-facing English, never localized (coding-standards.md: English only).
+dotnet_diagnostic.CA1303.severity = none
+# Type names of the RDoc type system (Int64, Float64, ...) are the spec's names (data-model.md §2).
+dotnet_diagnostic.CA1720.severity = none
+# RDocType is the one-byte wire tag (data-model.md §2); byte storage is the point.
+dotnet_diagnostic.CA1028.severity = none
+# Implicit conversions are the documented construction API of RDocValue; the named alternates exist
+# as static From* factories where they add something, not one per operator.
+dotnet_diagnostic.CA2225.severity = none
+# Exception types follow dotnet-driver.md §8: constructors take the server error, not a message only.
+dotnet_diagnostic.CA1032.severity = none
+
+[tests/**.cs]
+# Test names carry the TC id (tc_drv_net_001_...), as CLAUDE.md rule 1 requires.
+dotnet_diagnostic.CA1707.severity = none
+# xUnit test classes are public by convention; there is no public API to protect in a test assembly.
+dotnet_diagnostic.CA1515.severity = none
+# Tests have no synchronization context; ConfigureAwait adds noise (xUnit1030 forbids it anyway).
+dotnet_diagnostic.CA2007.severity = none
+# Tests are not localized and not a public API surface.
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1305.severity = none
+dotnet_diagnostic.CA1307.severity = none
+dotnet_diagnostic.CA1310.severity = none
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.CA5394.severity = none
+dotnet_diagnostic.CA1031.severity = none
+dotnet_diagnostic.CA1308.severity = none
+dotnet_diagnostic.CA1819.severity = none
+dotnet_diagnostic.CA1002.severity = none
+dotnet_diagnostic.CA1812.severity = none
+dotnet_diagnostic.CA1063.severity = none
+dotnet_diagnostic.CA1816.severity = none
+dotnet_diagnostic.CA2000.severity = none
+dotnet_diagnostic.CS1591.severity = none

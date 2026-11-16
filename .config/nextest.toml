@@ -1,0 +1,4 @@
+[profile.ci]
+# Report every failure in one run; flaky tests are bugs (implementation-rules.md §4), no retries.
+fail-fast = false
+retries = 0

@@ -1,0 +1,802 @@
+{
+  "description": "TC-API-003 AdminService over gRPC: users, roles, API keys, settings, own password.",
+  "steps": [
+    {
+      "capture": {
+        "token": "/ok/success/sessionToken"
+      },
+      "expect": {
+        "ok": {
+          "success": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "${token}",
+            "user": "admin"
+          }
+        }
+      },
+      "name": "login",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "ok": {
+          "user": {
+            "createdAtUnixMs": "<unix-ms>",
+            "name": "carol",
+            "roles": [
+              {
+                "resource": "database:shop",
+                "role": "read"
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create user",
+      "request": {
+        "name": "carol",
+        "password": "Zr8&uW3n!Kd5Qe2p",
+        "roles": [
+          {
+            "resource": "database:shop",
+            "role": "read"
+          }
+        ]
+      },
+      "rpc": "rustegon.v1.AdminService/CreateUser"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1031,
+            "name": "AlreadyExists",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "AlreadyExists",
+          "message": "user \"carol\" already exists"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "duplicate user",
+      "request": {
+        "name": "carol",
+        "password": "Zr8&uW3n!Kd5Qe2p"
+      },
+      "rpc": "rustegon.v1.AdminService/CreateUser"
+    },
+    {
+      "expect": {
+        "ok": {
+          "user": {
+            "createdAtUnixMs": "<unix-ms>",
+            "name": "carol",
+            "roles": [
+              {
+                "resource": "database:shop",
+                "role": "read"
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get user",
+      "request": {
+        "name": "carol"
+      },
+      "rpc": "rustegon.v1.AdminService/GetUser"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1030,
+            "name": "NotFound",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "NotFound",
+          "message": "user \"nobody\" not found"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get missing user",
+      "request": {
+        "name": "nobody"
+      },
+      "rpc": "rustegon.v1.AdminService/GetUser"
+    },
+    {
+      "expect": {
+        "ok": {
+          "users": [
+            {
+              "createdAtUnixMs": "<unix-ms>",
+              "name": "admin",
+              "roles": [
+                {
+                  "resource": "cluster",
+                  "role": "root"
+                }
+              ]
+            },
+            {
+              "createdAtUnixMs": "<unix-ms>",
+              "name": "carol",
+              "roles": [
+                {
+                  "resource": "database:shop",
+                  "role": "read"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "list users",
+      "rpc": "rustegon.v1.AdminService/ListUsers"
+    },
+    {
+      "expect": {
+        "ok": {
+          "user": {
+            "createdAtUnixMs": "<unix-ms>",
+            "disabled": true,
+            "name": "carol",
+            "roles": [
+              {
+                "resource": "database:shop",
+                "role": "read_write"
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "update user",
+      "request": {
+        "disabled": true,
+        "name": "carol",
+        "roles": {
+          "grants": [
+            {
+              "resource": "database:shop",
+              "role": "read_write"
+            }
+          ]
+        }
+      },
+      "rpc": "rustegon.v1.AdminService/UpdateUser"
+    },
+    {
+      "expect": {
+        "ok": {
+          "role": {
+            "name": "analyst",
+            "privileges": [
+              {
+                "actions": [
+                  "find"
+                ],
+                "resource": "database:shop"
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create role",
+      "request": {
+        "role": {
+          "name": "analyst",
+          "privileges": [
+            {
+              "actions": [
+                "find"
+              ],
+              "resource": "database:shop"
+            }
+          ]
+        }
+      },
+      "rpc": "rustegon.v1.AdminService/CreateRole"
+    },
+    {
+      "expect": {
+        "ok": {
+          "role": {
+            "name": "analyst",
+            "privileges": [
+              {
+                "actions": [
+                  "find"
+                ],
+                "resource": "database:shop"
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get role",
+      "request": {
+        "name": "analyst"
+      },
+      "rpc": "rustegon.v1.AdminService/GetRole"
+    },
+    {
+      "expect": {
+        "ok": {
+          "roles": [
+            {
+              "name": "analyst",
+              "privileges": [
+                {
+                  "actions": [
+                    "find"
+                  ],
+                  "resource": "database:shop"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "backup_operator",
+              "privileges": [
+                {
+                  "actions": [
+                    "cluster_view",
+                    "backup"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "cluster_admin",
+              "privileges": [
+                {
+                  "actions": [
+                    "txn_kill",
+                    "query_kill",
+                    "query_stats_view",
+                    "cluster_view",
+                    "cluster_manage",
+                    "audit_view",
+                    "diagnostics",
+                    "xdc_manage",
+                    "key_manage"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "db_admin",
+              "privileges": [
+                {
+                  "actions": [
+                    "create_collection",
+                    "drop_collection",
+                    "alter_collection",
+                    "create_index",
+                    "drop_index",
+                    "create_database",
+                    "drop_database",
+                    "txn_kill",
+                    "query_kill",
+                    "query_stats_view"
+                  ],
+                  "resource": "database:*"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "db_owner",
+              "privileges": [
+                {
+                  "actions": [
+                    "find",
+                    "insert",
+                    "update",
+                    "delete",
+                    "bulk_write",
+                    "aggregate_write",
+                    "change_stream",
+                    "create_collection",
+                    "drop_collection",
+                    "alter_collection",
+                    "create_index",
+                    "drop_index",
+                    "create_database",
+                    "drop_database",
+                    "txn_kill",
+                    "query_kill",
+                    "query_stats_view",
+                    "user_manage",
+                    "role_manage"
+                  ],
+                  "resource": "database:*"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "monitor",
+              "privileges": [
+                {
+                  "actions": [
+                    "query_stats_view",
+                    "cluster_view"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "node",
+              "privileges": [
+                {
+                  "actions": [
+                    "cluster_view"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "read",
+              "privileges": [
+                {
+                  "actions": [
+                    "find",
+                    "change_stream"
+                  ],
+                  "resource": "database:*"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "read_write",
+              "privileges": [
+                {
+                  "actions": [
+                    "find",
+                    "insert",
+                    "update",
+                    "delete",
+                    "bulk_write",
+                    "aggregate_write",
+                    "change_stream"
+                  ],
+                  "resource": "database:*"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "restore_operator",
+              "privileges": [
+                {
+                  "actions": [
+                    "restore"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "root",
+              "privileges": [
+                {
+                  "actions": [
+                    "find",
+                    "insert",
+                    "update",
+                    "delete",
+                    "bulk_write",
+                    "aggregate_write",
+                    "change_stream",
+                    "subscription_manage",
+                    "create_collection",
+                    "drop_collection",
+                    "alter_collection",
+                    "create_index",
+                    "drop_index",
+                    "create_database",
+                    "drop_database",
+                    "txn_kill",
+                    "query_kill",
+                    "query_stats_view",
+                    "user_manage",
+                    "role_manage",
+                    "cluster_view",
+                    "cluster_manage",
+                    "backup",
+                    "restore",
+                    "audit_view",
+                    "diagnostics",
+                    "xdc_manage",
+                    "key_manage"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "name": "user_admin",
+              "privileges": [
+                {
+                  "actions": [
+                    "user_manage",
+                    "role_manage"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "list roles",
+      "rpc": "rustegon.v1.AdminService/ListRoles"
+    },
+    {
+      "expect": {
+        "ok": {
+          "role": {
+            "name": "analyst",
+            "privileges": [
+              {
+                "actions": [
+                  "find",
+                  "insert"
+                ],
+                "resource": "database:shop"
+              }
+            ]
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "update role",
+      "request": {
+        "role": {
+          "name": "analyst",
+          "privileges": [
+            {
+              "actions": [
+                "find",
+                "insert"
+              ],
+              "resource": "database:shop"
+            }
+          ]
+        }
+      },
+      "rpc": "rustegon.v1.AdminService/UpdateRole"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "drop role",
+      "request": {
+        "name": "analyst"
+      },
+      "rpc": "rustegon.v1.AdminService/DropRole"
+    },
+    {
+      "capture": {
+        "keyId": "/ok/key/keyId"
+      },
+      "expect": {
+        "ok": {
+          "key": {
+            "createdAtUnixMs": "<unix-ms>",
+            "description": "ci",
+            "ipAllowlist": [
+              "127.0.0.0/8"
+            ],
+            "keyId": "${keyId}",
+            "roles": [
+              {
+                "resource": "cluster",
+                "role": "root"
+              }
+            ],
+            "user": "admin"
+          },
+          "secret": "<api-key-secret>"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create API key",
+      "request": {
+        "description": "ci",
+        "ipAllowlist": [
+          "127.0.0.0/8"
+        ],
+        "roles": [
+          {
+            "resource": "cluster",
+            "role": "root"
+          }
+        ]
+      },
+      "rpc": "rustegon.v1.AdminService/CreateApiKey"
+    },
+    {
+      "expect": {
+        "ok": {
+          "keys": [
+            {
+              "createdAtUnixMs": "<unix-ms>",
+              "description": "ci",
+              "ipAllowlist": [
+                "127.0.0.0/8"
+              ],
+              "keyId": "${keyId}",
+              "roles": [
+                {
+                  "resource": "cluster",
+                  "role": "root"
+                }
+              ],
+              "user": "admin"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "list API keys",
+      "rpc": "rustegon.v1.AdminService/ListApiKeys"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "revoke API key",
+      "request": {
+        "keyId": "${keyId}"
+      },
+      "rpc": "rustegon.v1.AdminService/RevokeApiKey"
+    },
+    {
+      "expect": {
+        "ok": {
+          "settings": [
+            {
+              "defaultValue": "600000",
+              "description": "PBKDF2-HMAC-SHA256 iterations of new SCRAM-SHA-256 credentials.",
+              "name": "auth.scram_iterations",
+              "runtimeMutable": true,
+              "value": "100000"
+            },
+            {
+              "defaultValue": "1800",
+              "description": "Seconds of inactivity after which a GUI session expires.",
+              "name": "auth.session_idle_timeout_gui_secs",
+              "runtimeMutable": true,
+              "value": "1800"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get settings",
+      "request": {
+        "names": [
+          "auth.scram_iterations",
+          "auth.session_idle_timeout_gui_secs"
+        ]
+      },
+      "rpc": "rustegon.v1.AdminService/GetSettings"
+    },
+    {
+      "expect": {
+        "ok": {
+          "settings": [
+            {
+              "defaultValue": "1800",
+              "description": "Seconds of inactivity after which a GUI session expires.",
+              "name": "auth.session_idle_timeout_gui_secs",
+              "runtimeMutable": true,
+              "value": "600"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "update settings",
+      "request": {
+        "values": {
+          "auth.session_idle_timeout_gui_secs": "600"
+        }
+      },
+      "rpc": "rustegon.v1.AdminService/UpdateSettings"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1030,
+            "details": {
+              "setting": "no.such_setting"
+            },
+            "name": "NotFound",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "NotFound",
+          "message": "unknown setting no.such_setting"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "unknown setting",
+      "request": {
+        "values": {
+          "no.such_setting": "1"
+        }
+      },
+      "rpc": "rustegon.v1.AdminService/UpdateSettings"
+    },
+    {
+      "expect": {
+        "ok": {
+          "user": {
+            "createdAtUnixMs": "<unix-ms>",
+            "mustChangePassword": true,
+            "name": "erin"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create user who must change the password",
+      "request": {
+        "mustChangePassword": true,
+        "name": "erin",
+        "password": "Zr8&uW3n!Kd5Qe2p"
+      },
+      "rpc": "rustegon.v1.AdminService/CreateUser"
+    },
+    {
+      "capture": {
+        "erin": "/ok/success/sessionToken"
+      },
+      "expect": {
+        "ok": {
+          "success": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "mustChangePassword": true,
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "${erin}",
+            "user": "erin"
+          }
+        }
+      },
+      "name": "erin logs in",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "password": "Zr8&uW3n!Kd5Qe2p",
+        "user": "erin"
+      }
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 4002,
+            "details": {
+              "reason": "password_change_required"
+            },
+            "name": "PermissionDenied",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "PermissionDenied",
+          "message": "the password must be changed before any other operation"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${erin}"
+      },
+      "name": "erin is limited to the password change",
+      "rpc": "rustegon.v1.AdminService/ListUsers"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${erin}"
+      },
+      "name": "change own password",
+      "request": {
+        "currentPassword": "Zr8&uW3n!Kd5Qe2p",
+        "newPassword": "Nw4%pQ8!zL2#rT6x"
+      },
+      "rpc": "rustegon.v1.AdminService/ChangePassword"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "drop user",
+      "request": {
+        "name": "carol"
+      },
+      "rpc": "rustegon.v1.AdminService/DropUser"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 4001,
+            "name": "Unauthenticated",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "Unauthenticated",
+          "message": "authentication failed"
+        }
+      },
+      "name": "anonymous administration is RGN-4001",
+      "rpc": "rustegon.v1.AdminService/ListUsers"
+    }
+  ]
+}

@@ -1,0 +1,159 @@
+{
+  "description": "TC-API-003 REST session, health and transport-level errors (/api/v1).",
+  "steps": [
+    {
+      "expect": {
+        "body": {},
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "GET",
+      "name": "ping",
+      "path": "/api/v1/ping"
+    },
+    {
+      "expect": {
+        "body": {
+          "features": [],
+          "nodeAddresses": [],
+          "protocolVersion": "1.0",
+          "serverVersion": "0.1.0"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "GET",
+      "name": "server info",
+      "path": "/api/v1/server-info"
+    },
+    {
+      "expect": {
+        "body": {
+          "status": "live"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "GET",
+      "name": "liveness",
+      "path": "/api/v1/health/live"
+    },
+    {
+      "expect": {
+        "body": {
+          "status": "ready"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "GET",
+      "name": "readiness",
+      "path": "/api/v1/health/ready"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1030,
+            "details": {},
+            "message": "no such REST endpoint",
+            "name": "NotFound",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 404
+      },
+      "method": "GET",
+      "name": "unknown path is 404 RGN-1030",
+      "path": "/api/v1/no-such-thing"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1001,
+            "details": {},
+            "message": "HTTP method not allowed for this endpoint",
+            "name": "InvalidArgument",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "allow": "GET,HEAD",
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 405
+      },
+      "method": "DELETE",
+      "name": "wrong method is 405 RGN-1001",
+      "path": "/api/v1/ping"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1001,
+            "details": {
+              "header": "rgn-request-id"
+            },
+            "message": "malformed `rgn-request-id` header: expected a 36-character UUID",
+            "name": "InvalidArgument",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 400
+      },
+      "headers": {
+        "rgn-request-id": "not-a-uuid"
+      },
+      "method": "GET",
+      "name": "malformed request id is RGN-1001",
+      "path": "/api/v1/server-info"
+    }
+  ]
+}

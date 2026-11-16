@@ -1,0 +1,2 @@
+index_descriptor_key(102,104) 02690000006600000068
+index_prefix(102) 026900000066

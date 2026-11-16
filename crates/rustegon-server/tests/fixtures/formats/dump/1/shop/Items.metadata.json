@@ -1,0 +1,18 @@
+{
+  "format_version": 1,
+  "database": "shop",
+  "collection": "Items",
+  "kind": "document",
+  "shard_key": {
+    "strategy": "hashed",
+    "fields": [
+      "_id"
+    ]
+  },
+  "options": {
+    "validator": null,
+    "validation_level": "strict",
+    "validation_action": "error"
+  },
+  "indexes": []
+}

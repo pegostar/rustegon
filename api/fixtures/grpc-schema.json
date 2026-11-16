@@ -1,0 +1,492 @@
+{
+  "description": "TC-API-003 SchemaService over gRPC: databases, collections, indexes, validators.",
+  "steps": [
+    {
+      "capture": {
+        "token": "/ok/success/sessionToken"
+      },
+      "expect": {
+        "ok": {
+          "success": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "${token}",
+            "user": "admin"
+          }
+        }
+      },
+      "name": "login",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "ok": {
+          "created": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create database",
+      "request": {
+        "name": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateDatabase"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create database if not exists",
+      "request": {
+        "ifNotExists": true,
+        "name": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateDatabase"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1031,
+            "details": {
+              "kind": "database",
+              "name": "shop"
+            },
+            "name": "AlreadyExists",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "AlreadyExists",
+          "message": "database already exists: shop"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "duplicate database",
+      "request": {
+        "name": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateDatabase"
+    },
+    {
+      "expect": {
+        "ok": {
+          "databases": [
+            {
+              "name": "shop",
+              "options": {
+                "implicit_collection_creation": {
+                  "rdocValue": {
+                    "$rdocValue": true
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "list databases",
+      "rpc": "rustegon.v1.SchemaService/ListDatabases"
+    },
+    {
+      "expect": {
+        "ok": {
+          "created": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create collection",
+      "request": {
+        "database": "shop",
+        "name": "items"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateCollection"
+    },
+    {
+      "expect": {
+        "ok": {
+          "created": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create collection with validator",
+      "request": {
+        "database": "shop",
+        "name": "orders",
+        "validator": {
+          "action": "VALIDATION_ACTION_ERROR",
+          "definitionJson": "{\"$jsonSchema\": {\"required\": [\"total\"]}}",
+          "level": "VALIDATION_LEVEL_STRICT"
+        }
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateCollection"
+    },
+    {
+      "expect": {
+        "ok": {
+          "collection": {
+            "name": "orders",
+            "validator": {
+              "action": "VALIDATION_ACTION_ERROR",
+              "definitionJson": "{\"$jsonSchema\": {\"required\": [\"total\"]}}",
+              "level": "VALIDATION_LEVEL_STRICT"
+            }
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get collection",
+      "request": {
+        "database": "shop",
+        "name": "orders"
+      },
+      "rpc": "rustegon.v1.SchemaService/GetCollection"
+    },
+    {
+      "expect": {
+        "ok": {
+          "collections": [
+            {
+              "name": "items"
+            },
+            {
+              "name": "orders",
+              "validator": {
+                "action": "VALIDATION_ACTION_ERROR",
+                "definitionJson": "{\"$jsonSchema\": {\"required\": [\"total\"]}}",
+                "level": "VALIDATION_LEVEL_STRICT"
+              }
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "list collections",
+      "request": {
+        "database": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/ListCollections"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "alter collection (no alterable option exists yet: empty change)",
+      "request": {
+        "database": "shop",
+        "name": "items"
+      },
+      "rpc": "rustegon.v1.SchemaService/AlterCollection"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1001,
+            "details": {
+              "option": "comment"
+            },
+            "name": "InvalidArgument",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "InvalidArgument",
+          "message": "unknown option comment"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "alter collection with an unknown option",
+      "request": {
+        "database": "shop",
+        "name": "items",
+        "setOptions": {
+          "comment": {
+            "rdocValue": {
+              "$rdocValue": "catalogue"
+            }
+          }
+        }
+      },
+      "rpc": "rustegon.v1.SchemaService/AlterCollection"
+    },
+    {
+      "expect": {
+        "ok": {
+          "index": {
+            "definition": {
+              "indexType": "AST_INDEX_TYPE_STANDARD",
+              "keys": [
+                {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "sku"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "name": "by_sku",
+              "on": {
+                "database": "shop",
+                "name": "items"
+              }
+            },
+            "state": "INDEX_STATE_BUILDING"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create index",
+      "request": {
+        "database": "shop",
+        "definition": {
+          "indexType": "AST_INDEX_TYPE_STANDARD",
+          "keys": [
+            {
+              "path": {
+                "segments": [
+                  {
+                    "field": "sku"
+                  }
+                ]
+              }
+            }
+          ],
+          "name": "by_sku",
+          "on": {
+            "name": "items"
+          }
+        }
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateIndex"
+    },
+    {
+      "expect": {
+        "ok": {
+          "state": "INDEX_STATE_READY"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "index build progress (polled until ready)",
+      "poll": {
+        "pointer": "/ok/state",
+        "value": "INDEX_STATE_READY"
+      },
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "name": "by_sku"
+      },
+      "rpc": "rustegon.v1.SchemaService/IndexBuildProgress"
+    },
+    {
+      "expect": {
+        "ok": {
+          "indexes": [
+            {
+              "definition": {
+                "indexType": "AST_INDEX_TYPE_STANDARD",
+                "keys": [
+                  {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "sku"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "name": "by_sku",
+                "on": {
+                  "database": "shop",
+                  "name": "items"
+                }
+              },
+              "state": "INDEX_STATE_READY"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "list indexes (after the build: the state does not depend on timing)",
+      "request": {
+        "collection": "items",
+        "database": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/ListIndexes"
+    },
+    {
+      "expect": {
+        "ok": {
+          "dropped": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "drop index",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "name": "by_sku"
+      },
+      "rpc": "rustegon.v1.SchemaService/DropIndex"
+    },
+    {
+      "expect": {
+        "ok": {
+          "validator": {
+            "action": "VALIDATION_ACTION_ERROR",
+            "definitionJson": "{\"$jsonSchema\": {\"required\": [\"total\"]}}",
+            "level": "VALIDATION_LEVEL_STRICT"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get validator",
+      "request": {
+        "collection": "orders",
+        "database": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/GetValidator"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "set validator",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "validator": {
+          "action": "VALIDATION_ACTION_WARN",
+          "definitionJson": "{\"$jsonSchema\": {\"required\": [\"sku\"]}}",
+          "level": "VALIDATION_LEVEL_MODERATE"
+        }
+      },
+      "rpc": "rustegon.v1.SchemaService/SetValidator"
+    },
+    {
+      "expect": {
+        "ok": {
+          "removed": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "remove validator",
+      "request": {
+        "collection": "items",
+        "database": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/RemoveValidator"
+    },
+    {
+      "expect": {
+        "ok": {
+          "dropped": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "drop collection",
+      "request": {
+        "database": "shop",
+        "name": "orders"
+      },
+      "rpc": "rustegon.v1.SchemaService/DropCollection"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1030,
+            "details": {
+              "kind": "collection"
+            },
+            "name": "NotFound",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "NotFound",
+          "message": "collection orders not found"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "missing collection",
+      "request": {
+        "database": "shop",
+        "name": "orders"
+      },
+      "rpc": "rustegon.v1.SchemaService/GetCollection"
+    },
+    {
+      "expect": {
+        "ok": {
+          "dropped": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "drop database",
+      "request": {
+        "name": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/DropDatabase"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "drop database if exists",
+      "request": {
+        "ifExists": true,
+        "name": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/DropDatabase"
+    }
+  ]
+}

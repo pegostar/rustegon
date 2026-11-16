@@ -1,0 +1,112 @@
+description: "Filter builders against a fixed data set (RGQL semantics, query-language.md §4.3: multikey comparisons, unknown on missing/null, numeric comparison across types)."
+setup:
+  collections: [{name: products}]
+  data:
+    products:
+      - {"_id": 1, "name": "Rome pen", "price": 1.5, "qty": 10, "tags": ["red", "blue"], "status": "paid", "maker": {"city": "Rome"}, "items": [{"sku": "A", "qty": 1}, {"sku": "B", "qty": 5}]}
+      - {"_id": 2, "name": "Milan ink", "price": 3, "qty": 0, "tags": ["blue"], "status": "shipped", "maker": {"city": "Milan"}, "note": null, "items": [{"sku": "A", "qty": 3}]}
+      - {"_id": 3, "name": "Rome paper", "price": {"$decimal": "2.50"}, "qty": 25, "tags": [], "status": "paid", "maker": {"city": "Rome"}, "created": {"$date": "2026-03-01T00:00:00.000Z"}}
+      - {"_id": 4, "name": "Turin clip", "price": 0.5, "qty": 100, "tags": ["green", "red"], "status": "cancelled"}
+      - {"_id": 5, "name": "Naples box", "price": 12, "qty": 3, "tags": ["red"], "status": "new", "note": "fragile", "maker": {"city": "Naples"}}
+tests:
+  - id: TC-DRV-CONF-QUERY-001
+    description: "eq on a string field."
+    covers: [Collection.Find, Filter.Eq, Find.ToList]
+    operations:
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {eq: ["status", "paid"]}, sort: ["_id"]}
+        match: subset
+        expect: {result: [{"_id": 1}, {"_id": 3}]}
+
+  - id: TC-DRV-CONF-QUERY-002
+    description: "ne matches present, different values; a missing or null field never matches (unknown)."
+    covers: [Collection.Find, Filter.Ne]
+    operations:
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {ne: ["status", "paid"]}, sort: ["_id"]}
+        match: subset
+        expect: {result: [{"_id": 2}, {"_id": 4}, {"_id": 5}]}
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {ne: ["note", "fragile"]}}
+        expect: {result: []}
+
+  - id: TC-DRV-CONF-QUERY-003
+    description: "Range operators compare numbers across int64, float64 and decimal128."
+    covers: [Collection.Find, Filter.Gt, Filter.Gte, Filter.Lt, Filter.Lte]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {gt: ["price", 2]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 2}, {"_id": 3}, {"_id": 5}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {gte: ["qty", 10]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 1}, {"_id": 3}, {"_id": 4}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {lt: ["qty", 3]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 2}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {lte: ["qty", 3]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 2}, {"_id": 5}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {gte: ["price", {"$decimal": "2.5"}]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 2}, {"_id": 3}, {"_id": 5}]}}
+
+  - id: TC-DRV-CONF-QUERY-004
+    description: "in / nin with a list parameter; an empty in-list matches nothing."
+    covers: [Collection.Find, Filter.In, Filter.Nin]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {in: ["status", ["paid", "new"]]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 1}, {"_id": 3}, {"_id": 5}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {nin: ["status", ["paid"]]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 2}, {"_id": 4}, {"_id": 5}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {in: ["status", []]}}, expect: {result: []}}
+
+  - id: TC-DRV-CONF-QUERY-005
+    description: "exists tests presence (null is present); isNull matches null and missing."
+    covers: [Collection.Find, Filter.Exists, Filter.IsNull]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {exists: ["note", true]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 2}, {"_id": 5}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {exists: ["note", false]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 1}, {"_id": 3}, {"_id": 4}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {isNull: "note"}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 1}, {"_id": 2}, {"_id": 3}, {"_id": 4}]}}
+
+  - id: TC-DRV-CONF-QUERY-006
+    description: "and / or / not combinations."
+    covers: [Collection.Find, Filter.And, Filter.Or, Filter.Not]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {and: [{eq: ["status", "paid"]}, {gte: ["qty", 20]}]}}, match: subset, expect: {result: [{"_id": 3}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {or: [{eq: ["status", "cancelled"]}, {lt: ["qty", 1]}]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 2}, {"_id": 4}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {not: {eq: ["status", "paid"]}}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 2}, {"_id": 4}, {"_id": 5}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {and: [{or: [{eq: ["status", "paid"]}, {eq: ["status", "new"]}]}, {not: {eq: ["maker.city", "Rome"]}}]}}, match: subset, expect: {result: [{"_id": 5}]}}
+
+  - id: TC-DRV-CONF-QUERY-007
+    description: "Nested paths and multikey equality on arrays."
+    covers: [Collection.Find, Filter.Eq]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {eq: ["maker.city", "Rome"]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 1}, {"_id": 3}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {eq: ["tags", "blue"]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 1}, {"_id": 2}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {eq: ["items.sku", "B"]}}, match: subset, expect: {result: [{"_id": 1}]}}
+
+  - id: TC-DRV-CONF-QUERY-008
+    description: "Array operators: contains, containsAny, containsAll, elemMatch."
+    covers: [Collection.Find, Filter.Contains, Filter.ContainsAny, Filter.ContainsAll, Filter.ElemMatch]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {contains: ["tags", "red"]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 1}, {"_id": 4}, {"_id": 5}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {containsAny: ["tags", ["green", "blue"]]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 1}, {"_id": 2}, {"_id": 4}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {containsAll: ["tags", ["red", "blue"]]}}, match: subset, expect: {result: [{"_id": 1}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {elemMatch: ["items", {and: [{eq: ["sku", "A"]}, {gt: ["qty", 2]}]}]}}, match: subset, expect: {result: [{"_id": 2}]}}
+
+  - id: TC-DRV-CONF-QUERY-009
+    description: "like (whole string, % and _) and regex (unanchored, Rust regex syntax)."
+    covers: [Collection.Find, Filter.Like, Filter.Regex]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {like: ["name", "Rome%"]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 1}, {"_id": 3}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {like: ["name", "_ilan ink"]}}, match: subset, expect: {result: [{"_id": 2}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {regex: ["name", "^(Milan|Turin) "]}, sort: ["_id"]}, match: subset, expect: {result: [{"_id": 2}, {"_id": 4}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {regex: ["name", "pap"]}}, match: subset, expect: {result: [{"_id": 3}]}}
+
+  - id: TC-DRV-CONF-QUERY-010
+    description: "Typed values in filters (datetime, decimal128) and Filter.Id through a query."
+    covers: [Collection.Find, Filter.Gte, Filter.Id]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {gte: ["created", {"$date": "2026-01-01T00:00:00.000Z"}]}}, match: subset, expect: {result: [{"_id": 3}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {eq: ["price", {"$decimal": "2.50"}]}}, match: subset, expect: {result: [{"_id": 3}]}}
+      - {object: collection, collection: products, name: find, args: {filter: {id: 4}}, expect: {result: [{"_id": 4, "name": "Turin clip", "price": 0.5, "qty": 100, "tags": ["green", "red"], "status": "cancelled"}]}}
+
+  - id: TC-DRV-CONF-QUERY-011
+    description: "The empty filter returns every document."
+    covers: [Collection.Find, Filter.Empty]
+    operations:
+      - {object: collection, collection: products, name: find, args: {filter: {}}, ordered: false, match: subset, expect: {result: [{"_id": 1}, {"_id": 2}, {"_id": 3}, {"_id": 4}, {"_id": 5}]}}

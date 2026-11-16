@@ -1,0 +1,831 @@
+{
+  "description": "TC-API-003 REST documents: extended JSON in and out, If-Match/ETag, keyset list pages, get-many, bulk.",
+  "steps": [
+    {
+      "body": {
+        "delivery": "token",
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      },
+      "capture": {
+        "token": "/body/sessionToken"
+      },
+      "expect": {
+        "body": {
+          "expiresAtUnixMs": "<unix-ms>",
+          "mustChangePassword": false,
+          "sessionToken": "${token}",
+          "user": "admin"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "POST",
+      "name": "login",
+      "path": "/api/v1/auth/login"
+    },
+    {
+      "body": {
+        "name": "shop"
+      },
+      "expect": {
+        "body": {
+          "created": true
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create database",
+      "path": "/api/v1/databases"
+    },
+    {
+      "body": {
+        "name": "items"
+      },
+      "expect": {
+        "body": {
+          "created": true
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create collection",
+      "path": "/api/v1/databases/shop/collections"
+    },
+    {
+      "body": {
+        "documents": [
+          {
+            "_id": 1,
+            "n": 1,
+            "price": {
+              "$decimal": "9.99"
+            },
+            "tag": "odd"
+          },
+          {
+            "_id": 2,
+            "n": 2,
+            "tag": "even"
+          },
+          {
+            "_id": 3,
+            "n": 3,
+            "tag": "odd"
+          },
+          {
+            "_id": 4,
+            "n": 4,
+            "tag": "even"
+          },
+          {
+            "_id": "five",
+            "n": 5,
+            "tag": "odd"
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "results": [
+            {
+              "id": 1,
+              "rev": "<rev>"
+            },
+            {
+              "id": 2,
+              "rev": "<rev>"
+            },
+            {
+              "id": 3,
+              "rev": "<rev>"
+            },
+            {
+              "id": 4,
+              "rev": "<rev>"
+            },
+            {
+              "id": "five",
+              "rev": "<rev>"
+            }
+          ],
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "insert",
+      "path": "/api/v1/databases/shop/collections/items/documents"
+    },
+    {
+      "body": {
+        "documents": [
+          {
+            "_id": 1
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1005,
+            "details": {},
+            "message": "_id already exists in items",
+            "name": "DuplicateKey",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 409
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "duplicate id is 409",
+      "path": "/api/v1/databases/shop/collections/items/documents"
+    },
+    {
+      "body": {
+        "documents": [
+          {
+            "_id": 9,
+            "d": {
+              "$date": "not a date"
+            }
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1001,
+            "details": {
+              "field": "documents"
+            },
+            "message": "invalid input at byte 0: invalid $date (expected YYYY-MM-DDTHH:MM:SS.mmmZ)",
+            "name": "InvalidArgument",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 400
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "malformed extended JSON",
+      "path": "/api/v1/databases/shop/collections/items/documents"
+    },
+    {
+      "capture": {
+        "page": "/body/continuationToken"
+      },
+      "expect": {
+        "body": {
+          "continuationToken": "${page}",
+          "documents": [
+            {
+              "_createdAt": "<datetime>",
+              "_id": "five",
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 5,
+              "tag": "odd"
+            },
+            {
+              "_createdAt": "<datetime>",
+              "_id": 4,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 4,
+              "tag": "even"
+            }
+          ],
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "list, first page",
+      "path": "/api/v1/databases/shop/collections/items/documents?filter=n%20%3E%3D%202&sort=-n&limit=2"
+    },
+    {
+      "expect": {
+        "body": {
+          "documents": [
+            {
+              "_createdAt": "<datetime>",
+              "_id": 3,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 3,
+              "tag": "odd"
+            },
+            {
+              "_createdAt": "<datetime>",
+              "_id": 2,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 2,
+              "tag": "even"
+            }
+          ],
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "list, next page",
+      "path": "/api/v1/databases/shop/collections/items/documents?filter=n%20%3E%3D%202&sort=-n&limit=2&continuationToken=${page}"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1010,
+            "details": {
+              "column": "6",
+              "expected": "operator, end of input",
+              "found": "\")\"",
+              "line": "1"
+            },
+            "message": "syntax error at line 1, column 6: found \")\", expected one of: operator, end of input",
+            "name": "QuerySyntaxError",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 400
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "list with an injected filter is refused",
+      "path": "/api/v1/databases/shop/collections/items/documents?filter=n%20%3E%201)%20UNION%20(FROM%20x"
+    },
+    {
+      "expect": {
+        "body": {
+          "document": {
+            "_createdAt": "<datetime>",
+            "_id": 1,
+            "_rev": "<rev>",
+            "_updatedAt": "<datetime>",
+            "n": 1,
+            "price": {
+              "$decimal": "9.99"
+            },
+            "tag": "odd"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "etag": "<etag>",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "get (numeric id from the path)",
+      "path": "/api/v1/databases/shop/collections/items/documents/1"
+    },
+    {
+      "expect": {
+        "body": {
+          "document": {
+            "_createdAt": "<datetime>",
+            "_id": "five",
+            "_rev": "<rev>",
+            "_updatedAt": "<datetime>",
+            "n": 5,
+            "tag": "odd"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "etag": "<etag>",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "get (string id from the path)",
+      "path": "/api/v1/databases/shop/collections/items/documents/five"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1030,
+            "details": {},
+            "message": "document not found",
+            "name": "NotFound",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 404
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "get missing is 404",
+      "path": "/api/v1/databases/shop/collections/items/documents/42"
+    },
+    {
+      "body": {
+        "n": 10,
+        "tag": "even"
+      },
+      "expect": {
+        "body": {
+          "inserted": false,
+          "matched": true,
+          "modified": false,
+          "result": {
+            "id": 1,
+            "rev": "<rev>"
+          },
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "etag": "<etag>",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "PUT",
+      "name": "replace",
+      "path": "/api/v1/databases/shop/collections/items/documents/1"
+    },
+    {
+      "body": {
+        "n": 11
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 2009,
+            "details": {
+              "field": "if_rev"
+            },
+            "message": "if_rev precondition failed: the document has another revision",
+            "name": "PreconditionFailed",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 412
+      },
+      "headers": {
+        "authorization": "Bearer ${token}",
+        "if-match": "\"0000000000000000\""
+      },
+      "method": "PUT",
+      "name": "replace with a stale If-Match is 412",
+      "path": "/api/v1/databases/shop/collections/items/documents/1"
+    },
+    {
+      "body": {
+        "n": 11
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1001,
+            "details": {
+              "header": "if-match"
+            },
+            "message": "malformed `if-match` header: expected one strong entity tag (\"<_rev>\")",
+            "name": "InvalidArgument",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 400
+      },
+      "headers": {
+        "authorization": "Bearer ${token}",
+        "if-match": "W/\"x\""
+      },
+      "method": "PUT",
+      "name": "replace with a weak If-Match is RGN-1001",
+      "path": "/api/v1/databases/shop/collections/items/documents/1"
+    },
+    {
+      "body": {
+        "n": 6
+      },
+      "expect": {
+        "body": {
+          "inserted": true,
+          "matched": false,
+          "modified": false,
+          "result": {
+            "id": 6,
+            "rev": "<rev>"
+          },
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "etag": "<etag>",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "PUT",
+      "name": "upsert through PUT",
+      "path": "/api/v1/databases/shop/collections/items/documents/6?upsert=true"
+    },
+    {
+      "body": {
+        "operations": [
+          {
+            "by": {
+              "kind": "literal",
+              "value": 5
+            },
+            "kind": "inc",
+            "path": [
+              "n"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "inserted": false,
+          "matched": true,
+          "modified": true,
+          "result": {
+            "id": 2,
+            "rev": "<rev>"
+          },
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "etag": "<etag>",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "PATCH",
+      "name": "update",
+      "path": "/api/v1/databases/shop/collections/items/documents/2"
+    },
+    {
+      "body": {
+        "operations": [
+          {
+            "kind": "nonsense"
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1010,
+            "details": {
+              "reason": "malformed structured query"
+            },
+            "message": "unknown variant `nonsense`, expected one of `set`, `unset`, `inc`, `mul`, `push`, `pull`, `add_to_set`, `pop`, `rename`, `min`, `max`, `current_date`, `replace` at line 1 column 19",
+            "name": "QuerySyntaxError",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 400
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "PATCH",
+      "name": "unknown update operator",
+      "path": "/api/v1/databases/shop/collections/items/documents/2"
+    },
+    {
+      "expect": {
+        "body": {
+          "deleted": true
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "DELETE",
+      "name": "delete",
+      "path": "/api/v1/databases/shop/collections/items/documents/3"
+    },
+    {
+      "expect": {
+        "body": {
+          "deleted": false
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "DELETE",
+      "name": "delete missing",
+      "path": "/api/v1/databases/shop/collections/items/documents/3"
+    },
+    {
+      "body": {
+        "ids": [
+          4,
+          42,
+          1
+        ]
+      },
+      "expect": {
+        "body": {
+          "documents": [
+            {
+              "_createdAt": "<datetime>",
+              "_id": 4,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 4,
+              "tag": "even"
+            },
+            {
+              "_createdAt": "<datetime>",
+              "_id": 1,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 10,
+              "tag": "even"
+            }
+          ]
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "get many",
+      "path": "/api/v1/databases/shop/collections/items/get-many"
+    },
+    {
+      "body": {
+        "operations": [
+          {
+            "document": {
+              "_id": 7,
+              "n": 7
+            },
+            "op": "insert"
+          },
+          {
+            "document": {
+              "_id": 1
+            },
+            "op": "insert"
+          },
+          {
+            "document": {
+              "_id": 4,
+              "n": 40
+            },
+            "id": 4,
+            "op": "replace"
+          },
+          {
+            "id": 2,
+            "op": "update",
+            "operations": [
+              {
+                "items": [
+                  {
+                    "path": [
+                      "seen"
+                    ],
+                    "value": {
+                      "kind": "literal",
+                      "value": true
+                    }
+                  }
+                ],
+                "kind": "set"
+              }
+            ]
+          },
+          {
+            "document": {
+              "_id": 8,
+              "n": 8
+            },
+            "op": "upsert"
+          },
+          {
+            "id": 7,
+            "op": "delete"
+          }
+        ],
+        "ordered": false
+      },
+      "expect": {
+        "body": {
+          "deleted": 1,
+          "errors": [
+            {
+              "error": {
+                "code": 1005,
+                "details": {},
+                "message": "_id already exists in items",
+                "name": "DuplicateKey",
+                "retryable": false,
+                "traceId": "<trace-id>"
+              },
+              "index": 1
+            }
+          ],
+          "inserted": 2,
+          "matched": 2,
+          "modified": 2,
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "bulk",
+      "path": "/api/v1/databases/shop/collections/items/bulk"
+    }
+  ]
+}

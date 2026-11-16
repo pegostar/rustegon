@@ -1,0 +1,52 @@
+description: "findById (DocumentService.Get): hits, misses, id types."
+tests:
+  - id: TC-DRV-CONF-CRUD-011
+    description: "findById returns the document, or null when no document has the id (not an error)."
+    covers: [Collection.FindById]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "a": "x"}]}
+    operations:
+      - object: collection
+        name: findById
+        args: {id: 1}
+        expect: {result: {"_id": 1, "a": "x"}}
+      - object: collection
+        name: findById
+        args: {id: 2}
+        expect: {result: null}
+
+  - id: TC-DRV-CONF-CRUD-012
+    description: "Ids of different types (int64, string, objectId, uuid) are different keys."
+    covers: [Collection.FindById]
+    setup:
+      collections: [{name: items}]
+      data:
+        items:
+          - {"_id": 1, "k": "int"}
+          - {"_id": "1", "k": "string"}
+          - {"_id": {"$oid": "65a1b2c3d4e5f60718293a4b"}, "k": "oid"}
+          - {"_id": {"$uuid": "01234567-89ab-cdef-0123-456789abcdef"}, "k": "uuid"}
+    operations:
+      - {object: collection, name: findById, args: {id: "1"}, expect: {result: {"_id": "1", "k": "string"}}}
+      - {object: collection, name: findById, args: {id: 1}, expect: {result: {"_id": 1, "k": "int"}}}
+      - {object: collection, name: findById, args: {id: {"$oid": "65a1b2c3d4e5f60718293a4b"}}, expect: {result: {"_id": {"$oid": "65a1b2c3d4e5f60718293a4b"}, "k": "oid"}}}
+      - {object: collection, name: findById, args: {id: {"$uuid": "01234567-89ab-cdef-0123-456789abcdef"}}, expect: {result: {"_id": {"$uuid": "01234567-89ab-cdef-0123-456789abcdef"}, "k": "uuid"}}}
+
+  - id: TC-DRV-CONF-CRUD-013
+    description: "Documents carry the server-maintained _rev, _createdAt and _updatedAt fields."
+    covers: [Collection.FindById]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}]}
+    operations:
+      - object: collection
+        name: findById
+        args: {id: 1}
+        match: subset
+        expect:
+          result:
+            "_id": 1
+            "_rev": {"$$type": "string"}
+            "_createdAt": {"$$type": "datetime"}
+            "_updatedAt": {"$$type": "datetime"}

@@ -1,0 +1,174 @@
+// Page canvas: the animated aurora mesh behind every surface, typography and focus (ADR-033).
+
+@keyframes rg-aurora-a {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: translate3d(4vmax, -3vmax, 0) rotate(8deg) scale(1.08);
+  }
+
+  100% {
+    transform: translate3d(-3vmax, 4vmax, 0) rotate(-6deg) scale(1.02);
+  }
+}
+
+@keyframes rg-aurora-b {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+
+  100% {
+    transform: translate3d(-5vmax, -4vmax, 0) rotate(14deg);
+  }
+}
+
+// Transform only: text never passes through a semi-transparent frame, so contrast (and an axe
+// run during the entrance) holds at every frame.
+@keyframes rg-rise {
+  from {
+    transform: translateY(6px);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+html {
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizelegibility;
+}
+
+// Two drifting layers of soft radial blobs = the "mesh". Fixed, behind everything, decorative.
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  inset: -25vmax;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
+}
+
+body::before {
+  background:
+    radial-gradient(38vmax 34vmax at 18% 22%, var(--rg-aurora-1), transparent 70%),
+    radial-gradient(34vmax 30vmax at 82% 18%, var(--rg-aurora-2), transparent 70%),
+    radial-gradient(42vmax 36vmax at 68% 82%, var(--rg-aurora-3), transparent 70%);
+  animation: rg-aurora-a 36s var(--rg-ease) infinite alternate;
+}
+
+body::after {
+  background:
+    radial-gradient(26vmax 22vmax at 12% 86%, var(--rg-aurora-4), transparent 70%),
+    radial-gradient(30vmax 26vmax at 46% 48%, var(--rg-aurora-3), transparent 72%),
+    radial-gradient(22vmax 20vmax at 92% 62%, var(--rg-aurora-2), transparent 70%);
+  opacity: 0.7;
+  animation: rg-aurora-b 52s ease-in-out infinite alternate;
+}
+
+h1,
+.h1 {
+  font-size: clamp(1.5rem, 1.2rem + 1vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h2,
+.h2 {
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+}
+
+h3,
+.h3 {
+  font-size: 1.05rem;
+}
+
+// Gradient text for page titles; color stays as the fallback and for forced colors.
+.rg-gradient-text,
+main h1 {
+  color: var(--rg-text);
+}
+
+@supports (background-clip: text) {
+  .rg-gradient-text,
+  main h1 {
+    background: var(--rg-heading-gradient);
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+a {
+  text-underline-offset: 0.18em;
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--bs-font-monospace);
+}
+
+::selection {
+  background: rgb(124 58 237 / 28%);
+}
+
+// One focus indicator for everything: a two-tone ring visible on glass, aurora and gradients.
+:focus-visible {
+  outline: 2px solid var(--rg-focus);
+  outline-offset: 2px;
+}
+
+.btn:focus-visible,
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus-visible,
+.nav-link:focus-visible,
+.page-link:focus-visible,
+.dropdown-item:focus-visible,
+.btn-close:focus-visible {
+  outline: 2px solid var(--rg-focus);
+  outline-offset: 2px;
+  box-shadow: var(--rg-focus-ring);
+}
+
+// Thin translucent scrollbars that match the glass.
+* {
+  scrollbar-color: rgb(127 127 160 / 45%) transparent;
+  scrollbar-width: thin;
+}
+
+// Content entering the page rises softly (route changes, panels).
+.rg-enter {
+  animation: rg-rise var(--rg-dur-slow) var(--rg-ease) both;
+}
+
+// Route changes (withViewTransitions): only the main area cross-fades and rises; the page
+// chrome and the aurora stay put.
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(rg-main) {
+  animation: 140ms var(--rg-ease) both rg-fade-out;
+}
+
+::view-transition-new(rg-main) {
+  animation: 320ms var(--rg-ease) both rg-rise;
+}
+
+@keyframes rg-fade-out {
+  to {
+    opacity: 0;
+  }
+}

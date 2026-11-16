@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SPDX-License-Identifier: Apache-2.0
+  Windows turnkey installer (FR-INS-001, windows.md §1/§10, ADR-036, PD-200, PD-207…PD-209),
+  built by `cargo xtask dist` with its packages flag with the WiX 5 .NET tool pinned in
+  dotnet-tools.json and the WixToolset.UI.wixext and WixToolset.Util.wixext extensions of the
+  same version. Preprocessor
+  variables:
+    Version     the dev version (`<semver>-dev.<commits>+g<sha>`, PD-154), display only
+    MsiVersion  its numeric `major.minor.patch.commits` mapping (PD-202)
+    StageDir    directory holding the built executables, generated text files and License.rtf
+
+  Installs the binaries (system PATH), the Windows service `Rustegon` (virtual account
+  NT SERVICE\Rustegon, automatic start, PD-207) and C:\ProgramData\Rustegon with an explicit,
+  protected ACL: SYSTEM and Administrators full control, the service account modify (PD-208).
+  On the first install only (no C:\ProgramData\Rustegon\rustegon.toml yet) it runs
+  `rustegon init - -turnkey` (ADR-036: plain text on 127.0.0.1:7700/7780, admin/admin to be
+  changed at first login), then starts the service. Upgrades keep the configuration and data
+  and restart the service; uninstall stops and removes the service and the program files and
+  keeps C:\ProgramData\Rustegon (windows.md §5, data-loss rule).
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <!-- The UpgradeCode never changes: every Rustegon MSI replaces the installed one. -->
+  <Package Name="Rustegon" Manufacturer="The Rustegon Authors" Version="$(var.MsiVersion)"
+           UpgradeCode="A09780E7-FBB6-4E78-8A29-BA350ACF46C1" Scope="perMachine"
+           Language="1033" InstallerVersion="500">
+    <SummaryInformation Description="Rustegon $(var.Version)" />
+    <!-- Dev builds of one semver share major.minor.patch (MSI ignores the fourth field), so
+         same-version upgrades must be allowed for each build to replace the previous one. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="A newer version of Rustegon is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Property Id="ARPCOMMENTS" Value="Rustegon $(var.Version) (unsigned development build)" />
+
+    <!-- An existing configuration means an initialized node: never run init again (PD-209). -->
+    <Property Id="RUSTEGON_CONFIG_FOUND">
+      <DirectorySearch Id="RustegonConfigDir" Path="[CommonAppDataFolder]Rustegon" Depth="0">
+        <FileSearch Name="rustegon.toml" />
+      </DirectorySearch>
+    </Property>
+
+    <!-- License, progress and an exit dialog with the first step (FR-INS-001). -->
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.StageDir)\License.rtf" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALTEXT"
+              Value="Rustegon is running. Open the console at http://localhost:7780/ui/ (Start menu: Rustegon Console), sign in as admin / admin, you will be asked to change the password." />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="Rustegon">
+        <Directory Id="BINFOLDER" Name="bin" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DATAROOT" Name="Rustegon">
+        <Directory Id="DATADIR" Name="data" />
+        <Directory Id="LOGDIR" Name="logs" />
+      </Directory>
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+    <StandardDirectory Id="System64Folder" />
+
+    <Feature Id="Main" Title="Rustegon">
+      <Component Directory="BINFOLDER">
+        <File Source="$(var.StageDir)\rustegond.exe" KeyPath="yes" />
+        <!-- PD-207: the virtual service account, least privilege; it exists from service
+             creation on and needs no password. -->
+        <ServiceInstall Name="Rustegon" DisplayName="Rustegon Database"
+                        Description="Rustegon distributed ACID document database (single node)."
+                        Type="ownProcess" Start="auto" ErrorControl="normal" Vital="yes"
+                        Account="NT SERVICE\Rustegon"
+                        Arguments="--service --config &quot;[DATAROOT]rustegon.toml&quot;">
+          <!-- windows.md §1: restart after 1 min twice, then none (util: the MSI's own
+               MsiServiceConfigFailureActions is documented as unreliable). -->
+          <util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart"
+                              ThirdFailureActionType="none" RestartServiceDelayInSeconds="60"
+                              ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <!-- Started on install and upgrade (the old product's removal stopped it), stopped on
+             upgrade and uninstall, removed on uninstall. -->
+        <ServiceControl Id="RustegonService" Name="Rustegon" Start="install" Stop="both"
+                        Remove="uninstall" Wait="yes" />
+      </Component>
+      <Component Directory="BINFOLDER">
+        <File Source="$(var.StageDir)\rustegon.exe" />
+        <!-- Appended to the system PATH, removed again on uninstall. -->
+        <Environment Id="PathBin" Name="PATH" Value="[BINFOLDER]" Part="last" Action="set"
+                     System="yes" Permanent="no" />
+      </Component>
+      <Component Directory="INSTALLFOLDER">
+        <File Source="$(var.StageDir)\README.md" />
+      </Component>
+      <Component Directory="INSTALLFOLDER">
+        <File Source="$(var.StageDir)\LICENSE" />
+      </Component>
+      <Component Directory="INSTALLFOLDER">
+        <File Source="$(var.StageDir)\NOTICE" />
+      </Component>
+      <Component Directory="INSTALLFOLDER">
+        <File Source="$(var.StageDir)\THIRD-PARTY-LICENSES.txt" />
+      </Component>
+      <Component Directory="INSTALLFOLDER">
+        <File Source="$(var.StageDir)\rustegon.toml" Name="rustegon.toml.sample" />
+      </Component>
+
+      <!-- PD-208: configuration, data and logs under C:\ProgramData\Rustegon with a protected
+           ACL (no inheritance from ProgramData, whose Users entries would expose them):
+           SYSTEM and Administrators full control, NT SERVICE\Rustegon (its SID, computed from
+           the service name) modify. Permanent: uninstall never removes them. -->
+      <Component Id="DataRoot" Directory="DATAROOT" Permanent="yes"
+                 Guid="5C2E8C41-7E51-4E4E-9B9A-6B0E1F3A2D10">
+        <CreateFolder>
+          <PermissionEx Sddl="D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1301bf;;;S-1-5-80-2543126537-3050816147-2030542042-337991617-3549228777)" />
+        </CreateFolder>
+      </Component>
+      <Component Id="DataDir" Directory="DATADIR" Permanent="yes"
+                 Guid="0E7B5E7A-3C2B-4C55-8C0F-2F7C9B1D4E21">
+        <CreateFolder />
+      </Component>
+      <Component Id="LogDir" Directory="LOGDIR" Permanent="yes"
+                 Guid="9A1F3D62-5B4C-4A8E-9E3B-7C2D1E0F6A32">
+        <CreateFolder />
+      </Component>
+
+      <!-- Start menu: "Rustegon Console" opens the console in the default browser. -->
+      <!-- The component lives in INSTALLFOLDER (a per-machine key path, ICE38); only the
+           .url file goes to the all-users Start menu. -->
+      <Component Id="ConsoleShortcut" Directory="INSTALLFOLDER"
+                 Guid="3D8C2B19-6E4F-4B7A-A1C5-8F9E0D2B3C43">
+        <IniFile Id="ConsoleUrl" Action="addLine" Name="Rustegon Console.url"
+                 Directory="ProgramMenuFolder"
+                 Section="InternetShortcut" Key="URL" Value="http://localhost:7780/ui/" />
+        <RegistryValue Root="HKLM" Key="Software\Rustegon" Name="ConsoleShortcut" Type="integer"
+                       Value="1" KeyPath="yes" />
+      </Component>
+    </Feature>
+
+    <!-- PD-209, ADR-036: the turnkey initialization, first install only, as LocalSystem
+         after the files and the ProgramData ACL exist and before the service starts. A failure
+         fails the installation, which rolls back; the rollback action removes the
+         configuration init wrote (init writes nothing else in this layout: the store is
+         created by the service). -->
+    <CustomAction Id="TurnkeyInit" Directory="BINFOLDER" Execute="deferred" Impersonate="no"
+                  Return="check"
+                  ExeCommand="&quot;[BINFOLDER]rustegon.exe&quot; init --turnkey --data-dir &quot;[DATAROOT]data&quot; --config &quot;[DATAROOT]rustegon.toml&quot; --log-dir &quot;[DATAROOT]logs&quot; --grpc-port 7700 --http-port 7780" />
+    <CustomAction Id="TurnkeyInitRollback" Directory="System64Folder" Execute="rollback"
+                  Impersonate="no" Return="ignore"
+                  ExeCommand="&quot;[System64Folder]cmd.exe&quot; /d /c del /f /q &quot;[DATAROOT]rustegon.toml&quot;" />
+    <InstallExecuteSequence>
+      <Custom Action="TurnkeyInitRollback" Before="TurnkeyInit"
+              Condition="NOT Installed AND NOT RUSTEGON_CONFIG_FOUND AND NOT REMOVE" />
+      <Custom Action="TurnkeyInit" Before="StartServices"
+              Condition="NOT Installed AND NOT RUSTEGON_CONFIG_FOUND AND NOT REMOVE" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

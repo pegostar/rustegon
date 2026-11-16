@@ -1,0 +1,443 @@
+{
+  "description": "TC-API-003 REST queries: first batch + cursor, next, kill, explain.",
+  "steps": [
+    {
+      "body": {
+        "delivery": "token",
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      },
+      "capture": {
+        "token": "/body/sessionToken"
+      },
+      "expect": {
+        "body": {
+          "expiresAtUnixMs": "<unix-ms>",
+          "mustChangePassword": false,
+          "sessionToken": "${token}",
+          "user": "admin"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "POST",
+      "name": "login",
+      "path": "/api/v1/auth/login"
+    },
+    {
+      "body": {
+        "name": "shop"
+      },
+      "expect": {
+        "body": {
+          "created": true
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create database",
+      "path": "/api/v1/databases"
+    },
+    {
+      "body": {
+        "name": "items"
+      },
+      "expect": {
+        "body": {
+          "created": true
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create collection",
+      "path": "/api/v1/databases/shop/collections"
+    },
+    {
+      "body": {
+        "rgql": "INSERT INTO items VALUES {_id: 1, n: 1, tag: 'odd'}, {_id: 2, n: 2, tag: 'even'}, {_id: 3, n: 3, tag: 'odd'}, {_id: 4, n: 4, tag: 'even'}, {_id: 5, n: 5, tag: 'odd'}"
+      },
+      "expect": {
+        "body": {
+          "rows": [],
+          "stats": {
+            "docsAffected": 5,
+            "docsReturned": 0,
+            "executionTimeUs": "<us>"
+          },
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "insert by statement",
+      "path": "/api/v1/databases/shop/query"
+    },
+    {
+      "body": {
+        "options": {
+          "batchSize": 2
+        },
+        "params": {
+          "min": 2
+        },
+        "rgql": "FROM items WHERE n >= $min ORDER BY _id"
+      },
+      "capture": {
+        "cursor": "/body/cursorId"
+      },
+      "expect": {
+        "body": {
+          "continuationToken": "<continuation-token>",
+          "cursorId": "${cursor}",
+          "rows": [
+            {
+              "_createdAt": "<datetime>",
+              "_id": 2,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 2,
+              "tag": "even"
+            },
+            {
+              "_createdAt": "<datetime>",
+              "_id": 3,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 3,
+              "tag": "odd"
+            }
+          ],
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "query with a parameter (first batch, cursor kept)",
+      "path": "/api/v1/databases/shop/query"
+    },
+    {
+      "expect": {
+        "body": {
+          "continuationToken": "<continuation-token>",
+          "cursorId": "${cursor}",
+          "rows": [
+            {
+              "_createdAt": "<datetime>",
+              "_id": 4,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 4,
+              "tag": "even"
+            }
+          ],
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "next batch",
+      "path": "/api/v1/cursors/${cursor}/next?batchSize=1"
+    },
+    {
+      "expect": {
+        "body": {
+          "killed": true
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "DELETE",
+      "name": "kill cursor",
+      "path": "/api/v1/cursors/${cursor}"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1030,
+            "details": {
+              "kind": "cursor"
+            },
+            "message": "cursor not found",
+            "name": "NotFound",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 404
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "next after kill",
+      "path": "/api/v1/cursors/${cursor}/next"
+    },
+    {
+      "body": {
+        "ast": {
+          "from": {
+            "source": {
+              "kind": "collection",
+              "name": "items"
+            }
+          },
+          "kind": "query",
+          "order_by": [
+            {
+              "expr": {
+                "kind": "path",
+                "path": [
+                  "_id"
+                ]
+              }
+            }
+          ],
+          "where": {
+            "kind": "binary",
+            "left": {
+              "kind": "path",
+              "path": [
+                "tag"
+              ]
+            },
+            "op": "eq",
+            "right": {
+              "kind": "literal",
+              "value": "even"
+            }
+          }
+        }
+      },
+      "expect": {
+        "body": {
+          "rows": [
+            {
+              "_createdAt": "<datetime>",
+              "_id": 2,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 2,
+              "tag": "even"
+            },
+            {
+              "_createdAt": "<datetime>",
+              "_id": 4,
+              "_rev": "<rev>",
+              "_updatedAt": "<datetime>",
+              "n": 4,
+              "tag": "even"
+            }
+          ],
+          "stats": {
+            "docsAffected": 0,
+            "docsReturned": 2,
+            "executionTimeUs": "<us>"
+          },
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "structured statement (AST JSON)",
+      "path": "/api/v1/databases/shop/query"
+    },
+    {
+      "body": {
+        "rgql": "FROM items WHERE tag = 'odd'"
+      },
+      "expect": {
+        "body": {
+          "plan": {
+            "analyze": false,
+            "est_cost": null,
+            "execution": null,
+            "explain_format": 1,
+            "indexes_used": [],
+            "logical": "Filter (tag = 'odd')\n  Scan shop.items",
+            "physical": "Filter (tag = 'odd')\n  CollectionScan shop.items",
+            "plan": {
+              "children": [
+                {
+                  "children": [],
+                  "detail": "CollectionScan shop.items",
+                  "est_rows": null,
+                  "index": null,
+                  "op": "CollectionScan"
+                }
+              ],
+              "detail": "(tag = 'odd')",
+              "est_rows": null,
+              "index": null,
+              "op": "Filter"
+            },
+            "statement": "query"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "explain",
+      "path": "/api/v1/databases/shop/explain"
+    },
+    {
+      "body": {
+        "rgql": "FROM items WHERE"
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1010,
+            "details": {
+              "column": "17",
+              "expected": "expression",
+              "found": "end of input",
+              "line": "1"
+            },
+            "message": "syntax error at line 1, column 17: found end of input, expected expression",
+            "name": "QuerySyntaxError",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 400
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "syntax error",
+      "path": "/api/v1/databases/shop/query"
+    },
+    {
+      "body": "FROM items",
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1001,
+            "details": {
+              "body": "data"
+            },
+            "message": "request body does not match the expected schema",
+            "name": "InvalidArgument",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 400
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "malformed JSON body",
+      "path": "/api/v1/databases/shop/query"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Go stubs of the public API (protocol.md §2), generated into internal/pb: the driver's own types
+# are the API, the stubs stay internal (as in the .NET and Java drivers). Run scripts/generate.sh.
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/rustegon/rustegon/drivers/go/internal/pb
+plugins:
+  - local: protoc-gen-go
+    out: internal/pb
+    opt: paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: internal/pb
+    opt: paths=source_relative,require_unimplemented_servers=false

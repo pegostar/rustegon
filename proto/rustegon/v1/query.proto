@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+syntax = "proto3";
+
+package rustegon.v1;
+
+import "rustegon/v1/common.proto";
+import "rustegon/v1/query_ast.proto";
+
+// RGQL execution (protocol.md §2, §3, §5.5, §6).
+//
+// Execute streams ResultBatch messages (each wrapped in ExecuteResponse, PD-045) until the
+// result is exhausted; HTTP/2 flow control throttles the server. If `options.max_batches` is
+// set, the stream ends after that many batches and the last one carries `cursor_id`; the client
+// continues with GetMore (one batch per call) and releases the cursor with KillCursor or by
+// reading to the end. Cancelling the Execute stream kills its cursor.
+service QueryService {
+  // Runs a statement (RGQL text or structured AST); server-streaming result batches.
+  rpc Execute(ExecuteRequest) returns (stream ExecuteResponse);
+  // Next batch of an open cursor.
+  rpc GetMore(GetMoreRequest) returns (GetMoreResponse);
+  // Closes an open cursor.
+  rpc KillCursor(KillCursorRequest) returns (KillCursorResponse);
+  // Query plan (optionally executed, `EXPLAIN ANALYZE`).
+  rpc Explain(ExplainRequest) returns (ExplainResponse);
+}
+
+// Execution options.
+message ExecOptions {
+  // Preferred documents per batch (server caps it).
+  optional uint32 batch_size = 1;
+  // Server-side time limit; the gRPC deadline also applies (protocol.md §5.2).
+  optional uint64 max_time_ms = 2;
+  // Read consistency outside transactions.
+  ReadConsistency consistency = 3;
+  // Allow sorts/aggregations to spill to disk.
+  bool allow_disk_use = 4;
+  // Stop the Execute stream after this many batches and leave a cursor open (GetMore).
+  optional uint32 max_batches = 5;
+  // Keyset continuation token from a previous ResultBatch (stateless paging).
+  optional bytes continuation_token = 6;
+  // Write concern for data-modifying statements outside transactions.
+  WriteConcern write_concern = 7;
+}
+
+// Request of QueryService.Execute.
+message ExecuteRequest {
+  // Default database for unqualified names.
+  string database = 1;
+  // The statement.
+  oneof query {
+    // RGQL text.
+    string rgql = 2;
+    // Structured AST (query_ast.proto; `QueryAst` in protocol.md §3).
+    AstStatement ast = 3;
+  }
+  // Parameters: `$name` by name, `$1` by its decimal position ("1").
+  map<string, Value> params = 4;
+  // Options.
+  ExecOptions options = 5;
+  // Transaction to run in (also accepted as `rgn-txn-id` metadata).
+  optional string txn_id = 6;
+}
+
+// Execution statistics, sent on the last batch.
+message QueryStats {
+  // Documents read from storage.
+  uint64 docs_examined = 1;
+  // Index entries read.
+  uint64 keys_examined = 2;
+  // Documents returned.
+  uint64 docs_returned = 3;
+  // Documents inserted, updated or deleted.
+  uint64 docs_affected = 4;
+  // Server execution time.
+  uint64 execution_time_us = 5;
+  // Indexes used by the plan.
+  repeated string indexes_used = 6;
+}
+
+// Staleness of an asynchronously maintained index (map-reduce, vector, full-text) used by the
+// query.
+message IndexStaleness {
+  // Index name.
+  string index = 1;
+  // Lag behind the read timestamp.
+  uint64 lag_ms = 2;
+}
+
+// A batch of results (protocol.md §3).
+message ResultBatch {
+  // Result documents (projections and scalar results are documents too).
+  repeated Document docs = 1;
+  // Documents loaded by INCLUDE, keyed by document key.
+  map<string, Document> includes = 2;
+  // Present when more data can be fetched with GetMore.
+  optional string cursor_id = 3;
+  // Keyset pagination token for a stateless follow-up Execute.
+  optional bytes continuation_token = 4;
+  // Statistics; set on the last batch only.
+  QueryStats stats = 5;
+  // Warnings.
+  repeated Warning warnings = 6;
+  // Staleness of asynchronous indexes, if any was used.
+  optional IndexStaleness staleness = 7;
+}
+
+// Response of QueryService.Execute (one streamed batch).
+message ExecuteResponse {
+  // The batch.
+  ResultBatch batch = 1;
+}
+
+// Request of QueryService.GetMore.
+message GetMoreRequest {
+  // Cursor from a previous batch.
+  string cursor_id = 1;
+  // Preferred documents in this batch.
+  optional uint32 batch_size = 2;
+}
+
+// Response of QueryService.GetMore.
+message GetMoreResponse {
+  // The batch; `cursor_id` is absent once the cursor is exhausted (and then closed).
+  ResultBatch batch = 1;
+}
+
+// Request of QueryService.KillCursor.
+message KillCursorRequest {
+  // Cursor to close.
+  string cursor_id = 1;
+}
+
+// Response of QueryService.KillCursor.
+message KillCursorResponse {
+  // False if the cursor was already closed or unknown (not an error: kill is idempotent).
+  bool killed = 1;
+}
+
+// Request of QueryService.Explain.
+message ExplainRequest {
+  // Default database for unqualified names.
+  string database = 1;
+  // The statement.
+  oneof query {
+    // RGQL text.
+    string rgql = 2;
+    // Structured AST.
+    AstStatement ast = 3;
+  }
+  // Parameters.
+  map<string, Value> params = 4;
+  // Options.
+  ExecOptions options = 5;
+  // Execute the plan and report runtime statistics (`EXPLAIN ANALYZE`).
+  bool analyze = 6;
+  // Transaction to run in.
+  optional string txn_id = 7;
+}
+
+// Response of QueryService.Explain.
+message ExplainResponse {
+  // The plan as JSON text (query-language.md EXPLAIN output).
+  string plan_json = 1;
+}

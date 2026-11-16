@@ -1,0 +1,300 @@
+# Rustegon error code catalog (source of truth: docs/specifications/protocol.md §7).
+# Generates rustegon_common::ErrorCode (build script) and, later, the C#/Java driver enums.
+# APPEND-ONLY: codes, names and meanings never change or disappear (protocol.md §7, §9).
+#
+# Fields: code, name, aliases (optional), internal (optional, never returned to clients),
+# grpc (google.rpc.Code name), http (status), retryable ("no" | "yes" | "conditional"),
+# retry_note (optional qualifier, e.g. "other node").
+version: 1
+codes:
+  - code: 1001
+    name: InvalidArgument
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1002
+    name: DocumentTooLarge
+    grpc: INVALID_ARGUMENT
+    http: 413
+    retryable: "no"
+  - code: 1003
+    name: NestingTooDeep
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1004
+    name: InvalidFieldName
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1005
+    name: DuplicateKey
+    grpc: ALREADY_EXISTS
+    http: 409
+    retryable: "no"
+  - code: 1006
+    name: SchemaValidationFailed
+    grpc: INVALID_ARGUMENT
+    http: 422
+    retryable: "no"
+  - code: 1007
+    name: PartitionTooLarge
+    grpc: FAILED_PRECONDITION
+    http: 409
+    retryable: "no"
+  - code: 1008
+    name: IndexKeyTooLarge
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1009
+    name: CounterOverflow
+    grpc: OUT_OF_RANGE
+    http: 422
+    retryable: "no"
+  - code: 1010
+    name: QuerySyntaxError
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1011
+    name: QueryTypeError
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1012
+    name: UnknownFunction
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1013
+    name: QueryTooComplex
+    aliases: [ScanNotAllowed]
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1020
+    name: IndexAlreadyExists
+    grpc: ALREADY_EXISTS
+    http: 409
+    retryable: "no"
+  - code: 1021
+    name: IndexNotFound
+    grpc: NOT_FOUND
+    http: 404
+    retryable: "no"
+  - code: 1022
+    name: IndexBuildFailed
+    grpc: FAILED_PRECONDITION
+    http: 409
+    retryable: "no"
+  - code: 1023
+    name: IndexLimitExceeded
+    grpc: RESOURCE_EXHAUSTED
+    http: 409
+    retryable: "no"
+  - code: 1024
+    name: IndexStaleTimeout
+    grpc: DEADLINE_EXCEEDED
+    http: 504
+    retryable: "yes"
+  - code: 1025
+    name: MultikeyCompoundArrays
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1030
+    name: NotFound
+    grpc: NOT_FOUND
+    http: 404
+    retryable: "no"
+  - code: 1031
+    name: AlreadyExists
+    grpc: ALREADY_EXISTS
+    http: 409
+    retryable: "no"
+  - code: 1032
+    name: ResumeTokenExpired
+    grpc: OUT_OF_RANGE
+    http: 410
+    retryable: "no"
+  - code: 1033
+    name: SchemaChangeInProgress
+    grpc: ABORTED
+    http: 409
+    retryable: "yes"
+  - code: 1034
+    name: DescriptorVersionMismatch
+    internal: true
+    grpc: ABORTED
+    http: 409
+    retryable: "yes"
+  - code: 1040
+    name: InvalidVector
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 1041
+    name: InvalidGeometry
+    grpc: INVALID_ARGUMENT
+    http: 400
+    retryable: "no"
+  - code: 2001
+    name: TransactionConflict
+    grpc: ABORTED
+    http: 409
+    retryable: "yes"
+  - code: 2002
+    name: TransactionAborted
+    grpc: ABORTED
+    http: 409
+    retryable: "conditional"
+    retry_note: "per reason"
+  - code: 2003
+    name: TransactionTimeout
+    grpc: DEADLINE_EXCEEDED
+    http: 408
+    retryable: "no"
+  - code: 2004
+    name: TransactionTooLarge
+    grpc: RESOURCE_EXHAUSTED
+    http: 413
+    retryable: "no"
+  - code: 2005
+    name: DeadlockDetected
+    grpc: ABORTED
+    http: 409
+    retryable: "yes"
+  - code: 2006
+    name: CommitOutcomeUnknown
+    grpc: UNKNOWN
+    http: 500
+    retryable: "conditional"
+    retry_note: "special"
+  - code: 2007
+    name: ReadTimestampTooOld
+    grpc: ABORTED
+    http: 409
+    retryable: "yes"
+  - code: 2008
+    name: WriteTooOld
+    grpc: ABORTED
+    http: 409
+    retryable: "yes"
+  - code: 2009
+    name: PreconditionFailed
+    grpc: FAILED_PRECONDITION
+    http: 412
+    retryable: "no"
+  - code: 3001
+    name: NotLeaseholder
+    internal: true
+    grpc: UNAVAILABLE
+    http: 503
+    retryable: "yes"
+  - code: 3002
+    name: Unavailable
+    grpc: UNAVAILABLE
+    http: 503
+    retryable: "yes"
+  - code: 3003
+    name: RangeKeyMismatch
+    internal: true
+    grpc: UNAVAILABLE
+    http: 503
+    retryable: "yes"
+  - code: 3004
+    name: NodeDraining
+    grpc: UNAVAILABLE
+    http: 503
+    retryable: "yes"
+    retry_note: "other node"
+  - code: 3005
+    name: ClockOffsetExceeded
+    grpc: UNAVAILABLE
+    http: 503
+    retryable: "yes"
+    retry_note: "other node"
+  - code: 3006
+    name: WriteConcernTimeout
+    grpc: DEADLINE_EXCEEDED
+    http: 504
+    retryable: "no"
+    retry_note: "committed=true"
+  - code: 3007
+    name: StaleReadUnavailable
+    grpc: UNAVAILABLE
+    http: 503
+    retryable: "yes"
+  - code: 4001
+    name: Unauthenticated
+    grpc: UNAUTHENTICATED
+    http: 401
+    retryable: "no"
+  - code: 4002
+    name: PermissionDenied
+    grpc: PERMISSION_DENIED
+    http: 403
+    retryable: "no"
+  - code: 4003
+    name: RateLimited
+    grpc: RESOURCE_EXHAUSTED
+    http: 429
+    retryable: "yes"
+    retry_note: "after"
+  - code: 4004
+    name: TlsRequired
+    grpc: FAILED_PRECONDITION
+    http: 426
+    retryable: "no"
+  - code: 4005
+    name: SessionExpired
+    grpc: UNAUTHENTICATED
+    http: 401
+    retryable: "yes"
+    retry_note: "re-auth"
+  - code: 4006
+    name: KeyUnavailable
+    grpc: FAILED_PRECONDITION
+    http: 503
+    retryable: "no"
+  - code: 4007
+    name: AccountLocked
+    grpc: PERMISSION_DENIED
+    http: 423
+    retryable: "no"
+  - code: 5001
+    name: Internal
+    grpc: INTERNAL
+    http: 500
+    retryable: "no"
+  - code: 5002
+    name: StorageCorruption
+    grpc: DATA_LOSS
+    http: 500
+    retryable: "no"
+  - code: 5003
+    name: DiskFull
+    grpc: RESOURCE_EXHAUSTED
+    http: 507
+    retryable: "yes"
+  - code: 5004
+    name: ResourceExhausted
+    grpc: RESOURCE_EXHAUSTED
+    http: 503
+    retryable: "yes"
+  - code: 5005
+    name: Cancelled
+    grpc: CANCELLED
+    http: 499
+    retryable: "no"
+  - code: 5006
+    name: DeadlineExceeded
+    grpc: DEADLINE_EXCEEDED
+    http: 504
+    retryable: "no"
+  - code: 5007
+    name: VersionIncompatible
+    grpc: FAILED_PRECONDITION
+    http: 400
+    retryable: "no"

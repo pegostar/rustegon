@@ -1,0 +1,321 @@
+// Styles of the shared UI kit (src/app/shared); global so component style budgets stay small.
+
+rg-icon svg {
+  flex: none;
+}
+
+// rg-logo: copper facets with a warm glow (the "rust" accent of the brand).
+.rg-logo {
+  display: inline-flex;
+  flex: none;
+  filter: drop-shadow(0 4px 10px rgb(194 65 12 / 35%));
+
+  .f1 {
+    fill: var(--rg-rust-1);
+  }
+
+  .f2 {
+    fill: color-mix(in srgb, var(--rg-rust-1) 45%, var(--rg-rust-2));
+  }
+
+  .f3 {
+    fill: var(--rg-rust-2);
+  }
+
+  .f4 {
+    fill: var(--rg-rust-3);
+  }
+
+  .r {
+    fill: #fff;
+  }
+}
+
+// rg-code-block
+.rg-code-block {
+  display: block;
+  overflow: hidden;
+  border-radius: var(--rg-radius-lg);
+  background: var(--rg-glass-fill-strong);
+  border: 1px solid var(--rg-glass-edge);
+  box-shadow: inset 0 1px 0 var(--rg-glass-highlight);
+
+  .rg-code-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0.5rem 0.25rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rg-text-muted);
+    border-bottom: 1px solid var(--rg-hairline);
+  }
+
+  pre {
+    margin: 0;
+    padding: 1rem;
+    overflow: auto;
+    font-size: 0.85rem;
+    color: var(--rg-text);
+  }
+}
+
+// rg-data-grid
+.rg-grid {
+  overflow: hidden;
+  border-radius: var(--rg-radius-lg);
+
+  @include glass-surface;
+
+  &:focus-visible {
+    outline: 2px solid var(--rg-focus);
+    outline-offset: 2px;
+    box-shadow: var(--rg-focus-ring);
+  }
+}
+
+.rg-grid-row {
+  display: grid;
+  grid-template-columns: var(--rg-grid-cols);
+  align-items: center;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--rg-hairline);
+  cursor: default;
+  transition: background-color var(--rg-dur-fast) var(--rg-ease);
+
+  > div {
+    padding: 0 0.9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:not(.rg-grid-head):hover {
+    background: var(--rg-hover);
+  }
+
+  &.active {
+    background: var(--rg-accent-soft);
+    box-shadow: inset 3px 0 0 var(--rg-accent);
+  }
+}
+
+.rg-grid-head {
+  min-height: 2.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rg-text-muted);
+  background: var(--rg-accent-softer);
+}
+
+.rg-grid-empty {
+  grid-column: 1 / -1;
+  padding: 1rem 0.9rem !important;
+  color: var(--rg-text-muted);
+}
+
+// rg-empty-state
+.rg-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--rg-text-muted);
+
+  h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--rg-text);
+  }
+
+  p {
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  .rg-actions:empty {
+    display: none;
+  }
+}
+
+.rg-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-bottom: 0.25rem;
+  border-radius: 1.1rem;
+  color: var(--rg-on-accent);
+  background-image: var(--rg-gradient-primary);
+  box-shadow: var(--rg-glow);
+
+  svg {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+}
+
+// rg-error-panel
+.rg-error-panel {
+  display: flex;
+  gap: 0.9rem;
+  padding: 1rem 1.15rem;
+  color: var(--rg-text);
+  background-color: var(--rg-glass-fill-strong);
+  background-image: linear-gradient(90deg, var(--rg-danger-soft), transparent 70%);
+  border: 1px solid var(--rg-glass-edge);
+  border-left: 4px solid var(--rg-danger);
+  border-radius: var(--rg-radius-lg);
+  box-shadow: var(--rg-shadow-sm);
+  backdrop-filter: blur(var(--rg-blur)) saturate(var(--rg-saturate));
+
+  h2 {
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  p {
+    margin: 0 0 0.5rem;
+  }
+}
+
+.rg-error-icon {
+  color: var(--rg-danger);
+}
+
+.rg-error-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+
+  &:empty {
+    display: none;
+  }
+}
+
+// rg-skeleton
+@keyframes rg-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+rg-skeleton .line {
+  height: 1rem;
+  margin: 0.7rem 0;
+  border-radius: var(--rg-radius-pill);
+  background: linear-gradient(
+      90deg,
+      var(--rg-accent-softer) 25%,
+      var(--rg-accent-soft) 50%,
+      var(--rg-accent-softer) 75%
+    )
+    0 0 / 200% 100%;
+  animation: rg-shimmer 1.4s linear infinite;
+
+  &:nth-child(odd) {
+    width: 80%;
+  }
+}
+
+// rg-status-badge
+.rg-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--rg-text);
+  background: var(--rg-glass-fill-strong);
+  border: 1px solid var(--rg-hairline);
+  border-radius: var(--rg-radius-pill);
+
+  .rg-status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--rg-text-muted);
+  }
+
+  &.ok .rg-status-dot {
+    background: var(--rg-success);
+    box-shadow: 0 0 0 3px var(--rg-success-soft);
+  }
+
+  &.warn .rg-status-dot {
+    background: var(--rg-warning);
+    box-shadow: 0 0 0 3px var(--rg-warning-soft);
+  }
+
+  &.info .rg-status-dot {
+    background: var(--rg-accent);
+    box-shadow: 0 0 0 3px var(--rg-accent-soft);
+  }
+
+  &.error {
+    background-color: var(--rg-glass-fill-strong);
+    background-image: linear-gradient(var(--rg-danger-soft), var(--rg-danger-soft));
+    border-color: var(--rg-danger);
+
+    .rg-status-dot {
+      background: var(--rg-danger);
+    }
+  }
+}
+
+// rg-json-editor
+.rg-json-editor {
+  display: block;
+}
+
+.rg-json-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.rg-json-monaco,
+.rg-json-plain {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--rg-field-border);
+  border-radius: var(--rg-radius);
+}
+
+.rg-json-plain {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  font-family: var(--bs-font-monospace);
+  font-size: 0.875rem;
+  color: var(--rg-text);
+  background: var(--rg-field-bg);
+  resize: vertical;
+
+  &:focus-visible {
+    outline: 2px solid var(--rg-focus);
+    outline-offset: 2px;
+  }
+}
+
+.rg-json-monaco:focus-within {
+  outline: 2px solid var(--rg-focus);
+  outline-offset: 2px;
+}

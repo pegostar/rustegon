@@ -1,0 +1,255 @@
+<header class="rg-page-header">
+  <div class="rg-title">
+    <span class="rg-title-icon"><rg-icon name="indexes" [size]="22" /></span>
+    <h1 i18n="@@indexes.heading">Indexes</h1>
+  </div>
+  @if (selectedColl()) {
+    <div class="rg-actions">
+      <button class="btn btn-glass" type="button" (click)="indexes.reload()">
+        <rg-icon name="refresh" /><span i18n="@@indexes.refresh">Refresh</span>
+      </button>
+    </div>
+  }
+</header>
+
+<rg-skeleton [loading]="databases.isLoading()" [lines]="2">
+  @if (databases.error(); as e) {
+    <rg-error-panel [error]="e" (retry)="databases.reload()" />
+  } @else if (databases.value()?.length === 0) {
+    <rg-empty-state
+      class="rg-panel rg-empty-card rg-glide"
+      icon="indexes"
+      i18n-heading="@@indexes.noDatabases"
+      heading="No databases yet"
+      i18n-message="@@indexes.noDatabasesMessage"
+      message="Indexes belong to collections. Create a database and a collection first."
+    >
+      <a class="btn btn-primary" routerLink="/data" i18n="@@indexes.createDatabase"
+        >Create a database</a
+      >
+    </rg-empty-state>
+  } @else {
+    <div class="rg-stack rg-stagger">
+      <div class="rg-panel rg-scope">
+        <rg-field>
+          <label rgLabel i18n="@@indexes.database">Database</label>
+          <select rgControl (change)="select($any($event.target).value)">
+            @for (d of databases.value(); track d) {
+              <option [value]="d" [selected]="d === selectedDb()">{{ d }}</option>
+            }
+          </select>
+        </rg-field>
+        @if (collections.hasValue() && collections.value().length) {
+          <rg-field>
+            <label rgLabel i18n="@@indexes.collection">Collection</label>
+            <select rgControl (change)="select(selectedDb(), $any($event.target).value)">
+              @for (c of collections.value(); track c) {
+                <option [value]="c" [selected]="c === selectedColl()">{{ c }}</option>
+              }
+            </select>
+          </rg-field>
+        }
+        <span class="rg-spacer"></span>
+        @if (selectedColl() && canCreate() && !creating()) {
+          <button class="btn btn-primary" type="button" (click)="openCreate()">
+            <rg-icon name="add" /><span i18n="@@indexes.create">Create index</span>
+          </button>
+        }
+      </div>
+
+      @if (collections.error(); as e) {
+        <rg-error-panel [error]="e" (retry)="collections.reload()" />
+      } @else if (collections.value()?.length === 0) {
+        <rg-empty-state
+          class="rg-panel rg-empty-card rg-glide"
+          icon="folder"
+          i18n-heading="@@indexes.noCollections"
+          heading="No collections in this database"
+          i18n-message="@@indexes.noCollectionsMessage"
+          message="Create a collection to index its documents."
+        >
+          <a class="btn btn-primary" routerLink="/data" i18n="@@indexes.createCollection"
+            >Create a collection</a
+          >
+        </rg-empty-state>
+      }
+
+      @if (creating()) {
+        <form
+          class="rg-panel rg-ix-create rg-glide"
+          (submit)="$event.preventDefault(); create()"
+          novalidate
+          aria-labelledby="ix-create-h"
+        >
+          <div class="rg-panel-head">
+            <h2 id="ix-create-h">
+              <rg-icon name="add" [size]="20" /><span i18n="@@indexes.createHeading"
+                >New index on {{ selectedDb() }}.{{ selectedColl() }}</span
+              >
+            </h2>
+          </div>
+          <div class="rg-form-grid">
+            <rg-field>
+              <label rgLabel i18n="@@indexes.name">Name</label>
+              <input
+                rgControl
+                class="rg-mono"
+                name="name"
+                autocomplete="off"
+                [value]="form().name"
+                (input)="patch({ name: $any($event.target).value })"
+              />
+              @if (submitted() && nameError()) {
+                <rg-error>{{ nameError() }}</rg-error>
+              }
+            </rg-field>
+            <rg-field>
+              <label rgLabel i18n="@@indexes.fields">Fields</label>
+              <input
+                rgControl
+                class="rg-mono"
+                name="fields"
+                autocomplete="off"
+                [value]="form().fields"
+                (input)="patch({ fields: $any($event.target).value })"
+              />
+              <rg-hint i18n="@@indexes.fieldsHint">
+                Comma-separated paths, for example status, -createdAt (a minus sign means
+                descending).
+              </rg-hint>
+              @if (submitted() && fieldsError()) {
+                <rg-error>{{ fieldsError() }}</rg-error>
+              }
+            </rg-field>
+          </div>
+          <div class="rg-checks">
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="ix-unique"
+                [checked]="form().unique"
+                (change)="patch({ unique: $any($event.target).checked })"
+              />
+              <label class="form-check-label" for="ix-unique" i18n="@@indexes.unique">Unique</label>
+            </div>
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="ix-sparse"
+                [checked]="form().sparse"
+                (change)="patch({ sparse: $any($event.target).checked })"
+              />
+              <label class="form-check-label" for="ix-sparse" i18n="@@indexes.sparse"
+                >Sparse (skip documents without the fields)</label
+              >
+            </div>
+          </div>
+          <rg-field>
+            <label rgLabel i18n="@@indexes.partial"
+              >Partial filter (optional RGQL expression)</label
+            >
+            <input
+              rgControl
+              class="rg-mono"
+              name="partial"
+              autocomplete="off"
+              [value]="form().partial"
+              (input)="patch({ partial: $any($event.target).value })"
+            />
+          </rg-field>
+          @if (createError(); as e) {
+            <rg-error-panel class="d-block mb-3" [error]="e" />
+          }
+          <div class="rg-actions">
+            <button class="btn btn-primary" type="submit" [disabled]="busy()">
+              <rg-icon name="check" /><span i18n="@@indexes.submit">Create</span>
+            </button>
+            <button
+              class="btn btn-ghost"
+              type="button"
+              (click)="creating.set(false)"
+              i18n="@@indexes.cancel"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      }
+
+      @if (selectedColl()) {
+        <div class="rg-ix-layout" [class.rg-has-detail]="!!selected()">
+          <section class="rg-panel rg-embed" aria-labelledby="ix-list">
+            <div class="rg-panel-head">
+              <h2 id="ix-list">
+                <rg-icon name="indexes" [size]="20" /><span i18n="@@indexes.list"
+                  >Indexes of {{ selectedColl() }}</span
+                >
+              </h2>
+              @if (indexes.hasValue()) {
+                <span class="rg-count" aria-hidden="true">{{ indexes.value().length }}</span>
+              }
+            </div>
+            <rg-skeleton [loading]="indexes.isLoading()">
+              @if (indexes.error(); as e) {
+                <rg-error-panel [error]="e" (retry)="indexes.reload()" />
+              } @else if (indexes.value()?.length === 0) {
+                <rg-empty-state
+                  icon="indexes"
+                  i18n-heading="@@indexes.empty"
+                  heading="No secondary indexes"
+                  i18n-message="@@indexes.emptyMessage"
+                  message="Queries on this collection use the primary key or scan the collection."
+                />
+              } @else if (indexes.value(); as rows) {
+                <rg-data-grid
+                  [columns]="columns"
+                  [rows]="rows"
+                  [height]="fitGrid(rows.length, 240)"
+                  i18n-label="@@indexes.gridLabel"
+                  label="Indexes"
+                  (rowActivate)="selected.set($event.name)"
+                />
+              }
+            </rg-skeleton>
+          </section>
+
+          @if (selected(); as name) {
+            <section class="rg-panel rg-glide" aria-labelledby="ix-detail">
+              <div class="rg-panel-head">
+                <h2 id="ix-detail">
+                  <rg-icon name="key" [size]="20" /><span i18n="@@indexes.detail"
+                    >Index {{ name }}</span
+                  >
+                </h2>
+              </div>
+              <rg-skeleton [loading]="detail.isLoading()">
+                @if (detail.error(); as e) {
+                  <rg-error-panel [error]="e" (retry)="detail.reload()" />
+                } @else if (detail.value(); as d) {
+                  <rg-code-block language="JSON" [code]="d.definition | json" />
+                }
+              </rg-skeleton>
+              <div class="rg-actions mt-3">
+                @if (canDrop()) {
+                  <button class="btn btn-outline-danger" type="button" (click)="drop(name)">
+                    <rg-icon name="delete" /><span i18n="@@indexes.drop">Drop index</span>
+                  </button>
+                }
+                <button
+                  class="btn btn-ghost"
+                  type="button"
+                  (click)="selected.set(null)"
+                  i18n="@@indexes.close"
+                >
+                  Close
+                </button>
+              </div>
+            </section>
+          }
+        </div>
+      }
+    </div>
+  }
+</rg-skeleton>

@@ -1,0 +1,38 @@
+{
+  "environment": {
+    "arch": "x86_64",
+    "commit": "0b6df81",
+    "cpus": 24,
+    "date": "2026-11-03",
+    "env": "dev-win11-x64",
+    "notes": "Windows 11 Pro, NTFS, local SSD, 24 logical CPUs; dev machine, not REF-1N",
+    "os": "windows",
+    "release_build": true
+  },
+  "result": {
+    "bytes_per_second": 53300994.67365305,
+    "latency": {
+      "count": 200000,
+      "max": 2357.3,
+      "p50": 15.8,
+      "p95": 37.0,
+      "p99": 53.6,
+      "p999": 92.5
+    },
+    "load_seconds": 13.9926668,
+    "measured_seconds": 3.9173753,
+    "ops_per_second": 51054.59259928453,
+    "space_amplification": 0.9990305160654003,
+    "workload": {
+      "batch_size": 16,
+      "block_cache_size": 0,
+      "id": "BM-STO-01",
+      "keys": 1048576,
+      "kind": "point_get",
+      "ops": 200000,
+      "seed": 1,
+      "value_size": 1024
+    },
+    "write_amplification": null
+  }
+}

@@ -1,0 +1,16 @@
+services:
+  rustegon:
+    image: rustegon/rustegon:1
+    ports: ["7700:7700", "7780:7780"]
+    volumes: ["rustegon-data:/var/lib/rustegon"]
+    environment:
+      RUSTEGON_MODE: single-node
+      RUSTEGON_INITIAL_ADMIN_PASSWORD_FILE: /run/secrets/admin_password
+    secrets: [admin_password]
+    stop_grace_period: 90s
+    read_only: true
+    tmpfs: ["/tmp"]
+secrets:
+  admin_password: { file: ./admin_password.txt }
+volumes:
+  rustegon-data: {}

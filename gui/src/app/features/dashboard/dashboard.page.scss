@@ -1,0 +1,213 @@
+// S03 showpiece: glass hero, stat cards with glowing icon chips, a calm metrics state.
+.dash {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--rg-space) * 1.25);
+}
+
+// Hero: brand mark with a copper halo, gradient title, live status pill.
+.dash-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding: calc(var(--rg-space) * 1.75) calc(var(--rg-space) * 2);
+  overflow: hidden;
+  border-radius: var(--rg-radius-xl);
+  background-image:
+    radial-gradient(30rem 14rem at 0% 0%, var(--rg-accent-soft), transparent 70%),
+    radial-gradient(26rem 14rem at 100% 100%, var(--rg-info-soft), transparent 70%),
+    radial-gradient(18rem 10rem at 70% 0%, var(--rg-accent-softer), transparent 70%);
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.9rem, 1.4rem + 1.4vw, 2.6rem);
+    letter-spacing: -0.03em;
+  }
+}
+
+.dash-brand {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.dash-mark {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 4.75rem;
+  height: 4.75rem;
+  border-radius: 1.4rem;
+  background: radial-gradient(closest-side, rgb(245 158 11 / 22%), var(--rg-glass-fill-strong));
+  border: 1px solid var(--rg-glass-edge);
+  box-shadow:
+    inset 0 1px 0 var(--rg-glass-highlight),
+    0 12px 32px -10px rgb(194 65 12 / 50%);
+}
+
+.dash-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.5rem;
+
+  h2 {
+    margin: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rg-text-muted);
+  }
+
+  rg-skeleton {
+    min-width: 6rem;
+  }
+}
+
+// Stat cards: server (three values) and data (two), side by side when there is room.
+.dash-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(28rem, 100%), 1fr));
+  gap: calc(var(--rg-space) * 1.25);
+}
+
+.dash-card {
+  transition:
+    transform var(--rg-dur) var(--rg-ease),
+    box-shadow var(--rg-dur) var(--rg-ease);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 var(--rg-glass-highlight),
+      var(--rg-shadow-lg);
+  }
+
+  h3 {
+    margin: 0 0 1rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rg-text-muted);
+  }
+}
+
+.dash-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.dash-stat {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.1rem;
+  min-height: 4.5rem;
+  padding: 0.85rem 1rem 0.85rem 4.1rem;
+  border: 1px solid var(--rg-hairline);
+  border-radius: var(--rg-radius);
+  background: linear-gradient(135deg, var(--rg-accent-softer), transparent 80%);
+
+  .rg-page-icon {
+    position: absolute;
+    top: 50%;
+    left: 1rem;
+    transform: translateY(-50%);
+  }
+
+  dt {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rg-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+
+  // Values glow in the heading gradient (the solid color stays for forced colors).
+  @supports (background-clip: text) {
+    dd:not(:has(a)) {
+      background: var(--rg-heading-gradient);
+      background-clip: text;
+      color: transparent;
+    }
+  }
+
+  a {
+    color: var(--rg-accent-text);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.15em;
+  }
+}
+
+// Metrics: an honest empty state over a faint outline of the charts to come.
+.dash-metrics {
+  overflow: hidden;
+  padding-bottom: 0;
+
+  rg-empty-state {
+    padding-bottom: 0.5rem;
+  }
+}
+
+.dash-ghost {
+  display: block;
+  width: calc(100% + 2.5 * var(--rg-space));
+  height: 5.5rem;
+  margin: 0 calc(-1.25 * var(--rg-space));
+  opacity: 0.6;
+
+  .s1 {
+    stop-color: var(--rg-accent);
+  }
+
+  .s2 {
+    stop-color: var(--rg-accent-2);
+  }
+
+  .s3 {
+    stop-color: var(--rg-accent-3);
+  }
+
+  .f1 {
+    stop-color: var(--rg-accent);
+    stop-opacity: 0.2;
+  }
+
+  .f2 {
+    stop-color: var(--rg-accent);
+    stop-opacity: 0;
+  }
+
+  .area {
+    fill: url('#dash-ghost-fill');
+  }
+
+  .line {
+    fill: none;
+    stroke: url('#dash-ghost-stroke');
+    stroke-width: 2.5;
+    stroke-dasharray: 6 8;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+}

@@ -1,0 +1,7 @@
+JSON-Schema-Test-Suite (MIT, see LICENSE in this directory)
+Upstream: https://github.com/json-schema-org/JSON-Schema-Test-Suite
+Revision: 245a45abc90190c0bff04d97e6d2b541b4bb9f12 (2026-11-03)
+Files: tests/draft2020-12/{type,required,properties,additionalProperties,enum,const,minimum,
+maximum,exclusiveMinimum,exclusiveMaximum,minLength,maxLength,pattern,items,minItems,maxItems,
+uniqueItems,allOf,anyOf,oneOf,not,boolean_schema}.json, copied verbatim.
+Used by crates/rustegon-catalog/tests/json_schema_suite.rs (TC-SCH-002, AC-SCH-002).

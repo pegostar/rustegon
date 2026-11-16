@@ -1,0 +1,197 @@
+// Design tokens of the liquid glass identity (ADR-033). Components read only these custom
+// properties (never raw colors), so light/dark and the accessibility fallbacks switch in one
+// place. Contrast rule: every text token is ≥ 4.5:1 on the darkest/lightest composite of the
+// glass fills over the aurora. Worst case computed over the aurora blobs stacked two by two:
+// light canvas text 8.98, muted 4.85, accent 5.00; light glass fill (70 %) text 14.76, muted
+// 7.97, danger 5.35, success 5.89, warning 5.86, info 6.01; dark canvas ≥ 4.87 for every text
+// token. Status colors in light mode need a glass surface behind them (3.3–3.7 on bare canvas).
+
+:root,
+[data-bs-theme='light'] {
+  color-scheme: light;
+
+  // Surfaces
+  --rg-bg: #eef0fa;
+  --rg-text: #0f172a;
+  --rg-text-muted: #3b4558;
+  --rg-heading-gradient: linear-gradient(100deg, #3730a3 0%, #6d28d9 45%, #155e75 100%);
+  --rg-accent: #4f46e5;
+  --rg-accent-2: #7c3aed;
+  --rg-accent-3: #0e7490;
+  --rg-accent-text: #3730a3;
+  --rg-accent-soft: rgb(79 70 229 / 12%);
+  --rg-accent-softer: rgb(79 70 229 / 7%);
+  --rg-on-accent: #fff;
+  --rg-gradient-primary: linear-gradient(120deg, #4338ca 0%, #6d28d9 55%, #0e7490 120%);
+  --rg-gradient-danger: linear-gradient(120deg, #b91c1c 0%, #be123c 100%);
+  --rg-rust-1: #f59e0b;
+  --rg-rust-2: #c2410c;
+  --rg-rust-3: #7c2d12;
+
+  // Status (text-safe on glass)
+  --rg-success: #166534;
+  --rg-warning: #92400e;
+  --rg-danger: #b91c1c;
+  --rg-info: #155e75;
+  --rg-success-soft: rgb(21 128 61 / 12%);
+  --rg-warning-soft: rgb(180 83 9 / 13%);
+  --rg-danger-soft: rgb(185 28 28 / 11%);
+  --rg-info-soft: rgb(14 116 144 / 12%);
+
+  // Glass levels: fill opacity grows with the text it carries.
+  --rg-glass-fill-subtle: rgb(255 255 255 / 48%);
+  --rg-glass-fill: rgb(255 255 255 / 70%);
+  --rg-glass-fill-strong: rgb(255 255 255 / 86%);
+  --rg-glass-solid: #fbfbfe;
+  --rg-glass-border: rgb(255 255 255 / 70%);
+  --rg-glass-edge: rgb(15 23 42 / 9%);
+  --rg-glass-highlight: rgb(255 255 255 / 95%);
+  --rg-glass-rim: linear-gradient(
+    150deg,
+    rgb(255 255 255 / 95%) 0%,
+    rgb(255 255 255 / 25%) 35%,
+    rgb(99 102 241 / 18%) 70%,
+    rgb(255 255 255 / 70%) 100%
+  );
+  --rg-field-bg: rgb(255 255 255 / 78%);
+  --rg-field-border: rgb(15 23 42 / 24%);
+  --rg-hairline: rgb(15 23 42 / 10%);
+  --rg-hover: rgb(79 70 229 / 8%);
+
+  // Aurora (kept pale: text that sits directly on it still reaches 4.5:1)
+  --rg-aurora-1: rgb(99 102 241 / 30%);
+  --rg-aurora-2: rgb(6 182 212 / 32%);
+  --rg-aurora-3: rgb(139 92 246 / 26%);
+  --rg-aurora-4: rgb(234 88 12 / 13%);
+
+  // Elevation
+  --rg-shadow-sm: 0 1px 2px rgb(15 23 42 / 6%), 0 2px 6px rgb(15 23 42 / 5%);
+  --rg-shadow-md: 0 2px 6px rgb(15 23 42 / 6%), 0 12px 32px -8px rgb(30 27 75 / 18%);
+  --rg-shadow-lg: 0 8px 24px rgb(15 23 42 / 10%), 0 32px 64px -16px rgb(30 27 75 / 28%);
+  --rg-glow: 0 6px 20px -6px rgb(79 70 229 / 55%);
+  --rg-focus: #3730a3;
+  --rg-focus-ring: 0 0 0 3px rgb(255 255 255 / 90%), 0 0 0 5px #3730a3;
+
+  // Shape, blur, motion, density
+  --rg-radius-sm: 0.5rem;
+  --rg-radius: 0.75rem;
+  --rg-radius-lg: 1.1rem;
+  --rg-radius-xl: 1.5rem;
+  --rg-radius-pill: 50rem;
+  --rg-blur: 18px;
+  --rg-blur-strong: 28px;
+  --rg-saturate: 170%;
+  --rg-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --rg-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --rg-dur-fast: 120ms;
+  --rg-dur: 220ms;
+  --rg-dur-slow: 420ms;
+  --rg-space: 1rem;
+  --rg-control-h: 2.5rem;
+  --rg-topbar-h: 4rem;
+  --rg-nav-w: 15.5rem;
+  --rg-rail-w: 5rem;
+
+  // Type scale (`font:` shorthands; names follow the M3 roles the screens were written with)
+  --rg-font-headline-small: 700 1.5rem/1.3 var(--bs-font-sans-serif);
+  --rg-font-title-large: 700 1.3rem/1.35 var(--bs-font-sans-serif);
+  --rg-font-title-medium: 650 1.05rem/1.4 var(--bs-font-sans-serif);
+  --rg-font-title-small: 650 0.875rem/1.4 var(--bs-font-sans-serif);
+  --rg-font-body-large: 400 1rem/1.5 var(--bs-font-sans-serif);
+  --rg-font-body-medium: 400 0.875rem/1.45 var(--bs-font-sans-serif);
+  --rg-font-body-small: 400 0.8125rem/1.4 var(--bs-font-sans-serif);
+  --rg-font-label-large: 600 0.875rem/1.3 var(--bs-font-sans-serif);
+  --rg-font-label-medium: 600 0.8125rem/1.3 var(--bs-font-sans-serif);
+
+  // Bootstrap mapping (so plain Bootstrap markup already matches the identity)
+  --bs-body-bg: var(--rg-bg);
+  --bs-body-color: var(--rg-text);
+  --bs-secondary-color: var(--rg-text-muted);
+  --bs-emphasis-color: var(--rg-text);
+  --bs-border-color: var(--rg-hairline);
+  --bs-border-color-translucent: var(--rg-hairline);
+  --bs-link-color: var(--rg-accent-text);
+  --bs-link-color-rgb: 55, 48, 163;
+  --bs-link-hover-color: #312e81;
+  --bs-link-hover-color-rgb: 49, 46, 129;
+  --bs-focus-ring-color: rgb(79 70 229 / 35%);
+  --bs-heading-color: var(--rg-text);
+  --bs-code-color: #9d174d;
+}
+
+[data-bs-theme='dark'] {
+  color-scheme: dark;
+
+  --rg-bg: #060816;
+  --rg-text: #e8ebf7;
+  --rg-text-muted: #a9b1cc;
+  --rg-heading-gradient: linear-gradient(100deg, #c7d2fe 0%, #ddd6fe 45%, #a5f3fc 100%);
+  --rg-accent: #818cf8;
+  --rg-accent-2: #a78bfa;
+  --rg-accent-3: #22d3ee;
+  --rg-accent-text: #a5b4fc;
+  --rg-accent-soft: rgb(129 140 248 / 18%);
+  --rg-accent-softer: rgb(129 140 248 / 9%);
+  --rg-gradient-primary: linear-gradient(120deg, #4338ca 0%, #6d28d9 55%, #0e7490 120%);
+  --rg-rust-1: #fbbf24;
+  --rg-rust-2: #ea580c;
+  --rg-rust-3: #9a3412;
+  --rg-success: #86efac;
+  --rg-warning: #fcd34d;
+  --rg-danger: #fca5a5;
+  --rg-info: #67e8f9;
+  --rg-success-soft: rgb(134 239 172 / 13%);
+  --rg-warning-soft: rgb(252 211 77 / 13%);
+  --rg-danger-soft: rgb(248 113 113 / 15%);
+  --rg-info-soft: rgb(103 232 249 / 12%);
+  --rg-glass-fill-subtle: rgb(24 28 60 / 45%);
+  --rg-glass-fill: rgb(20 24 52 / 64%);
+  --rg-glass-fill-strong: rgb(16 19 44 / 84%);
+  --rg-glass-solid: #11142c;
+  --rg-glass-border: rgb(255 255 255 / 12%);
+  --rg-glass-edge: rgb(0 0 0 / 45%);
+  --rg-glass-highlight: rgb(255 255 255 / 16%);
+  --rg-glass-rim: linear-gradient(
+    150deg,
+    rgb(255 255 255 / 32%) 0%,
+    rgb(255 255 255 / 6%) 35%,
+    rgb(129 140 248 / 22%) 70%,
+    rgb(34 211 238 / 22%) 100%
+  );
+  --rg-field-bg: rgb(8 10 28 / 55%);
+  --rg-field-border: rgb(255 255 255 / 22%);
+  --rg-hairline: rgb(255 255 255 / 10%);
+  --rg-hover: rgb(165 180 252 / 10%);
+  --rg-aurora-1: rgb(79 70 229 / 46%);
+  --rg-aurora-2: rgb(8 145 178 / 30%);
+  --rg-aurora-3: rgb(124 58 237 / 38%);
+  --rg-aurora-4: rgb(234 88 12 / 14%);
+  --rg-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --rg-shadow-md: 0 2px 8px rgb(0 0 0 / 35%), 0 16px 40px -12px rgb(0 0 0 / 60%);
+  --rg-shadow-lg: 0 8px 28px rgb(0 0 0 / 45%), 0 40px 80px -20px rgb(0 0 0 / 70%);
+  --rg-glow: 0 6px 24px -6px rgb(129 140 248 / 60%);
+  --rg-focus: #a5b4fc;
+  --rg-focus-ring: 0 0 0 3px rgb(6 8 22 / 90%), 0 0 0 5px #a5b4fc;
+  --bs-body-bg: var(--rg-bg);
+  --bs-body-color: var(--rg-text);
+  --bs-secondary-color: var(--rg-text-muted);
+  --bs-emphasis-color: var(--rg-text);
+  --bs-border-color: var(--rg-hairline);
+  --bs-border-color-translucent: var(--rg-hairline);
+  --bs-link-color: var(--rg-accent-text);
+  --bs-link-color-rgb: 165, 180, 252;
+  --bs-link-hover-color: #c7d2fe;
+  --bs-link-hover-color-rgb: 199, 210, 254;
+  --bs-focus-ring-color: rgb(165 180 252 / 40%);
+  --bs-heading-color: var(--rg-text);
+  --bs-code-color: #f9a8d4;
+}
+
+// Compact density (ThemeService, angular-gui.md §1).
+.rg-compact {
+  --rg-space: 0.75rem;
+  --rg-control-h: 2.125rem;
+  --rg-topbar-h: 3.5rem;
+  --rg-nav-w: 14rem;
+  --bs-body-font-size: 0.9375rem;
+}

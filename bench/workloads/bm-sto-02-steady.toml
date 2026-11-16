@@ -1,0 +1,13 @@
+id = "BM-STO-02"
+kind = "write_batches"
+# Steady-state write amplification (performance-benchmarks.md §4 BM-STO-02 "WA <= 20 at steady
+# state"): 8 Mi keys x 1 KiB (~8.2 GiB user data) written once each in a fixed random order, in
+# batches of 16. Why this size: with dynamic level sizing (base 256 MiB, fanout 10) 1 GiB of data
+# lives in L0 + two levels and sequential keys never overlap, so bm-sto-02.toml cannot show
+# steady-state leveled compaction; 8 GiB fills three levels (bottom ~8 GiB, ~800 MiB, ~80 MiB
+# base) below L0, and random keys make every compaction merge overlapping files.
+keys = 8388608
+value_size = 1024
+batch_size = 16
+seed = 2
+key_order = "random"

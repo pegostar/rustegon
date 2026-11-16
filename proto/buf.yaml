@@ -1,0 +1,12 @@
+# Buf module for the public API contracts (protocol.md, ADR-014).
+# `buf lint` and `buf breaking` run in CI; breaking changes to rustegon.v1 are forbidden
+# (protocol.md §9: additive changes only).
+version: v2
+modules:
+  - path: .
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

@@ -1,0 +1,114 @@
+// Layout of the admin screens (security, backup, settings). The glass look comes from the
+// global kit: rg-hero, rg-panel, rg-table, rg-subnav, rg-callout (src/styles/_admin.scss).
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--rg-space) * 1.25);
+}
+
+.rg-page-header {
+  margin-bottom: 0;
+}
+
+rg-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--rg-space) * 1.25);
+}
+
+h2 {
+  font: var(--rg-font-title-medium);
+}
+
+// A form or detail section (always with rg-panel).
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 48rem;
+
+  > p {
+    margin: 0 0 0.5rem;
+  }
+}
+
+.panel.wide {
+  max-width: none;
+}
+
+// Form and its result side by side when there is room (restore command generator).
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(26rem, 100%), 1fr));
+  gap: calc(var(--rg-space) * 1.25);
+  align-items: start;
+
+  > .panel {
+    max-width: none;
+  }
+
+  > .command {
+    position: sticky;
+    top: calc(var(--rg-topbar-h) + 1.5rem);
+  }
+}
+
+rg-code-block {
+  margin-bottom: 0.75rem;
+}
+
+.command ol {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+// One-line form: fields and buttons side by side, buttons level with the inputs.
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0 0.75rem;
+
+  rg-field {
+    flex: 1 1 16rem;
+    max-width: 32rem;
+    margin-bottom: 0;
+  }
+
+  > .btn {
+    margin-top: calc(0.875rem * 1.5 + 0.35rem);
+  }
+}
+
+.hint {
+  margin: 0 0 0.5rem;
+  color: var(--rg-text-muted);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.danger {
+  color: var(--rg-danger);
+}
+
+code {
+  overflow-wrap: break-word;
+}
+
+.nowrap {
+  white-space: nowrap;
+}

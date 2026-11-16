@@ -1,0 +1,11 @@
+[alias]
+# Repository automation (repository-structure.md, PD-154): `cargo xtask dist`.
+xtask = "run --package xtask --"
+
+# Baseline CPU for x86-64 server builds (repository-structure.md): SSE4.2/POPCNT are used by
+# checksums and bit-packed index code.
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=x86-64-v2"]
+
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-cpu=x86-64-v2"]

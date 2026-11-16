@@ -1,0 +1,6 @@
+id = "BM-STO-03"
+kind = "range_scan"
+# Full forward scan of 1 Mi x 1 KiB after load + compaction.
+keys = 1048576
+value_size = 1024
+seed = 3

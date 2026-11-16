@@ -1,0 +1,711 @@
+{
+  "description": "TC-API-003 DocumentService over gRPC (RDoc bytes shown as {\"$rdoc\": extended JSON}).",
+  "steps": [
+    {
+      "capture": {
+        "token": "/ok/success/sessionToken"
+      },
+      "expect": {
+        "ok": {
+          "success": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "${token}",
+            "user": "admin"
+          }
+        }
+      },
+      "name": "login",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "ok": {
+          "created": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create database",
+      "request": {
+        "name": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateDatabase"
+    },
+    {
+      "expect": {
+        "ok": {
+          "created": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create collection",
+      "request": {
+        "database": "shop",
+        "name": "items"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateCollection"
+    },
+    {
+      "expect": {
+        "ok": {
+          "results": [
+            {
+              "id": {
+                "rdocValue": {
+                  "$rdocValue": 1
+                }
+              },
+              "rev": "<rev>"
+            },
+            {
+              "id": {
+                "rdocValue": {
+                  "$rdocValue": 2
+                }
+              },
+              "rev": "<rev>"
+            },
+            {
+              "id": {
+                "rdocValue": {
+                  "$rdocValue": 3
+                }
+              },
+              "rev": "<rev>"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "insert",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "documents": [
+          {
+            "rdoc": {
+              "$rdoc": {
+                "_id": 1,
+                "n": 1,
+                "sku": "a-1",
+                "tags": [
+                  "x",
+                  "y"
+                ]
+              }
+            }
+          },
+          {
+            "rdoc": {
+              "$rdoc": {
+                "_id": 2,
+                "n": 2,
+                "price": {
+                  "$decimal": "9.99"
+                },
+                "sku": "b-2"
+              }
+            }
+          },
+          {
+            "rdoc": {
+              "$rdoc": {
+                "_id": 3,
+                "n": 3,
+                "sku": "c-3"
+              }
+            }
+          }
+        ]
+      },
+      "rpc": "rustegon.v1.DocumentService/Insert"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1005,
+            "name": "DuplicateKey",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "AlreadyExists",
+          "message": "_id already exists in items"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "duplicate id",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "documents": [
+          {
+            "rdoc": {
+              "$rdoc": {
+                "_id": 1
+              }
+            }
+          }
+        ]
+      },
+      "rpc": "rustegon.v1.DocumentService/Insert"
+    },
+    {
+      "expect": {
+        "ok": {
+          "document": {
+            "rdoc": {
+              "$rdoc": {
+                "_createdAt": "<datetime>",
+                "_id": 1,
+                "_rev": "<rev>",
+                "_updatedAt": "<datetime>",
+                "n": 1,
+                "sku": "a-1",
+                "tags": [
+                  "x",
+                  "y"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 1
+          }
+        }
+      },
+      "rpc": "rustegon.v1.DocumentService/Get"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get missing",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 42
+          }
+        }
+      },
+      "rpc": "rustegon.v1.DocumentService/Get"
+    },
+    {
+      "expect": {
+        "ok": {
+          "documents": [
+            {
+              "rdoc": {
+                "$rdoc": {
+                  "_createdAt": "<datetime>",
+                  "_id": 3,
+                  "_rev": "<rev>",
+                  "_updatedAt": "<datetime>",
+                  "n": 3,
+                  "sku": "c-3"
+                }
+              }
+            },
+            {
+              "rdoc": {
+                "$rdoc": {
+                  "_createdAt": "<datetime>",
+                  "_id": 1,
+                  "_rev": "<rev>",
+                  "_updatedAt": "<datetime>",
+                  "n": 1,
+                  "sku": "a-1",
+                  "tags": [
+                    "x",
+                    "y"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "get many (missing ids are skipped)",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "ids": [
+          {
+            "rdocValue": {
+              "$rdocValue": 3
+            }
+          },
+          {
+            "rdocValue": {
+              "$rdocValue": 42
+            }
+          },
+          {
+            "rdocValue": {
+              "$rdocValue": 1
+            }
+          }
+        ]
+      },
+      "rpc": "rustegon.v1.DocumentService/GetMany"
+    },
+    {
+      "expect": {
+        "ok": {
+          "document": {
+            "rdoc": {
+              "$rdoc": {
+                "_createdAt": "<datetime>",
+                "_id": 1,
+                "_rev": "<rev>",
+                "_updatedAt": "<datetime>",
+                "n": 10,
+                "sku": "a-1"
+              }
+            }
+          },
+          "matched": true,
+          "result": {
+            "id": {
+              "rdocValue": {
+                "$rdocValue": 1
+              }
+            },
+            "rev": "<rev>"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "replace returning the new document",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "document": {
+          "rdoc": {
+            "$rdoc": {
+              "_id": 1,
+              "n": 10,
+              "sku": "a-1"
+            }
+          }
+        },
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 1
+          }
+        },
+        "returnDocument": "RETURN_DOCUMENT_AFTER"
+      },
+      "rpc": "rustegon.v1.DocumentService/Replace"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 2009,
+            "details": {
+              "field": "if_rev"
+            },
+            "name": "PreconditionFailed",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "FailedPrecondition",
+          "message": "if_rev precondition failed: the document has another revision"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "replace with a stale revision",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "document": {
+          "rdoc": {
+            "$rdoc": {
+              "_id": 1,
+              "n": 11
+            }
+          }
+        },
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 1
+          }
+        },
+        "ifRev": "0000000000000000"
+      },
+      "rpc": "rustegon.v1.DocumentService/Replace"
+    },
+    {
+      "expect": {
+        "ok": {
+          "document": {
+            "rdoc": {
+              "$rdoc": {
+                "_createdAt": "<datetime>",
+                "_id": 2,
+                "_rev": "<rev>",
+                "_updatedAt": "<datetime>",
+                "n": 7,
+                "price": {
+                  "$decimal": "9.99"
+                },
+                "sku": "b-2"
+              }
+            }
+          },
+          "matched": true,
+          "modified": true,
+          "result": {
+            "id": {
+              "rdocValue": {
+                "$rdocValue": 2
+              }
+            },
+            "rev": "<rev>"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "update",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 2
+          }
+        },
+        "operations": [
+          {
+            "inc": {
+              "by": {
+                "literal": {
+                  "intValue": "5"
+                }
+              },
+              "path": {
+                "segments": [
+                  {
+                    "field": "n"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "returnDocument": "RETURN_DOCUMENT_AFTER"
+      },
+      "rpc": "rustegon.v1.DocumentService/Update"
+    },
+    {
+      "expect": {
+        "ok": {
+          "inserted": true,
+          "result": {
+            "id": {
+              "rdocValue": {
+                "$rdocValue": 4
+              }
+            },
+            "rev": "<rev>"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "upsert inserts",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "document": {
+          "rdoc": {
+            "$rdoc": {
+              "_id": 4,
+              "n": 4,
+              "sku": "d-4"
+            }
+          }
+        }
+      },
+      "rpc": "rustegon.v1.DocumentService/Upsert"
+    },
+    {
+      "expect": {
+        "ok": {
+          "document": {
+            "rdoc": {
+              "$rdoc": {
+                "_createdAt": "<datetime>",
+                "_id": 4,
+                "_rev": "<rev>",
+                "_updatedAt": "<datetime>",
+                "n": 4,
+                "sku": "d-4"
+              }
+            }
+          },
+          "result": {
+            "id": {
+              "rdocValue": {
+                "$rdocValue": 4
+              }
+            },
+            "rev": "<rev>"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "upsert replaces",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "document": {
+          "rdoc": {
+            "$rdoc": {
+              "_id": 4,
+              "n": 40,
+              "sku": "d-4"
+            }
+          }
+        },
+        "returnDocument": "RETURN_DOCUMENT_BEFORE"
+      },
+      "rpc": "rustegon.v1.DocumentService/Upsert"
+    },
+    {
+      "expect": {
+        "ok": {
+          "deleted": true,
+          "document": {
+            "rdoc": {
+              "$rdoc": {
+                "_createdAt": "<datetime>",
+                "_id": 3,
+                "_rev": "<rev>",
+                "_updatedAt": "<datetime>",
+                "n": 3,
+                "sku": "c-3"
+              }
+            }
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "delete returning the document",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 3
+          }
+        },
+        "returnDocument": true
+      },
+      "rpc": "rustegon.v1.DocumentService/Delete"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "delete missing",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 3
+          }
+        }
+      },
+      "rpc": "rustegon.v1.DocumentService/Delete"
+    },
+    {
+      "expect": {
+        "ok": {
+          "deleted": "1",
+          "errors": [
+            {
+              "error": {
+                "code": 1005,
+                "name": "DuplicateKey",
+                "traceId": "<trace-id>"
+              },
+              "index": 1,
+              "message": "_id already exists in items"
+            }
+          ],
+          "inserted": "2",
+          "matched": "2",
+          "modified": "2"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "bulk write (unordered, one failure)",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "operations": [
+          {
+            "insert": {
+              "document": {
+                "rdoc": {
+                  "$rdoc": {
+                    "_id": 5,
+                    "n": 5
+                  }
+                }
+              }
+            }
+          },
+          {
+            "insert": {
+              "document": {
+                "rdoc": {
+                  "$rdoc": {
+                    "_id": 1
+                  }
+                }
+              }
+            }
+          },
+          {
+            "replace": {
+              "document": {
+                "rdoc": {
+                  "$rdoc": {
+                    "_id": 2,
+                    "n": 20
+                  }
+                }
+              },
+              "id": {
+                "rdocValue": {
+                  "$rdocValue": 2
+                }
+              }
+            }
+          },
+          {
+            "update": {
+              "id": {
+                "rdocValue": {
+                  "$rdocValue": 4
+                }
+              },
+              "operations": [
+                {
+                  "set": {
+                    "items": [
+                      {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "seen"
+                            }
+                          ]
+                        },
+                        "value": {
+                          "literal": {
+                            "boolValue": true
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "upsert": {
+              "document": {
+                "rdoc": {
+                  "$rdoc": {
+                    "_id": 6,
+                    "n": 6
+                  }
+                }
+              }
+            }
+          },
+          {
+            "delete": {
+              "id": {
+                "rdocValue": {
+                  "$rdocValue": 5
+                }
+              }
+            }
+          }
+        ],
+        "ordered": false
+      },
+      "rpc": "rustegon.v1.DocumentService/BulkWrite"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "unknown collection",
+      "request": {
+        "collection": "nope",
+        "database": "shop",
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 1
+          }
+        }
+      },
+      "rpc": "rustegon.v1.DocumentService/Get"
+    }
+  ]
+}

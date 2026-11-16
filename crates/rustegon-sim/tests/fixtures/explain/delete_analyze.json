@@ -1,0 +1,49 @@
+{
+  "analyze": true,
+  "est_cost": null,
+  "execution": {
+    "affected": 6,
+    "rows": 0,
+    "time_ms": 0.0,
+    "warnings": 0
+  },
+  "explain_format": 1,
+  "indexes_used": [
+    "by_status"
+  ],
+  "logical": "Sort _id ASC\n  Filter (status = 'new')\n    Scan shop.t",
+  "physical": "IndexOrder _id ASC\n  IndexScan shop.t.by_status [('new') .. ('new')] fetch",
+  "plan": {
+    "actual_rows": 6,
+    "batches": 1,
+    "children": [
+      {
+        "actual_rows": 6,
+        "batches": 1,
+        "children": [
+          {
+            "actual_rows": 6,
+            "batches": 1,
+            "children": [],
+            "detail": "IndexScan shop.t.by_status [('new') .. ('new')] fetch order _id ASC",
+            "est_rows": null,
+            "index": "by_status",
+            "op": "IndexScan",
+            "time_ms": 0.0
+          }
+        ],
+        "detail": "recheck (status = 'new')",
+        "est_rows": null,
+        "index": null,
+        "op": "Filter",
+        "time_ms": 0.0
+      }
+    ],
+    "detail": "shop.t",
+    "est_rows": null,
+    "index": null,
+    "op": "Delete",
+    "time_ms": 0.0
+  },
+  "statement": "delete"
+}

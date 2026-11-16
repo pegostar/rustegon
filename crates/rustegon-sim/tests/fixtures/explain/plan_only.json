@@ -1,0 +1,33 @@
+{
+  "analyze": false,
+  "est_cost": null,
+  "execution": null,
+  "explain_format": 1,
+  "indexes_used": [],
+  "logical": "Project VALUE qty\n  Filter (_id IN [3,4,99])\n    Scan shop.t",
+  "physical": "Project VALUE qty\n  PrimaryGet shop.t ids=[3, 4, 99]",
+  "plan": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "detail": "PrimaryGet shop.t ids=[3, 4, 99]",
+            "est_rows": null,
+            "index": null,
+            "op": "PrimaryGet"
+          }
+        ],
+        "detail": "recheck (_id IN [3,4,99])",
+        "est_rows": null,
+        "index": null,
+        "op": "Filter"
+      }
+    ],
+    "detail": "VALUE qty",
+    "est_rows": null,
+    "index": null,
+    "op": "Project"
+  },
+  "statement": "query"
+}

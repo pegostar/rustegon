@@ -1,0 +1,43 @@
+{
+  "description": "TC-API-003 SessionService over gRPC (protobuf JSON mapping).",
+  "steps": [
+    {
+      "expect": {
+        "ok": {}
+      },
+      "name": "ping needs no credentials",
+      "rpc": "rustegon.v1.SessionService/Ping"
+    },
+    {
+      "expect": {
+        "ok": {
+          "protocolVersion": "1.0",
+          "serverVersion": "0.1.0"
+        }
+      },
+      "name": "server info",
+      "rpc": "rustegon.v1.SessionService/GetServerInfo"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1001,
+            "details": {
+              "header": "rgn-request-id"
+            },
+            "name": "InvalidArgument",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "InvalidArgument",
+          "message": "malformed `rgn-request-id` header: expected a 36-character UUID"
+        }
+      },
+      "metadata": {
+        "rgn-request-id": "not-a-uuid"
+      },
+      "name": "malformed request id is RGN-1001",
+      "rpc": "rustegon.v1.SessionService/Ping"
+    }
+  ]
+}

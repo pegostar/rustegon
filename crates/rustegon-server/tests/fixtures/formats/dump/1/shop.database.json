@@ -1,0 +1,7 @@
+{
+  "format_version": 1,
+  "database": "shop",
+  "options": {
+    "implicit_collection_creation": true
+  }
+}

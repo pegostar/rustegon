@@ -1,0 +1,177 @@
+description: "Updates: by id (DocumentService.Update) and by filter (UPDATE ... [LIMIT 1]), operators, preconditions."
+tests:
+  - id: TC-DRV-CONF-CRUD-020
+    description: "updateOne by id applies set and inc atomically and reports matched/modified."
+    covers: [Collection.UpdateOne, Filter.Id, Update.Set, Update.Inc]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "status": "new", "version": 1}]}
+    operations:
+      - object: collection
+        name: updateOne
+        args: {filter: {id: 1}, update: [{set: ["status", "shipped"]}, {inc: ["version", 1]}]}
+        expect: {result: {matchedCount: 1, modifiedCount: 1}}
+    outcome:
+      items: [{"_id": 1, "status": "shipped", "version": 2}]
+
+  - id: TC-DRV-CONF-CRUD-021
+    description: "updateOne by id of a missing document matches nothing (not an error)."
+    covers: [Collection.UpdateOne, Filter.Id]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "v": 1}]}
+    operations:
+      - object: collection
+        name: updateOne
+        args: {filter: {id: 99}, update: [{set: ["v", 2]}]}
+        expect: {result: {matchedCount: 0, modifiedCount: 0}}
+    outcome:
+      items: [{"_id": 1, "v": 1}]
+
+  - id: TC-DRV-CONF-CRUD-022
+    description: "updateOne with a non-id filter updates only the matching document with the lowest _id."
+    covers: [Collection.UpdateOne, Filter.Eq]
+    setup:
+      collections: [{name: items}]
+      data:
+        items:
+          - {"_id": 3, "s": "a"}
+          - {"_id": 1, "s": "a"}
+          - {"_id": 2, "s": "b"}
+    operations:
+      - object: collection
+        name: updateOne
+        args: {filter: {eq: ["s", "a"]}, update: [{set: ["s", "done"]}]}
+        expect: {result: {matchedCount: 1, modifiedCount: 1}}
+    outcome:
+      items:
+        - {"_id": 1, "s": "done"}
+        - {"_id": 2, "s": "b"}
+        - {"_id": 3, "s": "a"}
+
+  - id: TC-DRV-CONF-CRUD-023
+    description: "updateMany updates every matching document; matchedCount counts them."
+    covers: [Collection.UpdateMany, Filter.Gte, Update.Mul]
+    setup:
+      collections: [{name: items}]
+      data:
+        items:
+          - {"_id": 1, "price": 10, "qty": 1}
+          - {"_id": 2, "price": 20, "qty": 5}
+          - {"_id": 3, "price": 30, "qty": 9}
+    operations:
+      - object: collection
+        name: updateMany
+        args: {filter: {gte: ["qty", 5]}, update: [{mul: ["price", 2]}]}
+        expect: {result: {matchedCount: 2, modifiedCount: 2}}
+    outcome:
+      items:
+        - {"_id": 1, "price": 10, "qty": 1}
+        - {"_id": 2, "price": 40, "qty": 5}
+        - {"_id": 3, "price": 60, "qty": 9}
+
+  - id: TC-DRV-CONF-CRUD-024
+    description: "updateMany with the empty filter updates every document (the driver adds allow_full_scan_write)."
+    covers: [Collection.UpdateMany, Filter.Empty, Update.Set]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}, {"_id": 2}]}
+    operations:
+      - object: collection
+        name: updateMany
+        args: {filter: {}, update: [{set: ["flag", true]}]}
+        expect: {result: {matchedCount: 2, modifiedCount: 2}}
+    outcome:
+      items: [{"_id": 1, "flag": true}, {"_id": 2, "flag": true}]
+
+  - id: TC-DRV-CONF-CRUD-025
+    description: "Every update operator in one call, applied in order (distinct target paths: overlapping targets are RGN-1001)."
+    covers: [Collection.UpdateOne, Update.Unset, Update.Inc, Update.Mul, Update.Min, Update.Max, Update.Push, Update.AddToSet, Update.Pull, Update.Pop, Update.Rename, Update.CurrentDate, Update.Set]
+    setup:
+      collections: [{name: items}]
+      data:
+        items:
+          - {"_id": 1, "legacy": "x", "views": 1, "price": 2.5, "low": 5, "high": 5, "tags": ["a", "old"], "queue": [1, 2, 3], "stack": [1, 2, 3], "colour": "red", "set": ["x"]}
+    operations:
+      - object: collection
+        name: updateOne
+        args:
+          filter: {id: 1}
+          update:
+            - {unset: "legacy"}
+            - {inc: ["views", 10]}
+            - {mul: ["price", 2]}
+            - {min: ["low", 3]}
+            - {max: ["high", 9]}
+            - {push: ["tags", "new"]}
+            - {addToSet: ["set", "x"]}
+            - {pull: ["queue", 2]}
+            - {pop: ["stack", "first"]}
+            - {rename: ["colour", "color"]}
+            - {currentDate: "touchedAt"}
+            - {set: ["nested.created", true]}
+        expect: {result: {matchedCount: 1, modifiedCount: 1}}
+    outcome:
+      items:
+        - {"_id": 1, "views": 11, "price": 5.0, "low": 3, "high": 9, "tags": ["a", "old", "new"], "queue": [1, 3], "stack": [2, 3], "set": ["x"], "color": "red", "touchedAt": {"$$type": "datetime"}, "nested": {"created": true}}
+
+  - id: TC-DRV-CONF-CRUD-026
+    description: "ifRev: the current _rev succeeds; a stale one fails with PreconditionFailed (RGN-2009)."
+    covers: [Collection.UpdateOne, Collection.FindById]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "v": 1}]}
+    operations:
+      - {object: collection, name: findById, args: {id: 1}, saveAs: before}
+      - object: collection
+        name: updateOne
+        args: {filter: {id: 1}, update: [{set: ["v", 2]}], options: {ifRev: "$$ref:before._rev"}}
+        expect: {result: {matchedCount: 1, modifiedCount: 1}}
+      - object: collection
+        name: updateOne
+        args: {filter: {id: 1}, update: [{set: ["v", 3]}], options: {ifRev: "$$ref:before._rev"}}
+        expect: {error: {code: 2009, name: "PreconditionFailed", exception: Client, retryable: false}}
+    outcome:
+      items: [{"_id": 1, "v": 2}]
+
+  - id: TC-DRV-CONF-CRUD-027
+    description: "Changing _id through an update is rejected (RGN-1001)."
+    covers: [Collection.UpdateOne, Update.Set]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}]}
+    operations:
+      - object: collection
+        name: updateOne
+        args: {filter: {id: 1}, update: [{set: ["_id", 2]}]}
+        expect: {error: {code: 1001, exception: Client}}
+    outcome:
+      items: [{"_id": 1}]
+
+  - id: TC-DRV-CONF-CRUD-028
+    description: "inc on a non-numeric field fails with QueryTypeError (RGN-1011) and leaves the document unchanged."
+    covers: [Collection.UpdateOne, Update.Inc, Behavior.ErrorMapping]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "n": "text"}]}
+    operations:
+      - object: collection
+        name: updateOne
+        args: {filter: {id: 1}, update: [{inc: ["n", 1]}]}
+        expect: {error: {code: 1011, exception: QuerySyntax}}
+    outcome:
+      items: [{"_id": 1, "n": "text"}]
+
+  - id: TC-DRV-CONF-CRUD-029
+    description: "updateOne with a non-id filter that matches nothing reports zero counts."
+    covers: [Collection.UpdateOne, Filter.Eq]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "s": "a"}]}
+    operations:
+      - object: collection
+        name: updateOne
+        args: {filter: {eq: ["s", "zzz"]}, update: [{set: ["s", "b"]}]}
+        expect: {result: {matchedCount: 0, modifiedCount: 0}}
+    outcome:
+      items: [{"_id": 1, "s": "a"}]

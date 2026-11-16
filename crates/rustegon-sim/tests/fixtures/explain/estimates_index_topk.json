@@ -1,0 +1,69 @@
+{
+  "analyze": true,
+  "est_cost": 1.2960832452769164,
+  "execution": {
+    "affected": 0,
+    "rows": 3,
+    "time_ms": 0.0,
+    "warnings": 0
+  },
+  "explain_format": 1,
+  "indexes_used": [],
+  "logical": "Project _id AS _id, qty AS qty\n  Limit limit=3\n    Sort qty DESC\n      Filter ((status = 'paid') AND (qty > 1))\n        Scan shop.t",
+  "physical": "Project _id AS _id, qty AS qty\n  Limit limit=3\n    TopK k=3 qty DESC\n      Filter ((status = 'paid') AND (qty > 1))\n        CollectionScan shop.t",
+  "plan": {
+    "actual_rows": 3,
+    "batches": 1,
+    "children": [
+      {
+        "actual_rows": 3,
+        "batches": 1,
+        "children": [
+          {
+            "actual_rows": 3,
+            "batches": 1,
+            "children": [
+              {
+                "actual_rows": 5,
+                "batches": 1,
+                "children": [
+                  {
+                    "actual_rows": 20,
+                    "batches": 1,
+                    "children": [],
+                    "detail": "CollectionScan shop.t",
+                    "est_rows": 20.0,
+                    "index": null,
+                    "op": "CollectionScan",
+                    "time_ms": 0.0
+                  }
+                ],
+                "detail": "((status = 'paid') AND (qty > 1))",
+                "est_rows": 6.0621778264910695,
+                "index": null,
+                "op": "Filter",
+                "time_ms": 0.0
+              }
+            ],
+            "detail": "k=3 qty DESC",
+            "est_rows": 3.0,
+            "index": null,
+            "op": "TopK",
+            "time_ms": 0.0
+          }
+        ],
+        "detail": "limit=3",
+        "est_rows": 3.0,
+        "index": null,
+        "op": "Limit",
+        "time_ms": 0.0
+      }
+    ],
+    "detail": "_id AS _id, qty AS qty",
+    "est_rows": 3.0,
+    "index": null,
+    "op": "Project",
+    "time_ms": 0.0
+  },
+  "statement": "query"
+}

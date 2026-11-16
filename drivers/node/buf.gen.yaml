@@ -1,0 +1,10 @@
+# Generated protobuf-es code for the driver (PD-161): checked in under src/generated/,
+# regenerated with `npm run generate` from <repo>/proto (never edited by hand).
+version: v2
+plugins:
+  - local: protoc-gen-es
+    out: src/generated
+    opt:
+      - target=js+dts
+      - import_extension=js
+clean: true

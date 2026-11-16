@@ -1,0 +1,58 @@
+{
+  "analyze": true,
+  "est_cost": null,
+  "execution": {
+    "affected": 0,
+    "rows": 4,
+    "time_ms": 0.0,
+    "warnings": 0
+  },
+  "explain_format": 1,
+  "indexes_used": [],
+  "logical": "Limit limit=all offset=1\n  Sort qty ASC\n    Filter (tag = 't1')\n      Scan shop.t",
+  "physical": "Limit limit=all offset=1\n  Sort qty ASC\n    Filter (tag = 't1')\n      CollectionScan shop.t",
+  "plan": {
+    "actual_rows": 4,
+    "batches": 1,
+    "children": [
+      {
+        "actual_rows": 5,
+        "batches": 1,
+        "children": [
+          {
+            "actual_rows": 5,
+            "batches": 1,
+            "children": [
+              {
+                "actual_rows": 20,
+                "batches": 1,
+                "children": [],
+                "detail": "CollectionScan shop.t",
+                "est_rows": null,
+                "index": null,
+                "op": "CollectionScan",
+                "time_ms": 0.0
+              }
+            ],
+            "detail": "(tag = 't1')",
+            "est_rows": null,
+            "index": null,
+            "op": "Filter",
+            "time_ms": 0.0
+          }
+        ],
+        "detail": "qty ASC",
+        "est_rows": null,
+        "index": null,
+        "op": "Sort",
+        "time_ms": 0.0
+      }
+    ],
+    "detail": "limit=all offset=1",
+    "est_rows": null,
+    "index": null,
+    "op": "Limit",
+    "time_ms": 0.0
+  },
+  "statement": "query"
+}

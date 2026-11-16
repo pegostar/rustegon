@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+syntax = "proto3";
+
+package rustegon.v1;
+
+// Shared messages of the public API (protocol.md §3). Timestamps are Unix milliseconds
+// (int64, `*_unix_ms`) rather than google.protobuf.Timestamp, so every driver can use them
+// without well-known-type support (PD-045).
+
+// A document as RDoc v1 bytes (data-model.md §4).
+message Document {
+  // RDoc v1 encoding of the whole document.
+  bytes rdoc = 1;
+}
+
+// A single value (document id, query parameter, option value) in the RDoc value encoding.
+message Value {
+  // RDoc encoding of one value.
+  bytes rdoc_value = 1;
+}
+
+// Read consistency level (consistency.md §2).
+enum ReadConsistencyLevel {
+  // Not set: the operation default (linearizable for single reads outside transactions).
+  READ_CONSISTENCY_LEVEL_UNSPECIFIED = 0;
+  // Leaseholder read; sees every write acknowledged before the read began.
+  READ_CONSISTENCY_LEVEL_LINEARIZABLE = 1;
+  // Nearest replica whose closed timestamp is no older than `max_staleness_ms`.
+  READ_CONSISTENCY_LEVEL_BOUNDED_STALENESS = 2;
+  // Nearest replica at its closed timestamp (optionally bounded by `max_staleness_ms`).
+  READ_CONSISTENCY_LEVEL_FOLLOWER = 3;
+}
+
+// Requested read consistency.
+message ReadConsistency {
+  // Level.
+  ReadConsistencyLevel level = 1;
+  // Staleness bound for BOUNDED_STALENESS (required) and FOLLOWER (optional).
+  optional uint32 max_staleness_ms = 2;
+}
+
+// Write concern (consistency.md §3). There is deliberately no leader-only concern (ADR-011).
+enum WriteConcern {
+  // Not set: the collection default (`majority`, or `async_cross_dc` for XDC collections).
+  WRITE_CONCERN_UNSPECIFIED = 0;
+  // Raft quorum durable and applied on the leaseholder.
+  WRITE_CONCERN_MAJORITY = 1;
+  // Additionally applied on all voters (bounded wait, then RGN-3006 with committed=true).
+  WRITE_CONCERN_ALL = 2;
+  // Quorum of the local site (XDC collections).
+  WRITE_CONCERN_LOCAL_DC_MAJORITY = 3;
+  // Local commit plus applied at every XDC peer frontier (XDC collections).
+  WRITE_CONCERN_SYNC_CROSS_DC = 4;
+  // Local commit only (XDC collections).
+  WRITE_CONCERN_ASYNC_CROSS_DC = 5;
+}
+
+// A non-fatal condition reported with a successful response (e.g. validator `warn`, large
+// OFFSET, evaluation warnings).
+message Warning {
+  // Stable machine-readable kind, e.g. "SchemaValidation", "LargeOffset".
+  string kind = 1;
+  // Human-readable message (never contains document contents or secrets).
+  string message = 2;
+  // Structured details.
+  map<string, string> details = 3;
+}
+
+// A role granted on a resource (security.md §3.1).
+message RoleGrant {
+  // Role name, e.g. "read_write".
+  string role = 1;
+  // Resource: "cluster", "database:<db>" or "collection:<db>.<coll>" ("*" wildcards allowed).
+  string resource = 2;
+}

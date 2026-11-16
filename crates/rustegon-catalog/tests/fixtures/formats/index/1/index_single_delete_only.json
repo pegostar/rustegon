@@ -1,0 +1,1 @@
+{"index_format":1,"type":"index","id":104,"database_id":100,"collection_id":102,"name":"by_status","kind":"secondary","fields":[{"path":"status","order":"asc"}],"unique":false,"sparse":false,"hidden":false,"scope":"global","state":"delete_only","origin":"manual","version":1,"include":[],"multikey":false,"created_at":{"$date":"2026-01-01T00:00:00.000Z"}}

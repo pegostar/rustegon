@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 172fe1562f4243a15322e5e15b4bba6609849c711f555e61908c620b9e0af9c0 # shrinks to ops = [Batch([Put(0, 2)]), Batch([Delete(11)]), Batch([Put(20, 41), Put(7, 103)]), Batch([Merge(16, 76)]), Batch([Put(23, 124), Merge(17, 52), DeleteRange(2, 6), DeleteRange(5, 9), Put(3, 153)]), Batch([Put(7, 35), Put(23, 129), Put(19, 103), Merge(18, -18)]), Snapshot, Batch([Merge(17, -60), DeleteRange(13, 17), Merge(23, -41), Put(9, 103), Put(21, 21)]), Batch([Put(10, 194)]), Flush, Compact]
+cc 0d82a1ec3817b843f02adfddbbfb36337d78737b970fb828b6217c07c063bd00 # shrinks to ops = [Batch([Put(2, 0)]), Snapshot, Batch([DeleteRange(0, 3)]), Flush, Batch([Put(0, 0)])]

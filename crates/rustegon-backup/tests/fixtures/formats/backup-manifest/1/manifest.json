@@ -1,0 +1,45 @@
+{
+  "format_version": 1,
+  "backup_id": "20261109T101500Z-3fa85f64",
+  "created_at": "2026-11-09T10:15:00Z",
+  "consistency": {
+    "timestamp": {
+      "wall": 1794219300000000000,
+      "logical": 7
+    },
+    "applied_index": 4242,
+    "applied_term": 3,
+    "storage_seqno": 98765
+  },
+  "source": {
+    "cluster_id": "c0ffee00-0000-4000-8000-000000000001",
+    "node_id": "1",
+    "server_version": "0.1.0"
+  },
+  "encryption": {
+    "mode": "kek",
+    "kek_id": "file:/etc/rustegon/secrets/kek.key"
+  },
+  "files": [
+    {
+      "path": "keys/registry.enc",
+      "size": 96,
+      "blake3": "1f0b6b4e6c8d1c8a2f2e7a1b9c0d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d"
+    },
+    {
+      "path": "lsm/000007.rsst",
+      "size": 1048576,
+      "blake3": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
+    },
+    {
+      "path": "lsm/CURRENT",
+      "size": 16,
+      "blake3": "0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    {
+      "path": "lsm/MANIFEST-000001",
+      "size": 512,
+      "blake3": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  ]
+}

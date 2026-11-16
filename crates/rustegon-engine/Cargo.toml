@@ -1,0 +1,29 @@
+[package]
+name = "rustegon-engine"
+description = "Node-local engine facade (EmbeddedDb) over storage, cluster, txn, catalog, index and query (PD-044)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+rustegon-catalog.workspace = true
+rustegon-cluster.workspace = true
+rustegon-common.workspace = true
+rustegon-doc.workspace = true
+rustegon-index.workspace = true
+rustegon-mvcc.workspace = true
+rustegon-query.workspace = true
+rustegon-raft.workspace = true
+rustegon-sim-api.workspace = true
+rustegon-storage.workspace = true
+rustegon-txn.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

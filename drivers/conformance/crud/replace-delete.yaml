@@ -1,0 +1,107 @@
+description: "replaceOne (DocumentService.Replace/Upsert, UPDATE ... REPLACE WITH ... LIMIT 1) and deletes (DocumentService.Delete, DELETE ... [LIMIT 1])."
+tests:
+  - id: TC-DRV-CONF-CRUD-030
+    description: "replaceOne by id replaces the whole document and keeps the _id."
+    covers: [Collection.ReplaceOne, Filter.Id]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "a": 1, "b": 2}]}
+    operations:
+      - object: collection
+        name: replaceOne
+        args: {filter: {id: 1}, replacement: {"c": 3}}
+        expect: {result: {matchedCount: 1, modifiedCount: 1}}
+    outcome:
+      items: [{"_id": 1, "c": 3}]
+
+  - id: TC-DRV-CONF-CRUD-031
+    description: "replaceOne by id of a missing document matches nothing; with upsert it inserts."
+    covers: [Collection.ReplaceOne, Filter.Id]
+    setup:
+      collections: [{name: items}]
+    operations:
+      - object: collection
+        name: replaceOne
+        args: {filter: {id: 5}, replacement: {"v": "x"}}
+        expect: {result: {matchedCount: 0, modifiedCount: 0}}
+      - object: collection
+        name: replaceOne
+        args: {filter: {id: 5}, replacement: {"v": "y"}, options: {upsert: true}}
+        expect: {result: {matchedCount: 0, modifiedCount: 0, upsertedId: 5}}
+      - object: collection
+        name: replaceOne
+        args: {filter: {id: 5}, replacement: {"v": "z"}, options: {upsert: true}}
+        expect: {result: {matchedCount: 1, modifiedCount: 1}}
+    outcome:
+      items: [{"_id": 5, "v": "z"}]
+
+  - id: TC-DRV-CONF-CRUD-032
+    description: "replaceOne with a non-id filter replaces the matching document with the lowest _id."
+    covers: [Collection.ReplaceOne, Filter.Eq]
+    setup:
+      collections: [{name: items}]
+      data:
+        items:
+          - {"_id": 2, "s": "a"}
+          - {"_id": 1, "s": "a"}
+    operations:
+      - object: collection
+        name: replaceOne
+        args: {filter: {eq: ["s", "a"]}, replacement: {"s": "replaced"}}
+        expect: {result: {matchedCount: 1, modifiedCount: 1}}
+    outcome:
+      items:
+        - {"_id": 1, "s": "replaced"}
+        - {"_id": 2, "s": "a"}
+
+  - id: TC-DRV-CONF-CRUD-033
+    description: "deleteOne by id deletes the document; a second call deletes nothing."
+    covers: [Collection.DeleteOne, Filter.Id]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}, {"_id": 2}]}
+    operations:
+      - {object: collection, name: deleteOne, args: {filter: {id: 1}}, expect: {result: {deletedCount: 1}}}
+      - {object: collection, name: deleteOne, args: {filter: {id: 1}}, expect: {result: {deletedCount: 0}}}
+    outcome:
+      items: [{"_id": 2}]
+
+  - id: TC-DRV-CONF-CRUD-034
+    description: "deleteOne with a non-id filter deletes the matching document with the lowest _id."
+    covers: [Collection.DeleteOne, Filter.Lt]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 3, "n": 1}, {"_id": 1, "n": 1}, {"_id": 2, "n": 9}]}
+    operations:
+      - {object: collection, name: deleteOne, args: {filter: {lt: ["n", 5]}}, expect: {result: {deletedCount: 1}}}
+    outcome:
+      items: [{"_id": 2, "n": 9}, {"_id": 3, "n": 1}]
+
+  - id: TC-DRV-CONF-CRUD-035
+    description: "deleteMany deletes every match; the empty filter deletes everything."
+    covers: [Collection.DeleteMany, Filter.In, Filter.Empty]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "s": "a"}, {"_id": 2, "s": "b"}, {"_id": 3, "s": "c"}, {"_id": 4, "s": "a"}]}
+    operations:
+      - {object: collection, name: deleteMany, args: {filter: {in: ["s", ["a", "b"]]}}, expect: {result: {deletedCount: 3}}}
+      - {object: collection, name: find, args: {filter: {}}, expect: {result: [{"_id": 3, "s": "c"}]}}
+      - {object: collection, name: deleteMany, args: {filter: {}}, expect: {result: {deletedCount: 1}}}
+    outcome:
+      items: []
+
+  - id: TC-DRV-CONF-CRUD-036
+    description: "deleteOne by id with a stale ifRev fails with PreconditionFailed."
+    covers: [Collection.DeleteOne, Collection.UpdateOne, Collection.FindById]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "v": 1}]}
+    operations:
+      - {object: collection, name: findById, args: {id: 1}, saveAs: before}
+      - {object: collection, name: updateOne, args: {filter: {id: 1}, update: [{inc: ["v", 1]}]}}
+      - object: collection
+        name: deleteOne
+        args: {filter: {id: 1}, options: {ifRev: "$$ref:before._rev"}}
+        expect: {error: {code: 2009, exception: Client}}
+    outcome:
+      items: [{"_id": 1, "v": 2}]

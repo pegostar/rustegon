@@ -1,0 +1,1083 @@
+{
+  "classes": [
+    {
+      "dotnet": "RustegonException",
+      "id": "Base",
+      "java": "RustegonException",
+      "parent": null
+    },
+    {
+      "dotnet": "RustegonClientException",
+      "id": "Client",
+      "java": "RustegonClientException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "QuerySyntaxException",
+      "id": "QuerySyntax",
+      "java": "QuerySyntaxException",
+      "parent": "Client"
+    },
+    {
+      "dotnet": "DuplicateKeyException",
+      "id": "DuplicateKey",
+      "java": "DuplicateKeyException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "DocumentValidationException",
+      "id": "DocumentValidation",
+      "java": "DocumentValidationException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "TransactionConflictException",
+      "id": "TransactionConflict",
+      "java": "TransactionConflictException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "TransactionAbortedException",
+      "id": "TransactionAborted",
+      "java": "TransactionAbortedException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "CommitOutcomeUnknownException",
+      "id": "CommitOutcomeUnknown",
+      "java": "CommitOutcomeUnknownException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "AuthenticationException",
+      "id": "Authentication",
+      "java": "AuthenticationException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "PasswordChangeRequiredException",
+      "id": "PasswordChangeRequired",
+      "java": "PasswordChangeRequiredException",
+      "parent": "Authentication"
+    },
+    {
+      "dotnet": "AuthorizationException",
+      "id": "Authorization",
+      "java": "AuthorizationException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "UnavailableException",
+      "id": "Unavailable",
+      "java": "UnavailableException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "RateLimitedException",
+      "id": "RateLimited",
+      "java": "RateLimitedException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "TimeoutException",
+      "id": "Timeout",
+      "java": "RustegonTimeoutException",
+      "parent": "Base"
+    },
+    {
+      "dotnet": "RustegonServerException",
+      "id": "Server",
+      "java": "RustegonServerException",
+      "parent": "Base"
+    }
+  ],
+  "codes": [
+    {
+      "aliases": [],
+      "code": 1001,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "InvalidArgument",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1002,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 413,
+      "internal": false,
+      "name": "DocumentTooLarge",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1003,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "NestingTooDeep",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1004,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "InvalidFieldName",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1005,
+      "exception": {
+        "dotnet": "DuplicateKeyException",
+        "id": "DuplicateKey",
+        "java": "DuplicateKeyException"
+      },
+      "grpc": "ALREADY_EXISTS",
+      "grpcCode": 6,
+      "http": 409,
+      "internal": false,
+      "name": "DuplicateKey",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1006,
+      "exception": {
+        "dotnet": "DocumentValidationException",
+        "id": "DocumentValidation",
+        "java": "DocumentValidationException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 422,
+      "internal": false,
+      "name": "SchemaValidationFailed",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1007,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "FAILED_PRECONDITION",
+      "grpcCode": 9,
+      "http": 409,
+      "internal": false,
+      "name": "PartitionTooLarge",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1008,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "IndexKeyTooLarge",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1009,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "OUT_OF_RANGE",
+      "grpcCode": 11,
+      "http": 422,
+      "internal": false,
+      "name": "CounterOverflow",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1010,
+      "exception": {
+        "dotnet": "QuerySyntaxException",
+        "id": "QuerySyntax",
+        "java": "QuerySyntaxException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "QuerySyntaxError",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1011,
+      "exception": {
+        "dotnet": "QuerySyntaxException",
+        "id": "QuerySyntax",
+        "java": "QuerySyntaxException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "QueryTypeError",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1012,
+      "exception": {
+        "dotnet": "QuerySyntaxException",
+        "id": "QuerySyntax",
+        "java": "QuerySyntaxException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "UnknownFunction",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [
+        "ScanNotAllowed"
+      ],
+      "code": 1013,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "QueryTooComplex",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1020,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "ALREADY_EXISTS",
+      "grpcCode": 6,
+      "http": 409,
+      "internal": false,
+      "name": "IndexAlreadyExists",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1021,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "NOT_FOUND",
+      "grpcCode": 5,
+      "http": 404,
+      "internal": false,
+      "name": "IndexNotFound",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1022,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "FAILED_PRECONDITION",
+      "grpcCode": 9,
+      "http": 409,
+      "internal": false,
+      "name": "IndexBuildFailed",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1023,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "RESOURCE_EXHAUSTED",
+      "grpcCode": 8,
+      "http": 409,
+      "internal": false,
+      "name": "IndexLimitExceeded",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1024,
+      "exception": {
+        "dotnet": "TimeoutException",
+        "id": "Timeout",
+        "java": "RustegonTimeoutException"
+      },
+      "grpc": "DEADLINE_EXCEEDED",
+      "grpcCode": 4,
+      "http": 504,
+      "internal": false,
+      "name": "IndexStaleTimeout",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 1025,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "MultikeyCompoundArrays",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1030,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "NOT_FOUND",
+      "grpcCode": 5,
+      "http": 404,
+      "internal": false,
+      "name": "NotFound",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1031,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "ALREADY_EXISTS",
+      "grpcCode": 6,
+      "http": 409,
+      "internal": false,
+      "name": "AlreadyExists",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1032,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "OUT_OF_RANGE",
+      "grpcCode": 11,
+      "http": 410,
+      "internal": false,
+      "name": "ResumeTokenExpired",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1033,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "ABORTED",
+      "grpcCode": 10,
+      "http": 409,
+      "internal": false,
+      "name": "SchemaChangeInProgress",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 1034,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "ABORTED",
+      "grpcCode": 10,
+      "http": 409,
+      "internal": true,
+      "name": "DescriptorVersionMismatch",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 1040,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "InvalidVector",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 1041,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "INVALID_ARGUMENT",
+      "grpcCode": 3,
+      "http": 400,
+      "internal": false,
+      "name": "InvalidGeometry",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 2001,
+      "exception": {
+        "dotnet": "TransactionConflictException",
+        "id": "TransactionConflict",
+        "java": "TransactionConflictException"
+      },
+      "grpc": "ABORTED",
+      "grpcCode": 10,
+      "http": 409,
+      "internal": false,
+      "name": "TransactionConflict",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 2002,
+      "exception": {
+        "dotnet": "TransactionAbortedException",
+        "id": "TransactionAborted",
+        "java": "TransactionAbortedException"
+      },
+      "grpc": "ABORTED",
+      "grpcCode": 10,
+      "http": 409,
+      "internal": false,
+      "name": "TransactionAborted",
+      "retryNote": "per reason",
+      "retryable": "conditional"
+    },
+    {
+      "aliases": [],
+      "code": 2003,
+      "exception": {
+        "dotnet": "TimeoutException",
+        "id": "Timeout",
+        "java": "RustegonTimeoutException"
+      },
+      "grpc": "DEADLINE_EXCEEDED",
+      "grpcCode": 4,
+      "http": 408,
+      "internal": false,
+      "name": "TransactionTimeout",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 2004,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "RESOURCE_EXHAUSTED",
+      "grpcCode": 8,
+      "http": 413,
+      "internal": false,
+      "name": "TransactionTooLarge",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 2005,
+      "exception": {
+        "dotnet": "TransactionConflictException",
+        "id": "TransactionConflict",
+        "java": "TransactionConflictException"
+      },
+      "grpc": "ABORTED",
+      "grpcCode": 10,
+      "http": 409,
+      "internal": false,
+      "name": "DeadlockDetected",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 2006,
+      "exception": {
+        "dotnet": "CommitOutcomeUnknownException",
+        "id": "CommitOutcomeUnknown",
+        "java": "CommitOutcomeUnknownException"
+      },
+      "grpc": "UNKNOWN",
+      "grpcCode": 2,
+      "http": 500,
+      "internal": false,
+      "name": "CommitOutcomeUnknown",
+      "retryNote": "special",
+      "retryable": "conditional"
+    },
+    {
+      "aliases": [],
+      "code": 2007,
+      "exception": {
+        "dotnet": "TransactionConflictException",
+        "id": "TransactionConflict",
+        "java": "TransactionConflictException"
+      },
+      "grpc": "ABORTED",
+      "grpcCode": 10,
+      "http": 409,
+      "internal": false,
+      "name": "ReadTimestampTooOld",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 2008,
+      "exception": {
+        "dotnet": "TransactionConflictException",
+        "id": "TransactionConflict",
+        "java": "TransactionConflictException"
+      },
+      "grpc": "ABORTED",
+      "grpcCode": 10,
+      "http": 409,
+      "internal": false,
+      "name": "WriteTooOld",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 2009,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "FAILED_PRECONDITION",
+      "grpcCode": 9,
+      "http": 412,
+      "internal": false,
+      "name": "PreconditionFailed",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 3001,
+      "exception": {
+        "dotnet": "UnavailableException",
+        "id": "Unavailable",
+        "java": "UnavailableException"
+      },
+      "grpc": "UNAVAILABLE",
+      "grpcCode": 14,
+      "http": 503,
+      "internal": true,
+      "name": "NotLeaseholder",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 3002,
+      "exception": {
+        "dotnet": "UnavailableException",
+        "id": "Unavailable",
+        "java": "UnavailableException"
+      },
+      "grpc": "UNAVAILABLE",
+      "grpcCode": 14,
+      "http": 503,
+      "internal": false,
+      "name": "Unavailable",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 3003,
+      "exception": {
+        "dotnet": "UnavailableException",
+        "id": "Unavailable",
+        "java": "UnavailableException"
+      },
+      "grpc": "UNAVAILABLE",
+      "grpcCode": 14,
+      "http": 503,
+      "internal": true,
+      "name": "RangeKeyMismatch",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 3004,
+      "exception": {
+        "dotnet": "UnavailableException",
+        "id": "Unavailable",
+        "java": "UnavailableException"
+      },
+      "grpc": "UNAVAILABLE",
+      "grpcCode": 14,
+      "http": 503,
+      "internal": false,
+      "name": "NodeDraining",
+      "retryNote": "other node",
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 3005,
+      "exception": {
+        "dotnet": "UnavailableException",
+        "id": "Unavailable",
+        "java": "UnavailableException"
+      },
+      "grpc": "UNAVAILABLE",
+      "grpcCode": 14,
+      "http": 503,
+      "internal": false,
+      "name": "ClockOffsetExceeded",
+      "retryNote": "other node",
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 3006,
+      "exception": {
+        "dotnet": "TimeoutException",
+        "id": "Timeout",
+        "java": "RustegonTimeoutException"
+      },
+      "grpc": "DEADLINE_EXCEEDED",
+      "grpcCode": 4,
+      "http": 504,
+      "internal": false,
+      "name": "WriteConcernTimeout",
+      "retryNote": "committed=true",
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 3007,
+      "exception": {
+        "dotnet": "UnavailableException",
+        "id": "Unavailable",
+        "java": "UnavailableException"
+      },
+      "grpc": "UNAVAILABLE",
+      "grpcCode": 14,
+      "http": 503,
+      "internal": false,
+      "name": "StaleReadUnavailable",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 4001,
+      "exception": {
+        "dotnet": "AuthenticationException",
+        "id": "Authentication",
+        "java": "AuthenticationException"
+      },
+      "grpc": "UNAUTHENTICATED",
+      "grpcCode": 16,
+      "http": 401,
+      "internal": false,
+      "name": "Unauthenticated",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 4002,
+      "exception": {
+        "dotnet": "AuthorizationException",
+        "id": "Authorization",
+        "java": "AuthorizationException"
+      },
+      "grpc": "PERMISSION_DENIED",
+      "grpcCode": 7,
+      "http": 403,
+      "internal": false,
+      "name": "PermissionDenied",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 4003,
+      "exception": {
+        "dotnet": "RateLimitedException",
+        "id": "RateLimited",
+        "java": "RateLimitedException"
+      },
+      "grpc": "RESOURCE_EXHAUSTED",
+      "grpcCode": 8,
+      "http": 429,
+      "internal": false,
+      "name": "RateLimited",
+      "retryNote": "after",
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 4004,
+      "exception": {
+        "dotnet": "AuthenticationException",
+        "id": "Authentication",
+        "java": "AuthenticationException"
+      },
+      "grpc": "FAILED_PRECONDITION",
+      "grpcCode": 9,
+      "http": 426,
+      "internal": false,
+      "name": "TlsRequired",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 4005,
+      "exception": {
+        "dotnet": "AuthenticationException",
+        "id": "Authentication",
+        "java": "AuthenticationException"
+      },
+      "grpc": "UNAUTHENTICATED",
+      "grpcCode": 16,
+      "http": 401,
+      "internal": false,
+      "name": "SessionExpired",
+      "retryNote": "re-auth",
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 4006,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "FAILED_PRECONDITION",
+      "grpcCode": 9,
+      "http": 503,
+      "internal": false,
+      "name": "KeyUnavailable",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 4007,
+      "exception": {
+        "dotnet": "AuthenticationException",
+        "id": "Authentication",
+        "java": "AuthenticationException"
+      },
+      "grpc": "PERMISSION_DENIED",
+      "grpcCode": 7,
+      "http": 423,
+      "internal": false,
+      "name": "AccountLocked",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 5001,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "INTERNAL",
+      "grpcCode": 13,
+      "http": 500,
+      "internal": false,
+      "name": "Internal",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 5002,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "DATA_LOSS",
+      "grpcCode": 15,
+      "http": 500,
+      "internal": false,
+      "name": "StorageCorruption",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 5003,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "RESOURCE_EXHAUSTED",
+      "grpcCode": 8,
+      "http": 507,
+      "internal": false,
+      "name": "DiskFull",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 5004,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "RESOURCE_EXHAUSTED",
+      "grpcCode": 8,
+      "http": 503,
+      "internal": false,
+      "name": "ResourceExhausted",
+      "retryNote": null,
+      "retryable": "yes"
+    },
+    {
+      "aliases": [],
+      "code": 5005,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "CANCELLED",
+      "grpcCode": 1,
+      "http": 499,
+      "internal": false,
+      "name": "Cancelled",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 5006,
+      "exception": {
+        "dotnet": "TimeoutException",
+        "id": "Timeout",
+        "java": "RustegonTimeoutException"
+      },
+      "grpc": "DEADLINE_EXCEEDED",
+      "grpcCode": 4,
+      "http": 504,
+      "internal": false,
+      "name": "DeadlineExceeded",
+      "retryNote": null,
+      "retryable": "no"
+    },
+    {
+      "aliases": [],
+      "code": 5007,
+      "exception": {
+        "dotnet": "RustegonClientException",
+        "id": "Client",
+        "java": "RustegonClientException"
+      },
+      "grpc": "FAILED_PRECONDITION",
+      "grpcCode": 9,
+      "http": 400,
+      "internal": false,
+      "name": "VersionIncompatible",
+      "retryNote": null,
+      "retryable": "no"
+    }
+  ],
+  "description": "Generated by crates/rustegon-common/tests/driver_tables.rs from proto/errors.yaml and drivers/conformance/errors-map.yaml (PD-075); do not edit.",
+  "transport": [
+    {
+      "code": 5001,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "UNKNOWN",
+      "retryable": false
+    },
+    {
+      "code": 5006,
+      "exception": {
+        "dotnet": "TimeoutException",
+        "id": "Timeout",
+        "java": "RustegonTimeoutException"
+      },
+      "grpc": "DEADLINE_EXCEEDED",
+      "retryable": false
+    },
+    {
+      "code": 4002,
+      "exception": {
+        "dotnet": "AuthorizationException",
+        "id": "Authorization",
+        "java": "AuthorizationException"
+      },
+      "grpc": "PERMISSION_DENIED",
+      "retryable": false
+    },
+    {
+      "code": 5004,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "RESOURCE_EXHAUSTED",
+      "retryable": true
+    },
+    {
+      "code": 5001,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "INTERNAL",
+      "retryable": false
+    },
+    {
+      "code": 3002,
+      "exception": {
+        "dotnet": "UnavailableException",
+        "id": "Unavailable",
+        "java": "UnavailableException"
+      },
+      "grpc": "UNAVAILABLE",
+      "retryable": true
+    },
+    {
+      "code": 4001,
+      "exception": {
+        "dotnet": "AuthenticationException",
+        "id": "Authentication",
+        "java": "AuthenticationException"
+      },
+      "grpc": "UNAUTHENTICATED",
+      "retryable": false
+    },
+    {
+      "code": 5001,
+      "exception": {
+        "dotnet": "RustegonServerException",
+        "id": "Server",
+        "java": "RustegonServerException"
+      },
+      "grpc": "default",
+      "retryable": false
+    }
+  ],
+  "unknown": {
+    "dotnet": "RustegonException",
+    "id": "Base",
+    "java": "RustegonException"
+  },
+  "version": 1
+}

@@ -1,0 +1,1 @@
+{"user_format":1,"type":"user","name":"x509:CN=billing-service","roles":[],"state":"disabled","must_change_password":true,"credential_epoch":0,"created_at":{"$date":"2027-01-15T08:00:00.000Z"},"updated_at":{"$date":"2027-01-15T08:00:00.000Z"}}

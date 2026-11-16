@@ -1,0 +1,95 @@
+# The Rustegon Python driver (python-driver.md, DEC-014, FR-DRV-001/002).
+[build-system]
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rustegon"
+dynamic = ["version"]
+description = "The official Python driver of the Rustegon document database."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [{ name = "The Rustegon Authors" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Database",
+    "Typing :: Typed",
+]
+# Lower bounds: the generated stubs (src/rustegon/_pb, PD-171) check the protobuf and grpcio
+# runtime versions they were generated with. Upper bounds: the next major versions.
+dependencies = [
+    "grpcio>=1.85.1,<2",
+    "protobuf>=7.36.2,<8",
+    "xxhash>=3.4,<5",
+]
+
+# Development tools (PD-175): exact pins; `pip install -e . --group dev` (scripts/ci-local.sh).
+[dependency-groups]
+dev = [
+    "grpc-stubs==1.53.0.6",
+    "grpcio-tools==1.85.1",
+    "mypy==2.4.1",
+    "mypy-protobuf==5.1.0",
+    "pytest==9.2.0",
+    "pytest-asyncio==1.5.0",
+    "PyYAML==6.0.3",
+    "ruff==0.17.5",
+    "types-protobuf==7.35.1.20260906",
+    "types-PyYAML==6.0.12.20261113",
+]
+
+[tool.hatch.version]
+path = "src/rustegon/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rustegon"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/rustegon", "README.md", "pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+markers = [
+    "server: needs rustegond from RUSTEGON_BIN_DIR (PD-072)",
+    "conformance: the shared conformance suite (TC-DRV-CONF-*)",
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+mypy_path = "src"
+packages = ["rustegon", "tests"]
+exclude = ["src/rustegon/_pb/.*_pb2(_grpc)?\\.py$"]
+
+[[tool.mypy.overrides]]
+module = ["rustegon._pb.*"]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["xxhash"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["src/rustegon/_pb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "A", "BLE", "SIM", "RUF", "PL", "N"]
+ignore = [
+    "N818",     # exception names follow the cross-driver names (RustegonException, ...), java-driver.md §11
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR2004",  # protocol code has many branches and literals
+    "S101",     # assert in tests
+    "RUF001", "RUF002", "RUF003",  # typographic characters in docs (–, ×, …) are intended
+    "PLR0917",  # positional arguments mirror the model signatures
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "PLW0603", "BLE001"]

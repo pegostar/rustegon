@@ -1,0 +1,24 @@
+[package]
+name = "rustegon-cluster"
+description = "Cluster membership: gossip, liveness, meta ranges, range cache, routing, allocation, splits and merges."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+rustegon-mvcc.workspace = true
+rustegon-raft.workspace = true
+rustegon-sim-api.workspace = true
+rustegon-storage.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+bytes.workspace = true
+proptest.workspace = true
+rustegon-sim.workspace = true

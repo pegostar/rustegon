@@ -1,0 +1,132 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "bins/*", "xtask"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+repository = "https://github.com/rustegon/rustegon"
+
+[workspace.dependencies]
+# Internal crates.
+rustegon-backup = { path = "crates/rustegon-backup" }
+rustegon-common = { path = "crates/rustegon-common" }
+rustegon-catalog = { path = "crates/rustegon-catalog" }
+rustegon-cluster = { path = "crates/rustegon-cluster" }
+rustegon-doc = { path = "crates/rustegon-doc" }
+rustegon-engine = { path = "crates/rustegon-engine" }
+rustegon-index = { path = "crates/rustegon-index" }
+rustegon-mvcc = { path = "crates/rustegon-mvcc" }
+rustegon-proto = { path = "crates/rustegon-proto" }
+rustegon-query = { path = "crates/rustegon-query" }
+rustegon-net = { path = "crates/rustegon-net" }
+rustegon-raft = { path = "crates/rustegon-raft" }
+rustegon-security = { path = "crates/rustegon-security" }
+rustegon-server = { path = "crates/rustegon-server" }
+rustegon-sim = { path = "crates/rustegon-sim" }
+rustegon-sim-api = { path = "crates/rustegon-sim-api" }
+rustegon-storage = { path = "crates/rustegon-storage" }
+rustegon-txn = { path = "crates/rustegon-txn" }
+
+# Third-party (justified in docs/implementation/repository-structure.md).
+aes-gcm = { version = "0.11", default-features = false, features = ["aes", "alloc", "zeroize"] }
+argon2 = { version = "0.6", default-features = false, features = ["alloc", "zeroize"] }
+# REST front end (PD-052): axum routing over our own hyper connection loop (no `tokio`/`http1`
+# server features of axum itself: the listener is shared with gRPC). Already in the tree
+# through tonic's router.
+axum = { version = "0.8.9", default-features = false, features = ["json", "query", "matched-path", "original-uri"] }
+base64 = "0.23"
+blake3 = "1.8"
+bytes = "1.12"
+clap = { version = "4.6", features = ["derive"] }
+crossbeam-skiplist = "0.1"
+getrandom = "0.4"
+hmac = "0.13"
+# HTTP/2 server stack under the gRPC listener (PD-050): tonic routes served by our own hyper
+# connection loop so the listener goes through the sim-api `Network` and rustls (no tonic TLS
+# features), and deadlines/trailers are ours. Already in the tree through tonic.
+http = "1.4"
+http-body = "1.0"
+http-body-util = "0.1"
+hyper = { version = "1.10", default-features = false }
+hyper-util = { version = "0.1.21", default-features = false }
+lz4_flex = { version = "0.14", default-features = false, features = ["std", "safe-encode", "safe-decode"] }
+pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
+proptest = "1.12"
+# gRPC/protobuf (ADR-014, PD-045). tonic without TLS features: TLS is configured through
+# rustls by rustegon-net (ADR-024); tls-aws-lc would also add a C/cmake build.
+prost = "0.14"
+prost-types = "0.14"
+# Structured RGQL over gRPC (PD-053): `query_ast.proto` messages are mapped onto the JSON AST
+# through their descriptors instead of ~100 hand-written converters. Already in the tree via protox.
+prost-reflect = { version = "0.16", default-features = false }
+protox = "0.10"
+tonic = { version = "0.14", default-features = false, features = ["codegen", "router", "transport"] }
+tonic-prost = "0.14"
+tower = { version = "0.5", default-features = false }
+tower-service = "0.3"
+tonic-prost-build = { version = "0.14", default-features = false, features = ["transport"] }
+# TLS: ring provider only (no aws-lc-rs: it needs cmake/NASM C builds; PD-046, ADR-024).
+# `rustegon` CLI password prompts without echo (PD-058): Apache-2.0, pure Rust over libc /
+# windows-sys.
+rpassword = "7.4"
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem", "x509-parser"] }
+regex = "1.12"
+rustls = { version = "0.23.40", default-features = false, features = ["ring", "std", "tls12"] }
+# Operating-system trust store for the S3 backup client (PD-065): public endpoints such as AWS
+# are verified against the platform roots. Pure Rust, Apache-2.0/ISC/MIT; `webpki-roots` was
+# rejected because its CDLA-Permissive-2.0 data license is outside the NFR-CMPL-001 allowlist.
+rustls-native-certs = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.11"
+stringprep = "0.1"
+subtle = "2.6"
+tempfile = "3.27"
+# `cargo xtask dist` only (PD-154): the archive writers of the release archives. Never a
+# dependency of a shipped crate; flate2 on its pure-Rust backend, zip without its optional
+# compressors and encryption.
+flate2 = "1.1"
+tar = { version = "0.4", default-features = false }
+zip = { version = "9.5", default-features = false, features = ["deflate-flate2"] }
+thiserror = "2.0"
+time = { version = "0.3", default-features = false, features = ["std"] }
+tokio = { version = "1.54", default-features = false }
+# Embeds the built GUI (`gui/dist/`) into `rustegond` (ADR-027, PD-130); no framework or
+# MIME feature: the server has its own small content-type table.
+rust-embed = { version = "8.14", default-features = false }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+toml = "1.1"
+# OpenAPI 3.1 document generated from the REST handlers (PD-052, protocol.md header); the
+# `yaml` feature is off: the checked-in YAML is emitted through `yaml-rust2`.
+utoipa = { version = "6.0", default-features = false, features = ["macros"] }
+utoipa-axum = "0.3"
+twox-hash ={ version = "2.1", default-features = false, features = ["std", "xxhash3_64", "xxhash3_128"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false }
+# rustegond as a Windows service (PD-054, PD-206).
+windows-service = "0.8"
+x509-parser = { version = "0.18", default-features = false }
+yaml-rust2 = "0.13"
+x509-cert = { version = "0.3", default-features = false, features = ["std"] }
+zeroize = { version = "1.9", features = ["derive"] }
+zstd = { version = "0.14", default-features = false }
+
+# Workspace lints: docs/implementation/coding-standards.md §3.1 (NFR-MNT-001).
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_docs = "warn"
+rust_2018_idioms = { level = "deny", priority = -1 }
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "warn"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+large_futures = "warn"
+await_holding_lock = "deny"

@@ -1,0 +1,373 @@
+{
+  "description": "TC-API-003 TransactionService over gRPC: Begin, Status, Heartbeat, Commit, Rollback.",
+  "steps": [
+    {
+      "capture": {
+        "token": "/ok/success/sessionToken"
+      },
+      "expect": {
+        "ok": {
+          "success": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "${token}",
+            "user": "admin"
+          }
+        }
+      },
+      "name": "login",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "ok": {
+          "created": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create database",
+      "request": {
+        "name": "shop"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateDatabase"
+    },
+    {
+      "expect": {
+        "ok": {
+          "created": true
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "create collection",
+      "request": {
+        "database": "shop",
+        "name": "items"
+      },
+      "rpc": "rustegon.v1.SchemaService/CreateCollection"
+    },
+    {
+      "capture": {
+        "txn": "/ok/txnId"
+      },
+      "expect": {
+        "ok": {
+          "heartbeatIntervalMs": 1000,
+          "txnId": "${txn}"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "begin",
+      "request": {
+        "isolation": "AST_ISOLATION_SNAPSHOT"
+      },
+      "rpc": "rustegon.v1.TransactionService/Begin"
+    },
+    {
+      "expect": {
+        "ok": {
+          "results": [
+            {
+              "id": {
+                "rdocValue": {
+                  "$rdocValue": 1
+                }
+              },
+              "rev": "<rev>"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "insert inside the transaction",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "documents": [
+          {
+            "rdoc": {
+              "$rdoc": {
+                "_id": 1,
+                "n": 1
+              }
+            }
+          }
+        ],
+        "txnId": "${txn}"
+      },
+      "rpc": "rustegon.v1.DocumentService/Insert"
+    },
+    {
+      "expect": {
+        "ok": {
+          "state": "TRANSACTION_STATE_ACTIVE"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "status",
+      "request": {
+        "txnId": "${txn}"
+      },
+      "rpc": "rustegon.v1.TransactionService/Status"
+    },
+    {
+      "expect": {
+        "ok": {
+          "expiresInMs": "<ms>"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "heartbeat",
+      "request": {
+        "txnId": "${txn}"
+      },
+      "rpc": "rustegon.v1.TransactionService/Heartbeat"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "commit",
+      "request": {
+        "txnId": "${txn}"
+      },
+      "rpc": "rustegon.v1.TransactionService/Commit"
+    },
+    {
+      "expect": {
+        "ok": {
+          "document": {
+            "rdoc": {
+              "$rdoc": {
+                "_createdAt": "<datetime>",
+                "_id": 1,
+                "_rev": "<rev>",
+                "_updatedAt": "<datetime>",
+                "n": 1
+              }
+            }
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "visible after commit",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 1
+          }
+        }
+      },
+      "rpc": "rustegon.v1.DocumentService/Get"
+    },
+    {
+      "expect": {
+        "ok": {
+          "state": "TRANSACTION_STATE_COMMITTED"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "status after commit",
+      "request": {
+        "txnId": "${txn}"
+      },
+      "rpc": "rustegon.v1.TransactionService/Status"
+    },
+    {
+      "capture": {
+        "rb": "/ok/txnId"
+      },
+      "expect": {
+        "ok": {
+          "heartbeatIntervalMs": 1000,
+          "txnId": "${rb}"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "begin a transaction to roll back",
+      "request": {},
+      "rpc": "rustegon.v1.TransactionService/Begin"
+    },
+    {
+      "expect": {
+        "ok": {
+          "results": [
+            {
+              "id": {
+                "rdocValue": {
+                  "$rdocValue": 3
+                }
+              },
+              "rev": "<rev>"
+            }
+          ]
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "insert, then roll back",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "documents": [
+          {
+            "rdoc": {
+              "$rdoc": {
+                "_id": 3
+              }
+            }
+          }
+        ],
+        "txnId": "${rb}"
+      },
+      "rpc": "rustegon.v1.DocumentService/Insert"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "rollback",
+      "request": {
+        "txnId": "${rb}"
+      },
+      "rpc": "rustegon.v1.TransactionService/Rollback"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "rolled back write is not visible",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "id": {
+          "rdocValue": {
+            "$rdocValue": 3
+          }
+        }
+      },
+      "rpc": "rustegon.v1.DocumentService/Get"
+    },
+    {
+      "capture": {
+        "ro": "/ok/txnId"
+      },
+      "expect": {
+        "ok": {
+          "heartbeatIntervalMs": 1000,
+          "txnId": "${ro}"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "begin read-only",
+      "request": {
+        "readOnly": true
+      },
+      "rpc": "rustegon.v1.TransactionService/Begin"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1001,
+            "name": "InvalidArgument",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "InvalidArgument",
+          "message": "invalid argument: write in a read-only transaction"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "write in a read-only transaction",
+      "request": {
+        "collection": "items",
+        "database": "shop",
+        "documents": [
+          {
+            "rdoc": {
+              "$rdoc": {
+                "_id": 2
+              }
+            }
+          }
+        ],
+        "txnId": "${ro}"
+      },
+      "rpc": "rustegon.v1.DocumentService/Insert"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "rollback of the read-only transaction",
+      "request": {
+        "txnId": "${ro}"
+      },
+      "rpc": "rustegon.v1.TransactionService/Rollback"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 1001,
+            "details": {
+              "field": "txn_id"
+            },
+            "name": "InvalidArgument",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "InvalidArgument",
+          "message": "invalid transaction id"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "commit of an unknown transaction",
+      "request": {
+        "txnId": "unknown-txn"
+      },
+      "rpc": "rustegon.v1.TransactionService/Commit"
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+description: "bulkWrite (DocumentService.BulkWrite): by-id operations, ordered/unordered, per-operation errors (protocol.md §3 PD-053 data plane; no AtomicMode in R1, PD-071)."
+tests:
+  - id: TC-DRV-CONF-BULK-001
+    description: "An ordered batch of every operation kind; counts per kind."
+    covers: [Collection.BulkWrite, BulkOperation.Insert, BulkOperation.Replace, BulkOperation.Update, BulkOperation.Upsert, BulkOperation.Delete]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "v": 1}, {"_id": 2, "v": 2}, {"_id": 3, "v": 3}]}
+    operations:
+      - object: collection
+        name: bulkWrite
+        args:
+          ordered: true
+          operations:
+            - {insert: {document: {"_id": 4, "v": 4}}}
+            - {replace: {id: 1, document: {"v": 10}}}
+            - {update: {id: 2, update: [{inc: ["v", 5]}]}}
+            - {upsert: {document: {"_id": 5, "v": 5}}}
+            - {upsert: {document: {"_id": 3, "v": 30}}}
+            - {delete: {id: 4}}
+        expect: {result: {insertedCount: 2, matchedCount: 3, modifiedCount: 3, deletedCount: 1, errors: []}}
+    outcome:
+      items:
+        - {"_id": 1, "v": 10}
+        - {"_id": 2, "v": 7}
+        - {"_id": 3, "v": 30}
+        - {"_id": 5, "v": 5}
+
+  - id: TC-DRV-CONF-BULK-002
+    description: "Unordered: a failing operation is reported with its index and rolled back alone; the others commit."
+    covers: [Collection.BulkWrite, BulkOperation.Insert]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 2}]}
+    operations:
+      - object: collection
+        name: bulkWrite
+        args:
+          ordered: false
+          operations:
+            - {insert: {document: {"_id": 1}}}
+            - {insert: {document: {"_id": 2}}}
+            - {insert: {document: {"_id": 3}}}
+        expect: {result: {insertedCount: 2, matchedCount: 0, modifiedCount: 0, deletedCount: 0, errors: [{index: 1, code: 1005}]}}
+    outcome:
+      items: [{"_id": 1}, {"_id": 2}, {"_id": 3}]
+
+  - id: TC-DRV-CONF-BULK-003
+    description: "Ordered: processing stops at the first failure; earlier operations commit, later ones are not attempted."
+    covers: [Collection.BulkWrite, BulkOperation.Insert]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 2}]}
+    operations:
+      - object: collection
+        name: bulkWrite
+        args:
+          ordered: true
+          operations:
+            - {insert: {document: {"_id": 1}}}
+            - {insert: {document: {"_id": 2}}}
+            - {insert: {document: {"_id": 3}}}
+        expect: {result: {insertedCount: 1, matchedCount: 0, modifiedCount: 0, deletedCount: 0, errors: [{index: 1, code: 1005}]}}
+    outcome:
+      items: [{"_id": 1}, {"_id": 2}]
+
+  - id: TC-DRV-CONF-BULK-004
+    description: "A stale ifRev fails that operation with PreconditionFailed."
+    covers: [Collection.BulkWrite, BulkOperation.Update, BulkOperation.Delete, Collection.FindById]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1, "v": 1}, {"_id": 2, "v": 2}]}
+    operations:
+      - {object: collection, name: findById, args: {id: 1}, saveAs: one}
+      - {object: collection, name: updateOne, args: {filter: {id: 1}, update: [{inc: ["v", 1]}]}}
+      - object: collection
+        name: bulkWrite
+        args:
+          ordered: false
+          operations:
+            - {update: {id: 1, update: [{set: ["v", 100]}], ifRev: "$$ref:one._rev"}}
+            - {delete: {id: 2}}
+        expect: {result: {insertedCount: 0, matchedCount: 0, modifiedCount: 0, deletedCount: 1, errors: [{index: 0, code: 2009}]}}
+    outcome:
+      items: [{"_id": 1, "v": 2}]
+
+  - id: TC-DRV-CONF-BULK-005
+    description: "Operations on missing ids match nothing and are not errors."
+    covers: [Collection.BulkWrite, BulkOperation.Update, BulkOperation.Replace, BulkOperation.Delete]
+    setup:
+      collections: [{name: items}]
+    operations:
+      - object: collection
+        name: bulkWrite
+        args:
+          operations:
+            - {update: {id: 9, update: [{set: ["v", 1]}]}}
+            - {replace: {id: 9, document: {"v": 1}}}
+            - {delete: {id: 9}}
+        expect: {result: {insertedCount: 0, matchedCount: 0, modifiedCount: 0, deletedCount: 0, errors: []}}
+    outcome:
+      items: []
+
+  - id: TC-DRV-CONF-BULK-006
+    description: "Inside a transaction any failure fails the call and undoes the whole bulk; the transaction stays active."
+    covers: [Collection.BulkWrite, Client.BeginTransaction, Transaction.GetCollection, Transaction.Commit]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 2}]}
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: insertOne, collection: items, args: {document: {"_id": 10}}}
+      - object: txn
+        name: bulkWrite
+        collection: items
+        args:
+          operations:
+            - {insert: {document: {"_id": 1}}}
+            - {insert: {document: {"_id": 2}}}
+        expect: {error: {code: 1005, exception: DuplicateKey}}
+      - {object: txn, name: commit}
+    outcome:
+      items: [{"_id": 2}, {"_id": 10}]

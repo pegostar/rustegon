@@ -1,0 +1,5 @@
+# coding-standards.md §3.1. `imports_granularity` and `group_imports` are unstable rustfmt options:
+# stable rustfmt prints a warning and skips them, `cargo +nightly fmt` applies them.
+max_width = 100
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"

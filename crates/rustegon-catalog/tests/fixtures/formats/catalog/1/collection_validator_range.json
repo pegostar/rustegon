@@ -1,0 +1,1 @@
+{"catalog_format":1,"type":"collection","id":4000000000,"database_id":100,"name":"users.v2","kind":"document","version":3,"state":"public","shard_key":{"strategy":"range","fields":["region","_id"]},"options":{"validator":"{\"$jsonSchema\":{\"type\":\"object\",\"required\":[\"email\"]}}","validationLevel":"moderate","validationAction":"warn"}}

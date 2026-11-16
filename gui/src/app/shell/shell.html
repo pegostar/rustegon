@@ -1,0 +1,166 @@
+<a class="rg-skip-link" href="#main" (click)="focusMain($event)" i18n="@@shell.skip"
+  >Skip to main content</a
+>
+
+<header class="rg-topbar rg-glass-strong">
+  @if (layout() === 'drawer') {
+    <button
+      type="button"
+      class="btn btn-ghost btn-icon"
+      (click)="openDrawer()"
+      [attr.aria-expanded]="drawerOpen()"
+      [attr.aria-controls]="drawerOpen() ? 'rg-nav' : null"
+      i18n-aria-label="@@shell.menu"
+      aria-label="Navigation menu"
+    >
+      <rg-icon name="menu" />
+    </button>
+  }
+  <a class="rg-brand" routerLink="/dashboard">
+    <rg-logo />
+    <span class="rg-brand-name" i18n="@@shell.brand">Rustegon Console</span>
+  </a>
+  <span class="rg-spacer"></span>
+
+  <div ngbDropdown placement="bottom-end" container="body">
+    <button
+      type="button"
+      class="btn btn-ghost btn-icon"
+      ngbDropdownToggle
+      aria-haspopup="menu"
+      i18n-aria-label="@@shell.appearance"
+      aria-label="Appearance and language"
+      i18n-ngbTooltip="@@shell.appearance"
+      ngbTooltip="Appearance and language"
+      #appearanceTip="ngbTooltip"
+      triggers="hover"
+      container="body"
+      placement="bottom"
+      (click)="appearanceTip.close()"
+    >
+      <rg-icon name="palette" />
+    </button>
+    <div ngbDropdownMenu role="menu" class="rg-menu">
+      @for (t of themes; track t.value) {
+        <button
+          ngbDropdownItem
+          type="button"
+          role="menuitemradio"
+          [attr.aria-checked]="theme.mode() === t.value"
+          (click)="theme.mode.set(t.value)"
+        >
+          <rg-icon [name]="t.icon" [size]="18" />
+          <span class="flex-grow-1">{{ t.label }}</span>
+          @if (theme.mode() === t.value) {
+            <rg-icon class="rg-check" name="check" [size]="18" />
+          }
+        </button>
+      }
+      <div class="dropdown-divider" role="separator"></div>
+      @for (d of densities; track d.value) {
+        <button
+          ngbDropdownItem
+          type="button"
+          role="menuitemradio"
+          [attr.aria-checked]="theme.density() === d.value"
+          (click)="theme.density.set(d.value)"
+        >
+          <rg-icon name="density" [size]="18" />
+          <span class="flex-grow-1">{{ d.label }}</span>
+          @if (theme.density() === d.value) {
+            <rg-icon class="rg-check" name="check" [size]="18" />
+          }
+        </button>
+      }
+      <div class="dropdown-divider" role="separator"></div>
+      @for (l of locales; track l) {
+        <button
+          ngbDropdownItem
+          type="button"
+          role="menuitemradio"
+          [attr.lang]="l"
+          [attr.aria-checked]="locale === l"
+          (click)="setLocale(l)"
+        >
+          <rg-icon name="language" [size]="18" />
+          <span class="flex-grow-1">{{ localeNames[l] }}</span>
+          @if (locale === l) {
+            <rg-icon class="rg-check" name="check" [size]="18" />
+          }
+        </button>
+      }
+    </div>
+  </div>
+
+  <div ngbDropdown placement="bottom-end" container="body">
+    <button type="button" class="btn btn-glass rg-account" ngbDropdownToggle aria-haspopup="menu">
+      <span class="rg-avatar" aria-hidden="true">{{ initial() }}</span>
+      <span>{{ session.user()?.user }}</span>
+    </button>
+    <div ngbDropdownMenu role="menu" class="rg-menu">
+      <a ngbDropdownItem role="menuitem" routerLink="/change-password">
+        <rg-icon name="key" [size]="18" />
+        <ng-container i18n="@@shell.changePassword">Change password</ng-container>
+      </a>
+      <button ngbDropdownItem role="menuitem" type="button" (click)="logout()">
+        <rg-icon name="logout" [size]="18" />
+        <ng-container i18n="@@shell.logout">Sign out</ng-container>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="rg-body" [class.rg-rail]="layout() === 'rail'">
+  @if (layout() !== 'drawer') {
+    <aside class="rg-sidebar rg-glass">
+      <ng-container [ngTemplateOutlet]="navTpl" />
+    </aside>
+  }
+  <main id="main" tabindex="-1" class="rg-main">
+    <router-outlet />
+  </main>
+</div>
+
+<ng-template #navTpl>
+  <nav id="rg-nav" i18n-aria-label="@@shell.nav" aria-label="Main">
+    <ul class="rg-nav">
+      @for (item of nav(); track item.path) {
+        <li>
+          <a
+            class="rg-nav-link"
+            [routerLink]="item.path"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            [ngbTooltip]="item.label"
+            [disableTooltip]="layout() !== 'rail'"
+            placement="end"
+            container="body"
+            (click)="navigated()"
+          >
+            <span class="rg-nav-icon"><rg-icon [name]="item.icon" [size]="20" /></span>
+            <span class="rg-nav-label">{{ item.label }}</span>
+          </a>
+        </li>
+      }
+    </ul>
+  </nav>
+</ng-template>
+
+<ng-template #drawer let-offcanvas>
+  <div class="offcanvas-header">
+    <span id="rg-drawer-title" class="rg-brand">
+      <rg-logo />
+      <span class="rg-brand-name" i18n="@@shell.brand">Rustegon Console</span>
+    </span>
+    <button
+      type="button"
+      class="btn-close"
+      i18n-aria-label="@@dialog.close"
+      aria-label="Close"
+      (click)="offcanvas.dismiss()"
+    ></button>
+  </div>
+  <div class="offcanvas-body">
+    <ng-container [ngTemplateOutlet]="navTpl" />
+  </div>
+</ng-template>

@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: Apache-2.0
+# DEB and RPM packages (FR-INS-002, linux.md §1, PD-201), built by `cargo xtask dist --packages`
+# with the nfpm image of `nfpm-image.txt`. nfpm expands the variables from the environment:
+#   VERSION  package version (`<semver>~dev.<commits>+g<sha>[.dirty]`, PD-202)
+#   ARCH     Go architecture name (amd64, arm64; nfpm maps it to x86_64/aarch64 for RPM)
+# and the build mounts the directory holding the built rustegond, rustegon and generated text
+# files at /stage.
+name: rustegon
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+# Used verbatim: xtask already turned the dev version into a DEB/RPM-ordered one.
+version_schema: none
+release: "1"
+section: database
+priority: optional
+maintainer: The Rustegon Authors
+vendor: The Rustegon Authors
+license: Apache-2.0
+description: |-
+  Rustegon distributed ACID document database.
+  Server (rustegond, web console under /ui) and command-line tool (rustegon).
+  Unsigned development build. The first install initializes a turnkey node
+  (plain text on 127.0.0.1, user admin / admin to be changed at first login) and
+  enables and starts the rustegon service (/usr/share/doc/rustegon/README.md).
+
+contents:
+  - src: /stage/rustegond
+    dst: /usr/bin/rustegond
+    file_info: { mode: 0755 }
+  - src: /stage/rustegon
+    dst: /usr/bin/rustegon
+    file_info: { mode: 0755 }
+  - src: packaging/linux/rustegon.service
+    dst: /usr/lib/systemd/system/rustegon.service
+    file_info: { mode: 0644 }
+  # Owned by the service account so that `rustegon init` (run as that account by postinstall)
+  # can write the configuration and key file; package removal leaves non-empty directories in
+  # place.
+  - dst: /etc/rustegon
+    type: dir
+    file_info: { mode: 0750, owner: rustegon, group: rustegon }
+  - dst: /var/lib/rustegon
+    type: dir
+    file_info: { mode: 0700, owner: rustegon, group: rustegon }
+  - dst: /var/log/rustegon
+    type: dir
+    file_info: { mode: 0750, owner: rustegon, group: rustegon }
+  - src: packaging/linux/README.md
+    dst: /usr/share/doc/rustegon/README.md
+    file_info: { mode: 0644 }
+  - src: /stage/LICENSE
+    dst: /usr/share/doc/rustegon/LICENSE
+    file_info: { mode: 0644 }
+  - src: /stage/NOTICE
+    dst: /usr/share/doc/rustegon/NOTICE
+    file_info: { mode: 0644 }
+  - src: /stage/THIRD-PARTY-LICENSES.txt
+    dst: /usr/share/doc/rustegon/THIRD-PARTY-LICENSES.txt
+    file_info: { mode: 0644 }
+  - src: /stage/rustegon.toml
+    dst: /usr/share/doc/rustegon/rustegon.toml.sample
+    file_info: { mode: 0644 }
+
+scripts:
+  preinstall: packaging/linux/scripts/preinstall.sh
+  postinstall: packaging/linux/scripts/postinstall.sh
+  preremove: packaging/linux/scripts/preremove.sh
+  postremove: packaging/linux/scripts/postremove.sh

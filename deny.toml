@@ -1,0 +1,78 @@
+# cargo-deny configuration (NFR-CMPL-001, ADR-003, ADR-024).
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+# NFR-CMPL-001 allowlist. MPL-2.0 is file-level copyleft only: allowed as a dependency, never
+# copied into our sources.
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Zlib",
+  "Unicode-3.0",
+  "MPL-2.0",
+]
+confidence-threshold = 0.9
+# The allowlist is policy; not every license has to be in use.
+unused-allowed-license = "allow"
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+deny = [
+  # ADR-024: TLS is rustls only, no OpenSSL.
+  { crate = "openssl", reason = "ADR-024: rustls only" },
+  { crate = "openssl-sys", reason = "ADR-024: rustls only" },
+  { crate = "native-tls", reason = "ADR-024: rustls only" },
+  # PD-046 / PD-065 (owner, 2026-11-09): rustls uses the ring provider only; aws-lc-rs would add
+  # a second crypto stack (C/asm build, different FIPS and audit story) behind default features.
+  { crate = "aws-lc-rs", reason = "PD-046/PD-065: rustls with the ring provider only" },
+  { crate = "aws-lc-sys", reason = "PD-046/PD-065: rustls with the ring provider only" },
+  { crate = "aws-lc-fips-sys", reason = "PD-046/PD-065: rustls with the ring provider only" },
+  # ADR-003 (owner decision): rustegon-storage is the only storage engine. Third-party KV/storage
+  # engines are banned as engine, fallback, feature-flagged alternative or benchmark baseline.
+  { crate = "rocksdb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "rust-rocksdb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "librocksdb-sys", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "rust-librocksdb-sys", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "ckb-rocksdb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "speedb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "sled", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "fjall", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "lsm-tree", reason = "ADR-003: third-party storage engines are banned (fjall core)" },
+  { crate = "redb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "lmdb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "lmdb-rkv", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "lmdb-sys", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "heed", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "leveldb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "rusty-leveldb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "sanakirja", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "persy", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "jammdb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "surrealkv", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "canopydb", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "nebari", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "sqlite", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "rusqlite", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "libsqlite3-sys", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "tikv-client", reason = "ADR-003: third-party storage engines are banned" },
+  { crate = "foundationdb", reason = "ADR-003: third-party storage engines are banned" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

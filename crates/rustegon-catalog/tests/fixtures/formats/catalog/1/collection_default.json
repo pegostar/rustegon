@@ -1,0 +1,1 @@
+{"catalog_format":1,"type":"collection","id":102,"database_id":100,"name":"orders","kind":"document","version":1,"state":"public","shard_key":{"strategy":"hashed","fields":["_id"]},"options":{"validationLevel":"strict","validationAction":"error"}}

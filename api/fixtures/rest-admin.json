@@ -1,0 +1,1120 @@
+{
+  "description": "TC-API-003 REST administration: users, roles, API keys, settings.",
+  "steps": [
+    {
+      "body": {
+        "delivery": "token",
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      },
+      "capture": {
+        "token": "/body/sessionToken"
+      },
+      "expect": {
+        "body": {
+          "expiresAtUnixMs": "<unix-ms>",
+          "mustChangePassword": false,
+          "sessionToken": "${token}",
+          "user": "admin"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "method": "POST",
+      "name": "login",
+      "path": "/api/v1/auth/login"
+    },
+    {
+      "body": {
+        "name": "carol",
+        "password": "Zr8&uW3n!Kd5Qe2p",
+        "roles": [
+          {
+            "resource": "database:shop",
+            "role": "read"
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "user": {
+            "createdAtUnixMs": "<unix-ms>",
+            "disabled": false,
+            "mustChangePassword": false,
+            "name": "carol",
+            "roles": [
+              {
+                "resource": "database:shop",
+                "role": "read"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create user",
+      "path": "/api/v1/users"
+    },
+    {
+      "body": {
+        "name": "carol",
+        "password": "Zr8&uW3n!Kd5Qe2p"
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1031,
+            "details": {},
+            "message": "user \"carol\" already exists",
+            "name": "AlreadyExists",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 409
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "duplicate user",
+      "path": "/api/v1/users"
+    },
+    {
+      "body": {
+        "name": "dave",
+        "nickname": "d",
+        "password": "Zr8&uW3n!Kd5Qe2p"
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1001,
+            "details": {
+              "body": "data"
+            },
+            "message": "request body does not match the expected schema",
+            "name": "InvalidArgument",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 400
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "unknown body member is RGN-1001",
+      "path": "/api/v1/users"
+    },
+    {
+      "expect": {
+        "body": {
+          "user": {
+            "createdAtUnixMs": "<unix-ms>",
+            "disabled": false,
+            "mustChangePassword": false,
+            "name": "carol",
+            "roles": [
+              {
+                "resource": "database:shop",
+                "role": "read"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "get user",
+      "path": "/api/v1/users/carol"
+    },
+    {
+      "expect": {
+        "body": {
+          "users": [
+            {
+              "createdAtUnixMs": "<unix-ms>",
+              "disabled": false,
+              "mustChangePassword": false,
+              "name": "admin",
+              "roles": [
+                {
+                  "resource": "cluster",
+                  "role": "root"
+                }
+              ]
+            },
+            {
+              "createdAtUnixMs": "<unix-ms>",
+              "disabled": false,
+              "mustChangePassword": false,
+              "name": "carol",
+              "roles": [
+                {
+                  "resource": "database:shop",
+                  "role": "read"
+                }
+              ]
+            }
+          ]
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "list users",
+      "path": "/api/v1/users"
+    },
+    {
+      "body": {
+        "disabled": true,
+        "roles": [
+          {
+            "resource": "database:shop",
+            "role": "read_write"
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "user": {
+            "createdAtUnixMs": "<unix-ms>",
+            "disabled": true,
+            "mustChangePassword": false,
+            "name": "carol",
+            "roles": [
+              {
+                "resource": "database:shop",
+                "role": "read_write"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "PATCH",
+      "name": "update user",
+      "path": "/api/v1/users/carol"
+    },
+    {
+      "body": {
+        "name": "analyst",
+        "privileges": [
+          {
+            "actions": [
+              "find"
+            ],
+            "resource": "database:shop"
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "role": {
+            "builtIn": false,
+            "inherits": [],
+            "name": "analyst",
+            "privileges": [
+              {
+                "actions": [
+                  "find"
+                ],
+                "resource": "database:shop"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create role",
+      "path": "/api/v1/roles"
+    },
+    {
+      "expect": {
+        "body": {
+          "role": {
+            "builtIn": false,
+            "inherits": [],
+            "name": "analyst",
+            "privileges": [
+              {
+                "actions": [
+                  "find"
+                ],
+                "resource": "database:shop"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "get role",
+      "path": "/api/v1/roles/analyst"
+    },
+    {
+      "expect": {
+        "body": {
+          "roles": [
+            {
+              "builtIn": false,
+              "inherits": [],
+              "name": "analyst",
+              "privileges": [
+                {
+                  "actions": [
+                    "find"
+                  ],
+                  "resource": "database:shop"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "backup_operator",
+              "privileges": [
+                {
+                  "actions": [
+                    "cluster_view",
+                    "backup"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "cluster_admin",
+              "privileges": [
+                {
+                  "actions": [
+                    "txn_kill",
+                    "query_kill",
+                    "query_stats_view",
+                    "cluster_view",
+                    "cluster_manage",
+                    "audit_view",
+                    "diagnostics",
+                    "xdc_manage",
+                    "key_manage"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "db_admin",
+              "privileges": [
+                {
+                  "actions": [
+                    "create_collection",
+                    "drop_collection",
+                    "alter_collection",
+                    "create_index",
+                    "drop_index",
+                    "create_database",
+                    "drop_database",
+                    "txn_kill",
+                    "query_kill",
+                    "query_stats_view"
+                  ],
+                  "resource": "database:*"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "db_owner",
+              "privileges": [
+                {
+                  "actions": [
+                    "find",
+                    "insert",
+                    "update",
+                    "delete",
+                    "bulk_write",
+                    "aggregate_write",
+                    "change_stream",
+                    "create_collection",
+                    "drop_collection",
+                    "alter_collection",
+                    "create_index",
+                    "drop_index",
+                    "create_database",
+                    "drop_database",
+                    "txn_kill",
+                    "query_kill",
+                    "query_stats_view",
+                    "user_manage",
+                    "role_manage"
+                  ],
+                  "resource": "database:*"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "monitor",
+              "privileges": [
+                {
+                  "actions": [
+                    "query_stats_view",
+                    "cluster_view"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "node",
+              "privileges": [
+                {
+                  "actions": [
+                    "cluster_view"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "read",
+              "privileges": [
+                {
+                  "actions": [
+                    "find",
+                    "change_stream"
+                  ],
+                  "resource": "database:*"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "read_write",
+              "privileges": [
+                {
+                  "actions": [
+                    "find",
+                    "insert",
+                    "update",
+                    "delete",
+                    "bulk_write",
+                    "aggregate_write",
+                    "change_stream"
+                  ],
+                  "resource": "database:*"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "restore_operator",
+              "privileges": [
+                {
+                  "actions": [
+                    "restore"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "root",
+              "privileges": [
+                {
+                  "actions": [
+                    "find",
+                    "insert",
+                    "update",
+                    "delete",
+                    "bulk_write",
+                    "aggregate_write",
+                    "change_stream",
+                    "subscription_manage",
+                    "create_collection",
+                    "drop_collection",
+                    "alter_collection",
+                    "create_index",
+                    "drop_index",
+                    "create_database",
+                    "drop_database",
+                    "txn_kill",
+                    "query_kill",
+                    "query_stats_view",
+                    "user_manage",
+                    "role_manage",
+                    "cluster_view",
+                    "cluster_manage",
+                    "backup",
+                    "restore",
+                    "audit_view",
+                    "diagnostics",
+                    "xdc_manage",
+                    "key_manage"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            },
+            {
+              "builtIn": true,
+              "inherits": [],
+              "name": "user_admin",
+              "privileges": [
+                {
+                  "actions": [
+                    "user_manage",
+                    "role_manage"
+                  ],
+                  "resource": "cluster"
+                }
+              ]
+            }
+          ]
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "list roles",
+      "path": "/api/v1/roles"
+    },
+    {
+      "body": {
+        "privileges": [
+          {
+            "actions": [
+              "find",
+              "insert"
+            ],
+            "resource": "database:shop"
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "role": {
+            "builtIn": false,
+            "inherits": [],
+            "name": "analyst",
+            "privileges": [
+              {
+                "actions": [
+                  "find",
+                  "insert"
+                ],
+                "resource": "database:shop"
+              }
+            ]
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "PATCH",
+      "name": "update role",
+      "path": "/api/v1/roles/analyst"
+    },
+    {
+      "expect": {
+        "body": {},
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "DELETE",
+      "name": "drop role",
+      "path": "/api/v1/roles/analyst"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1030,
+            "details": {},
+            "message": "role \"analyst\" not found",
+            "name": "NotFound",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 404
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "missing role",
+      "path": "/api/v1/roles/analyst"
+    },
+    {
+      "body": {
+        "description": "ci",
+        "roles": [
+          {
+            "resource": "cluster",
+            "role": "root"
+          }
+        ]
+      },
+      "capture": {
+        "apiKey": "/body/secret",
+        "keyId": "/body/key/keyId"
+      },
+      "expect": {
+        "body": {
+          "key": {
+            "createdAtUnixMs": "<unix-ms>",
+            "description": "ci",
+            "ipAllowlist": [],
+            "keyId": "${keyId}",
+            "roles": [
+              {
+                "resource": "cluster",
+                "role": "root"
+              }
+            ],
+            "user": "admin"
+          },
+          "secret": "${apiKey}"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create API key",
+      "path": "/api/v1/api-keys"
+    },
+    {
+      "expect": {
+        "body": {
+          "apiKeyId": "${keyId}",
+          "expiresAtUnixMs": "<unix-ms>",
+          "mechanism": "api_key",
+          "roles": [
+            {
+              "resource": "cluster",
+              "role": "root"
+            }
+          ],
+          "user": "admin"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "ApiKey ${apiKey}"
+      },
+      "method": "GET",
+      "name": "the key authenticates",
+      "path": "/api/v1/auth/me"
+    },
+    {
+      "expect": {
+        "body": {
+          "keys": [
+            {
+              "createdAtUnixMs": "<unix-ms>",
+              "description": "ci",
+              "ipAllowlist": [],
+              "keyId": "${keyId}",
+              "roles": [
+                {
+                  "resource": "cluster",
+                  "role": "root"
+                }
+              ],
+              "user": "admin"
+            }
+          ]
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "list API keys",
+      "path": "/api/v1/api-keys"
+    },
+    {
+      "expect": {
+        "body": {},
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "DELETE",
+      "name": "revoke API key",
+      "path": "/api/v1/api-keys/${keyId}"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 4001,
+            "details": {},
+            "message": "authentication failed",
+            "name": "Unauthenticated",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 401
+      },
+      "headers": {
+        "authorization": "ApiKey ${apiKey}"
+      },
+      "method": "GET",
+      "name": "revoked key is refused",
+      "path": "/api/v1/auth/me"
+    },
+    {
+      "expect": {
+        "body": {
+          "settings": [
+            {
+              "defaultValue": "600000",
+              "description": "PBKDF2-HMAC-SHA256 iterations of new SCRAM-SHA-256 credentials.",
+              "name": "auth.scram_iterations",
+              "runtimeMutable": true,
+              "value": "100000"
+            }
+          ]
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "get settings",
+      "path": "/api/v1/settings?names=auth.scram_iterations"
+    },
+    {
+      "body": {
+        "values": {
+          "auth.session_idle_timeout_gui_secs": "600"
+        }
+      },
+      "expect": {
+        "body": {
+          "settings": [
+            {
+              "defaultValue": "1800",
+              "description": "Seconds of inactivity after which a GUI session expires.",
+              "name": "auth.session_idle_timeout_gui_secs",
+              "runtimeMutable": true,
+              "value": "600"
+            }
+          ]
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "PATCH",
+      "name": "update settings",
+      "path": "/api/v1/settings"
+    },
+    {
+      "body": {
+        "values": {
+          "no.such_setting": "1"
+        }
+      },
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1030,
+            "details": {
+              "setting": "no.such_setting"
+            },
+            "message": "unknown setting no.such_setting",
+            "name": "NotFound",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 404
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "PATCH",
+      "name": "unknown setting",
+      "path": "/api/v1/settings"
+    },
+    {
+      "expect": {
+        "body": {},
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "DELETE",
+      "name": "drop user",
+      "path": "/api/v1/users/carol"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 1030,
+            "details": {},
+            "message": "user \"carol\" not found",
+            "name": "NotFound",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 404
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "missing user",
+      "path": "/api/v1/users/carol"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 4001,
+            "details": {},
+            "message": "authentication failed",
+            "name": "Unauthenticated",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 401
+      },
+      "method": "GET",
+      "name": "anonymous administration is 401 RGN-4001",
+      "path": "/api/v1/users"
+    },
+    {
+      "expect": {
+        "body": {
+          "error": {
+            "code": 4001,
+            "details": {},
+            "message": "authentication failed",
+            "name": "Unauthenticated",
+            "retryable": false,
+            "traceId": "<trace-id>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 401
+      },
+      "method": "GET",
+      "name": "metrics without credentials is 401 RGN-4001",
+      "path": "/metrics"
+    },
+    {
+      "expect": {
+        "body": [
+          "# TYPE rustegon_build info",
+          "# HELP rustegon_build Version and platform of this binary.",
+          "# TYPE rustegon_ready gauge",
+          "# HELP rustegon_ready 1 when the node reports ready on /api/v1/health/ready, else 0.",
+          "# TYPE rustegon_executor_in_flight gauge",
+          "# HELP rustegon_executor_in_flight Engine calls holding an executor permit.",
+          "# TYPE rustegon_executor_queued gauge",
+          "# HELP rustegon_executor_queued Engine calls waiting for an executor permit.",
+          "# TYPE rustegon_executor_max_in_flight gauge",
+          "# HELP rustegon_executor_max_in_flight Bound on concurrently running engine calls.",
+          "# TYPE rustegon_requests counter",
+          "# HELP rustegon_requests Finished requests per service, method and outcome code (ok, RGN code, grpc_<n>, cancelled).",
+          "# TYPE rustegon_errors counter",
+          "# HELP rustegon_errors Failed requests per outcome code, over all services.",
+          "# TYPE rustegon_request_duration_seconds histogram",
+          "# HELP rustegon_request_duration_seconds Request latency per service and method.",
+          "# TYPE rustegon_auth_failures counter",
+          "# HELP rustegon_auth_failures Failed authentications (password, SCRAM, API key, certificate).",
+          "# TYPE rustegon_lockouts counter",
+          "# HELP rustegon_lockouts Accounts locked by the lockout policy.",
+          "# TYPE rustegon_audit_write_failures counter",
+          "# HELP rustegon_audit_write_failures Audit records that could not be written.",
+          "# TYPE rustegon_rate_limited counter",
+          "# HELP rustegon_rate_limited Requests rejected by the rate limiter (RGN-4003), per limit class.",
+          "# TYPE rustegon_active_sessions gauge",
+          "# HELP rustegon_active_sessions Sessions that are not expired.",
+          "# TYPE rustegon_active_transactions gauge",
+          "# HELP rustegon_active_transactions Open interactive transactions.",
+          "# TYPE rustegon_open_cursors gauge",
+          "# HELP rustegon_open_cursors Open query cursors.",
+          "# TYPE rustegon_txn_commits counter",
+          "# HELP rustegon_txn_commits Committed transactions (including read-only and internal ones).",
+          "# TYPE rustegon_txn_aborts counter",
+          "# HELP rustegon_txn_aborts Aborted transactions per final abort reason.",
+          "# TYPE rustegon_txn_restarts counter",
+          "# HELP rustegon_txn_restarts Transaction restarts per reason.",
+          "# TYPE rustegon_storage_healthy gauge",
+          "# HELP rustegon_storage_healthy 1 while the store accepts writes, 0 after a failed apply (reopen required).",
+          "# TYPE rustegon_storage_l0_files gauge",
+          "# HELP rustegon_storage_l0_files Storage engine statistic.",
+          "# TYPE rustegon_storage_compaction_bytes counter",
+          "# HELP rustegon_storage_compaction_bytes Storage engine statistic.",
+          "# TYPE rustegon_storage_block_cache_hit_ratio gauge",
+          "# HELP rustegon_storage_block_cache_hit_ratio Storage engine statistic.",
+          "# TYPE rustegon_storage_disk_used_bytes gauge",
+          "# HELP rustegon_storage_disk_used_bytes Storage engine statistic.",
+          "# TYPE rustegon_storage_compaction_read_bytes counter",
+          "# HELP rustegon_storage_compaction_read_bytes Storage engine statistic.",
+          "# TYPE rustegon_storage_compactions counter",
+          "# HELP rustegon_storage_compactions Storage engine statistic.",
+          "# TYPE rustegon_storage_subcompactions counter",
+          "# HELP rustegon_storage_subcompactions Storage engine statistic.",
+          "# TYPE rustegon_storage_flushes counter",
+          "# HELP rustegon_storage_flushes Storage engine statistic.",
+          "# TYPE rustegon_storage_flush_bytes counter",
+          "# HELP rustegon_storage_flush_bytes Storage engine statistic.",
+          "# TYPE rustegon_storage_ingest_bytes counter",
+          "# HELP rustegon_storage_ingest_bytes Storage engine statistic.",
+          "# TYPE rustegon_storage_write_batches counter",
+          "# HELP rustegon_storage_write_batches Storage engine statistic.",
+          "# TYPE rustegon_storage_immutable_memtables gauge",
+          "# HELP rustegon_storage_immutable_memtables Storage engine statistic.",
+          "# TYPE rustegon_storage_snapshots gauge",
+          "# HELP rustegon_storage_snapshots Storage engine statistic.",
+          "# EOF"
+        ],
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/openmetrics-text; version=1.0.0; charset=utf-8",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "metrics",
+      "path": "/metrics"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "analyze": false,
+  "est_cost": null,
+  "execution": null,
+  "explain_format": 1,
+  "indexes_used": [],
+  "logical": "Sort _id ASC\n  Filter (tag = 't2')\n    Scan shop.t",
+  "physical": "Sort _id ASC\n  Filter (tag = 't2')\n    CollectionScan shop.t",
+  "plan": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [],
+                "detail": "CollectionScan shop.t",
+                "est_rows": null,
+                "index": null,
+                "op": "CollectionScan"
+              }
+            ],
+            "detail": "(tag = 't2')",
+            "est_rows": null,
+            "index": null,
+            "op": "Filter"
+          }
+        ],
+        "detail": "_id ASC",
+        "est_rows": null,
+        "index": null,
+        "op": "Sort"
+      }
+    ],
+    "detail": "shop.t",
+    "est_rows": null,
+    "index": null,
+    "op": "Update"
+  },
+  "statement": "update"
+}

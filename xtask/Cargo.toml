@@ -1,0 +1,23 @@
+[package]
+name = "xtask"
+description = "Repository automation for Rustegon (`cargo xtask dist`); never shipped."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+clap.workspace = true
+flate2.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tar.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

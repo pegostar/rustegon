@@ -1,0 +1,89 @@
+description: "Authentication and client lifecycle against a real server: SCRAM (no channel binding, PD-074), API keys, X.509, connection strings, must_change_password (PD-076), sessions."
+tests:
+  - id: TC-DRV-CONF-AUTH-001
+    description: "SCRAM-SHA-256 login with settings and a credential object; server info is available."
+    covers: [Client.Create, Credential.Scram, Client.GetServerInfo, Client.Close]
+    operations:
+      - {object: client, name: open, args: {credential: {scram: {user: "${adminUser}", password: "${adminPassword}"}}}, saveAs: c2}
+      - object: c2
+        name: getServerInfo
+        match: subset
+        expect: {result: {serverVersion: {"$$type": "string"}, protocolVersion: {"$$type": "string"}}}
+      - {object: c2, name: close}
+
+  - id: TC-DRV-CONF-AUTH-002
+    description: "A wrong password and an unknown user fail identically with AuthenticationException (RGN-4001)."
+    covers: [Client.Create, Credential.Scram, Behavior.ErrorMapping]
+    operations:
+      - {object: client, name: open, args: {credential: {scram: {user: "${adminUser}", password: "wrong-password-0000"}}}, expect: {error: {code: 4001, name: "Unauthenticated", exception: Authentication, retryable: false}}}
+      - {object: client, name: open, args: {credential: {scram: {user: "no_such_user_x", password: "wrong-password-0000"}}}, expect: {error: {code: 4001, name: "Unauthenticated", exception: Authentication, retryable: false}}}
+
+  - id: TC-DRV-CONF-AUTH-003
+    description: "A connection string with user, password, host, port and database (DEC-014) connects; the database is the default database."
+    covers: [Client.CreateFromConnectionString, Settings.FromConnectionString, Client.GetDatabase]
+    requires: [fixture-connection-string]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}]}
+    operations:
+      - object: client
+        name: openFromConnectionString
+        args: {uri: "rustegon://${adminUserEncoded}:${adminPasswordEncoded}@${host}:${port}/${database}?tlsCaFile=${caFileEncoded}"}
+        saveAs: c2
+      - {object: c2, name: findById, collection: items, args: {id: 1}, expect: {result: {"_id": 1}}}
+      - {object: c2, name: close}
+
+  - id: TC-DRV-CONF-AUTH-004
+    description: "An API key authenticates every call without a handshake."
+    covers: [Credential.ApiKey, Client.Create, Collection.FindById]
+    requires: [api-key]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}]}
+    operations:
+      - {object: client, name: open, args: {credential: {apiKey: "${apiKey}"}}, saveAs: c2}
+      - {object: c2, name: findById, collection: items, args: {id: 1}, expect: {result: {"_id": 1}}}
+      - {object: c2, name: close}
+
+  - id: TC-DRV-CONF-AUTH-005
+    description: "A TLS client certificate mapped to a user authenticates with Authenticate{X509}."
+    covers: [Credential.X509, Client.Create, Collection.FindById]
+    requires: [x509-client-cert]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}]}
+    operations:
+      - {object: client, name: open, args: {credential: {x509: {certificateFile: "${clientCertFile}", keyFile: "${clientKeyFile}"}}}, saveAs: c2}
+      - {object: c2, name: findById, collection: items, args: {id: 1}, expect: {result: {"_id": 1}}}
+      - {object: c2, name: close}
+
+  - id: TC-DRV-CONF-AUTH-006
+    description: "must_change_password: login raises PasswordChangeRequiredException; with AllowPasswordChangeOnly the client can change it and then work normally (PD-076)."
+    covers: [Behavior.PasswordChangeRequired, Client.ChangePassword, Client.Create, Credential.Scram]
+    requires: [admin]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}]}
+      users:
+        - {name: conf_newbie, password: "first-pass-123456", roles: ["read_write@${database}"], mustChangePassword: true}
+    operations:
+      - {object: client, name: open, args: {credential: {scram: {user: conf_newbie, password: "first-pass-123456"}}}, expect: {error: {exception: PasswordChangeRequired}}}
+      - {object: client, name: open, args: {credential: {scram: {user: conf_newbie, password: "first-pass-123456"}}, allowPasswordChangeOnly: true}, saveAs: limited}
+      - {object: limited, name: changePassword, args: {currentPassword: "first-pass-123456", newPassword: "second-pass-7890ab"}}
+      - {object: limited, name: close}
+      - {object: client, name: open, args: {credential: {scram: {user: conf_newbie, password: "second-pass-7890ab"}}}, saveAs: c3}
+      - {object: c3, name: findById, collection: items, args: {id: 1}, expect: {result: {"_id": 1}}}
+      - {object: c3, name: close}
+
+  - id: TC-DRV-CONF-AUTH-007
+    description: "Sessions: operations run with a session; the causality token is passed through; closing is idempotent."
+    covers: [Client.StartSession, Session.CausalityToken, Session.Close, Collection.InsertOne, Collection.FindById]
+    setup:
+      collections: [{name: items}]
+    operations:
+      - {object: client, name: startSession, args: {causalConsistency: true}, saveAs: s1}
+      - {object: collection, name: insertOne, session: s1, args: {document: {"_id": 1}}}
+      - {object: collection, name: findById, session: s1, args: {id: 1}, expect: {result: {"_id": 1}}}
+      - {object: s1, name: causalityToken, expect: {result: "$$any"}}
+      - {object: s1, name: close}
+      - {object: s1, name: close}

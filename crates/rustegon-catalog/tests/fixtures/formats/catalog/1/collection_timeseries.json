@@ -1,0 +1,1 @@
+{"catalog_format":1,"type":"collection","id":103,"database_id":100,"name":"metrics","kind":"timeseries","version":1,"state":"public","shard_key":{"strategy":"hashed","fields":["_id"]},"options":{"validationLevel":"off","validationAction":"error"}}

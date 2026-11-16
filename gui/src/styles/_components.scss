@@ -1,0 +1,715 @@
+// Glass skins for the Bootstrap / ng-bootstrap components (ADR-033). Plain Bootstrap markup gets
+// the identity without extra classes: `.btn btn-primary`, `.card`, `.table`, `.form-control`,
+// `.modal`, `.dropdown-menu`, `.toast`, `.nav-pills`, `.pagination`, `.badge`, `.alert`, ...
+
+// ---------- Buttons ----------
+.btn {
+  --bs-btn-padding-y: 0.5rem;
+  --bs-btn-font-size: 0.9375rem;
+  --bs-btn-disabled-opacity: 0.55;
+
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: var(--rg-control-h);
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+
+  @include sheen;
+
+  &:active:not(:disabled, .disabled) {
+    transform: scale(0.97);
+  }
+
+  > rg-icon svg {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+}
+
+.rg-compact .btn {
+  --bs-btn-padding-y: 0.3rem;
+  --bs-btn-padding-x: 0.9rem;
+  --bs-btn-font-size: 0.875rem;
+}
+
+.btn-sm {
+  --bs-btn-padding-y: 0.25rem;
+  --bs-btn-padding-x: 0.75rem;
+  --bs-btn-font-size: 0.8125rem;
+
+  min-height: 2rem;
+}
+
+// Primary: the signature gradient with a soft glow.
+.btn-primary {
+  --rg-sheen-base: var(--rg-gradient-primary);
+  --bs-btn-color: var(--rg-on-accent);
+  --bs-btn-bg: #4338ca;
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: var(--rg-on-accent);
+  --bs-btn-hover-bg: #4338ca;
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-color: var(--rg-on-accent);
+  --bs-btn-active-bg: #3730a3;
+  --bs-btn-active-border-color: transparent;
+  --bs-btn-disabled-color: var(--rg-on-accent);
+  --bs-btn-disabled-bg: #4338ca;
+  --bs-btn-disabled-border-color: transparent;
+
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 28%),
+    var(--rg-glow);
+
+  &:hover:not(:disabled, .disabled) {
+    filter: saturate(1.15) brightness(1.06);
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 32%),
+      0 10px 28px -8px rgb(109 40 217 / 65%);
+  }
+}
+
+.btn-danger {
+  --rg-sheen-base: var(--rg-gradient-danger);
+  --bs-btn-color: #fff;
+  --bs-btn-bg: #b91c1c;
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: #b91c1c;
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-bg: #991b1b;
+  --bs-btn-active-border-color: transparent;
+  --bs-btn-disabled-bg: #b91c1c;
+  --bs-btn-disabled-border-color: transparent;
+
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 22%),
+    0 6px 20px -8px rgb(185 28 28 / 60%);
+}
+
+// Secondary family: glass pills. `.btn-glass` is the canonical name.
+.btn-glass,
+.btn-secondary,
+.btn-light,
+.btn-outline-secondary,
+.btn-outline-primary,
+.btn-outline-danger,
+.btn-outline-dark,
+.btn-outline-light {
+  --bs-btn-color: var(--rg-text);
+  --bs-btn-bg: var(--rg-glass-fill-strong);
+  --bs-btn-border-color: var(--rg-field-border);
+  --bs-btn-hover-color: var(--rg-text);
+  --bs-btn-hover-bg: var(--rg-glass-fill-strong);
+  --bs-btn-hover-border-color: var(--rg-accent);
+  --bs-btn-active-color: var(--rg-text);
+  --bs-btn-active-bg: var(--rg-accent-soft);
+  --bs-btn-active-border-color: var(--rg-accent);
+  --bs-btn-disabled-color: var(--rg-text-muted);
+  --bs-btn-disabled-bg: var(--rg-glass-fill-subtle);
+  --bs-btn-disabled-border-color: var(--rg-hairline);
+
+  box-shadow:
+    inset 0 1px 0 var(--rg-glass-highlight),
+    var(--rg-shadow-sm);
+  backdrop-filter: blur(8px) saturate(var(--rg-saturate));
+
+  &:hover:not(:disabled, .disabled) {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 var(--rg-glass-highlight),
+      var(--rg-shadow-md);
+  }
+
+  // Selected toggles (btn-check) and pressed state
+  .btn-check:checked + &,
+  &.active,
+  &[aria-pressed='true'] {
+    color: var(--rg-on-accent);
+    background-color: #4338ca;
+    background-image: var(--rg-gradient-primary);
+    border-color: transparent;
+  }
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--rg-accent-text);
+  --bs-btn-hover-color: var(--rg-accent-text);
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--rg-danger);
+  --bs-btn-hover-color: var(--rg-danger);
+  --bs-btn-hover-border-color: var(--rg-danger);
+  --bs-btn-active-color: var(--rg-danger);
+  --bs-btn-active-bg: var(--rg-danger-soft);
+  --bs-btn-active-border-color: var(--rg-danger);
+}
+
+.btn-link {
+  --bs-btn-color: var(--rg-accent-text);
+  --bs-btn-hover-color: var(--rg-accent-text);
+  --bs-btn-active-color: var(--rg-accent-text);
+  --bs-btn-disabled-color: var(--rg-text-muted);
+
+  text-decoration: none;
+
+  &:hover {
+    background-color: var(--rg-hover);
+  }
+}
+
+// Quiet text button (toolbars, "Copy", inline actions).
+.btn-ghost {
+  --bs-btn-color: var(--rg-text);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: var(--rg-text);
+  --bs-btn-hover-bg: var(--rg-hover);
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-color: var(--rg-text);
+  --bs-btn-active-bg: var(--rg-accent-soft);
+  --bs-btn-active-border-color: transparent;
+  --bs-btn-disabled-color: var(--rg-text-muted);
+  --bs-btn-disabled-border-color: transparent;
+
+  &[aria-pressed='true'],
+  &[aria-expanded='true'] {
+    background-color: var(--rg-accent-soft);
+  }
+}
+
+// Round icon-only button: always give it an aria-label.
+.btn-icon {
+  --bs-btn-padding-x: 0;
+  --bs-btn-padding-y: 0;
+
+  width: var(--rg-control-h);
+  min-width: var(--rg-control-h);
+  height: var(--rg-control-h);
+  border-radius: 50%;
+}
+
+// ---------- Segmented control (replaces button toggles) ----------
+// <div class="rg-segmented" role="radiogroup" aria-label="View">
+//   <label class="btn"><input type="radio" name="view" [checked]="…" (change)="…" /><span>Grid</span></label>
+// The native radio covers its label invisibly: clicks, arrow keys and the radio role stay native.
+.rg-segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--rg-glass-fill);
+  border: 1px solid var(--rg-glass-edge);
+  border-radius: var(--rg-radius-pill);
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 8%);
+  backdrop-filter: blur(10px) saturate(var(--rg-saturate));
+
+  > .btn {
+    --bs-btn-color: var(--rg-text);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--rg-text);
+    --bs-btn-hover-bg: var(--rg-hover);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-padding-y: 0.3rem;
+
+    min-height: calc(var(--rg-control-h) - 0.5rem);
+    box-shadow: none;
+  }
+
+  input[type='radio'] {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    appearance: none;
+  }
+
+  > .btn:has(input:checked) {
+    color: var(--rg-on-accent);
+    background-color: #4338ca;
+    background-image: var(--rg-gradient-primary);
+    box-shadow: var(--rg-glow);
+  }
+
+  > .btn:has(input:focus-visible) {
+    outline: 2px solid var(--rg-focus);
+    outline-offset: 2px;
+    box-shadow: var(--rg-focus-ring);
+  }
+}
+
+// ---------- Forms ----------
+.form-label {
+  margin-bottom: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rg-text);
+}
+
+.form-text {
+  color: var(--rg-text-muted);
+}
+
+.form-control,
+.form-select {
+  min-height: var(--rg-control-h);
+  color: var(--rg-text);
+  background-color: var(--rg-field-bg);
+  border-color: var(--rg-field-border);
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 6%);
+  backdrop-filter: blur(8px);
+  transition:
+    border-color var(--rg-dur) var(--rg-ease),
+    box-shadow var(--rg-dur) var(--rg-ease),
+    background-color var(--rg-dur) var(--rg-ease);
+
+  &::placeholder {
+    color: var(--rg-text-muted);
+    opacity: 1;
+  }
+
+  &:hover:not(:disabled, [readonly]) {
+    border-color: color-mix(in srgb, var(--rg-accent) 55%, var(--rg-field-border));
+  }
+
+  &:focus {
+    color: var(--rg-text);
+    background-color: var(--rg-glass-fill-strong);
+    border-color: var(--rg-accent);
+  }
+
+  &:disabled {
+    color: var(--rg-text-muted);
+    background-color: var(--rg-glass-fill-subtle);
+  }
+
+  &.is-invalid,
+  &[aria-invalid='true'] {
+    border-color: var(--rg-danger);
+  }
+}
+
+.rg-compact .form-control,
+.rg-compact .form-select {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+// Native <option> lists are drawn by the OS; give them an opaque, readable background.
+.form-select option {
+  color: var(--rg-text);
+  background-color: var(--rg-glass-solid);
+}
+
+textarea.form-control {
+  font-family: var(--bs-font-monospace);
+  font-size: 0.875rem;
+}
+
+.form-check-input {
+  background-color: var(--rg-field-bg);
+  border-color: var(--rg-field-border);
+
+  &:checked {
+    background-color: #4338ca;
+    border-color: transparent;
+    box-shadow: var(--rg-glow);
+  }
+}
+
+.form-check-label {
+  color: var(--rg-text);
+}
+
+.form-switch .form-check-input {
+  width: 2.5em;
+}
+
+.input-group > .btn {
+  border-radius: var(--rg-radius);
+}
+
+.invalid-feedback,
+.rg-error {
+  color: var(--rg-danger);
+}
+
+// ---------- Cards / panels ----------
+.card {
+  --bs-card-bg: transparent;
+  --bs-card-border-color: var(--rg-glass-edge);
+  --bs-card-border-radius: var(--rg-radius-lg);
+  --bs-card-inner-border-radius: calc(var(--rg-radius-lg) - 1px);
+  --bs-card-cap-bg: transparent;
+  --bs-card-color: var(--rg-text);
+  --bs-card-title-color: var(--rg-text);
+  --bs-card-spacer-y: calc(var(--rg-space) * 1.25);
+  --bs-card-spacer-x: calc(var(--rg-space) * 1.25);
+
+  @include glass-surface;
+  @include glass-rim;
+}
+
+.card-header,
+.card-footer {
+  border-color: var(--rg-hairline);
+}
+
+.card-title {
+  font-weight: 650;
+}
+
+// ---------- Tables ----------
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--rg-text);
+  --bs-table-border-color: var(--rg-hairline);
+  --bs-table-striped-bg: var(--rg-accent-softer);
+  --bs-table-striped-color: var(--rg-text);
+  --bs-table-hover-bg: var(--rg-hover);
+  --bs-table-hover-color: var(--rg-text);
+  --bs-table-active-bg: var(--rg-accent-soft);
+  --bs-table-active-color: var(--rg-text);
+
+  margin-bottom: 0;
+
+  > thead th {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--rg-text-muted);
+    white-space: nowrap;
+    background: var(--rg-accent-softer);
+  }
+
+  > :not(caption) > * > * {
+    padding: 0.7rem 0.9rem;
+  }
+}
+
+.rg-compact .table > :not(caption) > * > * {
+  padding: 0.4rem 0.7rem;
+}
+
+// Wrap a table to give it the glass frame and horizontal scrolling.
+.rg-table {
+  overflow: auto;
+  border-radius: var(--rg-radius-lg);
+
+  @include glass-surface;
+}
+
+// ---------- Badges ----------
+.badge {
+  --bs-badge-font-weight: 650;
+  --bs-badge-padding-x: 0.65em;
+  --bs-badge-padding-y: 0.4em;
+
+  border-radius: var(--rg-radius-pill);
+  letter-spacing: 0.01em;
+}
+
+.badge-glass {
+  color: var(--rg-text);
+  background: var(--rg-glass-fill-strong);
+  border: 1px solid var(--rg-hairline);
+}
+
+// ---------- Alerts ----------
+.alert {
+  --bs-alert-color: var(--rg-text);
+  --bs-alert-bg: var(--rg-glass-fill-strong);
+  --bs-alert-border-color: var(--rg-glass-edge);
+  --bs-alert-link-color: var(--rg-accent-text);
+  --rg-alert-tone: var(--rg-accent);
+
+  border-left: 4px solid var(--rg-alert-tone);
+  border-radius: var(--rg-radius-lg);
+  background-image: linear-gradient(
+    90deg,
+    var(--rg-alert-soft, var(--rg-accent-softer)),
+    transparent
+  );
+  box-shadow: var(--rg-shadow-sm);
+  backdrop-filter: blur(var(--rg-blur)) saturate(var(--rg-saturate));
+}
+
+@each $tone in success, warning, danger, info {
+  .alert-#{$tone} {
+    --rg-alert-tone: var(--rg-#{$tone});
+    --rg-alert-soft: var(--rg-#{$tone}-soft);
+  }
+}
+
+// ---------- Overlays: dropdowns, modals, toasts, tooltips, offcanvas ----------
+.dropdown-menu {
+  --bs-dropdown-bg: transparent;
+  --bs-dropdown-border-color: var(--rg-glass-edge);
+  --bs-dropdown-border-radius: var(--rg-radius-lg);
+  --bs-dropdown-padding-x: 0.375rem;
+  --bs-dropdown-padding-y: 0.375rem;
+  --bs-dropdown-link-color: var(--rg-text);
+  --bs-dropdown-link-hover-color: var(--rg-text);
+  --bs-dropdown-link-hover-bg: var(--rg-hover);
+  --bs-dropdown-link-active-color: var(--rg-text);
+  --bs-dropdown-link-active-bg: var(--rg-accent-soft);
+  --bs-dropdown-header-color: var(--rg-text-muted);
+  --bs-dropdown-divider-bg: var(--rg-hairline);
+  --bs-dropdown-item-border-radius: var(--rg-radius-sm);
+  --bs-dropdown-item-padding-y: 0.45rem;
+  --bs-dropdown-color: var(--rg-text);
+
+  min-width: 13rem;
+
+  @include glass-surface(var(--rg-glass-fill-strong), var(--rg-blur-strong));
+
+  box-shadow:
+    inset 0 1px 0 var(--rg-glass-highlight),
+    var(--rg-shadow-lg);
+
+  &.show {
+    animation: rg-pop var(--rg-dur) var(--rg-ease) both;
+  }
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: var(--rg-radius-sm);
+}
+
+.dropdown-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@keyframes rg-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.modal {
+  --bs-modal-bg: transparent;
+  --bs-modal-color: var(--rg-text);
+  --bs-modal-border-color: var(--rg-glass-edge);
+  --bs-modal-border-radius: var(--rg-radius-xl);
+  --bs-modal-inner-border-radius: calc(var(--rg-radius-xl) - 1px);
+  --bs-modal-header-border-color: var(--rg-hairline);
+  --bs-modal-footer-border-color: var(--rg-hairline);
+  --bs-modal-padding: 1.5rem;
+  --bs-modal-header-padding: 1.25rem 1.5rem;
+}
+
+.modal-content {
+  @include glass-surface(var(--rg-glass-fill-strong), var(--rg-blur-strong));
+  @include glass-rim;
+
+  box-shadow:
+    inset 0 1px 0 var(--rg-glass-highlight),
+    var(--rg-shadow-lg);
+}
+
+.modal-content > :not(.modal-header, .modal-body, .modal-footer),
+.rg-contents {
+  // Dialog component hosts, rg-dialog and dialog forms must not break the modal's flex column.
+  display: contents;
+}
+
+.modal-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.modal-footer {
+  gap: 0.5rem;
+
+  > * {
+    margin: 0;
+  }
+}
+
+.modal-backdrop {
+  backdrop-filter: blur(6px);
+}
+
+.toast {
+  --bs-toast-bg: transparent;
+  --bs-toast-color: var(--rg-text);
+  --bs-toast-border-color: var(--rg-glass-edge);
+  --bs-toast-border-radius: var(--rg-radius-lg);
+  --bs-toast-header-bg: transparent;
+  --bs-toast-header-color: var(--rg-text);
+  --bs-toast-header-border-color: var(--rg-hairline);
+
+  position: relative;
+
+  @include glass-surface(var(--rg-glass-fill-strong), var(--rg-blur-strong));
+  @include glass-rim;
+
+  box-shadow:
+    inset 0 1px 0 var(--rg-glass-highlight),
+    var(--rg-shadow-lg);
+}
+
+.tooltip {
+  --bs-tooltip-bg: #0f172a;
+  --bs-tooltip-color: #f8fafc;
+  --bs-tooltip-border-radius: var(--rg-radius-sm);
+  --bs-tooltip-padding-x: 0.65rem;
+  --bs-tooltip-padding-y: 0.35rem;
+  --bs-tooltip-font-size: 0.8125rem;
+}
+
+.tooltip-inner {
+  box-shadow: var(--rg-shadow-md);
+}
+
+.offcanvas {
+  --bs-offcanvas-bg: var(--rg-glass-fill-strong);
+  --bs-offcanvas-color: var(--rg-text);
+  --bs-offcanvas-border-color: var(--rg-glass-edge);
+  --bs-offcanvas-width: 18rem;
+
+  backdrop-filter: blur(var(--rg-blur-strong)) saturate(var(--rg-saturate));
+}
+
+// ---------- Navigation: tabs, pills, breadcrumbs, pagination, list groups ----------
+.nav-pills,
+.nav-tabs {
+  --bs-nav-link-color: var(--rg-text-muted);
+  --bs-nav-link-hover-color: var(--rg-text);
+  --bs-nav-pills-border-radius: var(--rg-radius-pill);
+  --bs-nav-pills-link-active-color: var(--rg-on-accent);
+  --bs-nav-pills-link-active-bg: #4338ca;
+
+  gap: 0.25rem;
+}
+
+// Tabs drawn as a glass segmented bar (ngbNav with class="nav-tabs" or "nav-pills").
+.nav-tabs {
+  display: inline-flex;
+  padding: 0.25rem;
+  background: var(--rg-glass-fill);
+  border: 1px solid var(--rg-glass-edge);
+  border-radius: var(--rg-radius-pill);
+  backdrop-filter: blur(10px) saturate(var(--rg-saturate));
+
+  .nav-link {
+    border: 0;
+    border-radius: var(--rg-radius-pill);
+    font-weight: 600;
+
+    &:hover {
+      background: var(--rg-hover);
+    }
+
+    &.active {
+      color: var(--rg-on-accent);
+      background-color: #4338ca;
+      background-image: var(--rg-gradient-primary);
+      box-shadow: var(--rg-glow);
+    }
+  }
+}
+
+.nav-pills .nav-link {
+  font-weight: 600;
+
+  &.active {
+    background-image: var(--rg-gradient-primary);
+    box-shadow: var(--rg-glow);
+  }
+}
+
+.breadcrumb {
+  --bs-breadcrumb-divider-color: var(--rg-text-muted);
+  --bs-breadcrumb-item-active-color: var(--rg-text);
+
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.pagination {
+  --bs-pagination-color: var(--rg-text);
+  --bs-pagination-bg: var(--rg-glass-fill-strong);
+  --bs-pagination-border-color: var(--rg-hairline);
+  --bs-pagination-hover-color: var(--rg-text);
+  --bs-pagination-hover-bg: var(--rg-hover);
+  --bs-pagination-hover-border-color: var(--rg-accent);
+  --bs-pagination-active-color: var(--rg-on-accent);
+  --bs-pagination-active-bg: #4338ca;
+  --bs-pagination-active-border-color: transparent;
+  --bs-pagination-disabled-color: var(--rg-text-muted);
+  --bs-pagination-disabled-bg: var(--rg-glass-fill-subtle);
+  --bs-pagination-disabled-border-color: var(--rg-hairline);
+  --bs-pagination-border-radius: var(--rg-radius-pill);
+
+  gap: 0.25rem;
+
+  .page-link {
+    border-radius: var(--rg-radius-pill) !important;
+  }
+
+  .active > .page-link {
+    background-image: var(--rg-gradient-primary);
+  }
+}
+
+.list-group {
+  --bs-list-group-bg: var(--rg-glass-fill);
+  --bs-list-group-color: var(--rg-text);
+  --bs-list-group-border-color: var(--rg-hairline);
+  --bs-list-group-border-radius: var(--rg-radius-lg);
+  --bs-list-group-action-color: var(--rg-text);
+  --bs-list-group-action-hover-color: var(--rg-text);
+  --bs-list-group-action-hover-bg: var(--rg-hover);
+  --bs-list-group-active-color: var(--rg-on-accent);
+  --bs-list-group-active-bg: #4338ca;
+  --bs-list-group-active-border-color: transparent;
+
+  backdrop-filter: blur(var(--rg-blur)) saturate(var(--rg-saturate));
+}
+
+// ---------- Progress & spinners ----------
+.progress {
+  --bs-progress-bg: var(--rg-glass-fill-strong);
+  --bs-progress-border-radius: var(--rg-radius-pill);
+  --bs-progress-bar-bg: #4338ca;
+
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 12%);
+}
+
+.progress-bar {
+  background-image: var(--rg-gradient-primary);
+}
+
+.spinner-border,
+.spinner-grow {
+  color: var(--rg-accent);
+}
+
+.btn .spinner-border {
+  --bs-spinner-width: 1rem;
+  --bs-spinner-height: 1rem;
+  --bs-spinner-border-width: 0.15em;
+
+  color: currentcolor;
+}

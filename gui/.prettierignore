@@ -1,0 +1,8 @@
+dist
+.angular
+node_modules
+package-lock.json
+src/app/api/schema.d.ts
+src/locale
+test-results
+playwright-report

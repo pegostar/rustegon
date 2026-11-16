@@ -1,0 +1,477 @@
+// Explorer screens: data (S05–S08), indexes (S11) and the query page header (ADR-033, lane A).
+// Global so the component style budgets stay small; every rule is built from the tokens, so
+// _a11y.scss (reduced transparency/motion, forced colors) still wins.
+
+// ---------- Page title: gradient icon chip + gradient h1 ----------
+.rg-title {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+
+  h1 {
+    overflow-wrap: anywhere;
+  }
+}
+
+.rg-title-icon {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  overflow: hidden;
+  border-radius: 0.95rem;
+  color: var(--rg-on-accent);
+  background-color: #4338ca;
+  background-image: var(--rg-gradient-primary);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 35%),
+    var(--rg-glow);
+  animation: rg-pop var(--rg-dur-slow) var(--rg-ease-spring) backwards;
+
+  // Glossy upper half: the "liquid" highlight.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 52%;
+    background: linear-gradient(180deg, rgb(255 255 255 / 38%), rgb(255 255 255 / 4%));
+    border-radius: inherit;
+    pointer-events: none;
+  }
+}
+
+// Count next to a title (decorative duplicate of the grid's row count).
+.rg-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  height: 1.75rem;
+  padding: 0 0.6rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--rg-accent-text);
+  background: var(--rg-glass-fill-strong);
+  border: 1px solid var(--rg-glass-edge);
+  border-radius: var(--rg-radius-pill);
+  box-shadow: inset 0 1px 0 var(--rg-glass-highlight);
+}
+
+@keyframes rg-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6) rotate(-8deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+// ---------- Breadcrumb pill ----------
+.rg-crumbs {
+  margin-bottom: 0.45rem;
+
+  ol {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0.15rem 0.3rem;
+    list-style: none;
+    font-size: 0.875rem;
+    background: var(--rg-glass-fill-strong);
+    border: 1px solid var(--rg-glass-edge);
+    border-radius: var(--rg-radius-pill);
+    box-shadow:
+      inset 0 1px 0 var(--rg-glass-highlight),
+      var(--rg-shadow-sm);
+    backdrop-filter: blur(var(--rg-blur)) saturate(var(--rg-saturate));
+  }
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+  }
+
+  // Decorative chevron; empty alternative text so screen readers skip it.
+  li + li::before {
+    content: '›' / '';
+    padding: 0 0.15rem;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--rg-text-muted);
+  }
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.15rem 0.6rem;
+    font-weight: 600;
+    color: var(--rg-accent-text);
+    text-decoration: none;
+    border-radius: var(--rg-radius-pill);
+    transition: background-color var(--rg-dur-fast) var(--rg-ease);
+
+    &:hover {
+      text-decoration: underline;
+      background: var(--rg-hover);
+    }
+
+    &[aria-current='page'] {
+      color: var(--rg-text);
+      background: var(--rg-accent-soft);
+    }
+  }
+}
+
+// ---------- Entrance: blocks glide up (transform only) ----------
+// No opacity fade: text is never semi-transparent, so contrast holds at every frame (an axe
+// run during the entrance would otherwise see faded text). Reduced motion: _a11y.scss.
+@keyframes rg-glide {
+  from {
+    transform: translateY(14px) scale(0.985);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+.rg-glide {
+  animation: rg-glide var(--rg-dur-slow) var(--rg-ease) backwards;
+}
+
+.rg-stagger > * {
+  animation: rg-glide var(--rg-dur-slow) var(--rg-ease) backwards;
+
+  @for $i from 2 through 6 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 60}ms;
+    }
+  }
+}
+
+// ---------- Stat tiles with an icon (S05) ----------
+.rg-stat-icon {
+  position: absolute;
+  top: 50%;
+  right: 1.1rem;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  color: var(--rg-accent-text);
+  background: var(--rg-accent-soft);
+  border-radius: 1rem;
+  transform: translateY(-50%);
+}
+
+// ---------- Data grid frame: deeper glass, rim, sheen on hover ----------
+.rg-grid-frame .rg-grid,
+.rg-embed .rg-grid {
+  position: relative;
+  font-variant-numeric: tabular-nums;
+
+  .rg-grid-head {
+    background-image: linear-gradient(
+      90deg,
+      var(--rg-accent-soft),
+      var(--rg-accent-softer) 55%,
+      transparent
+    );
+    box-shadow: inset 0 -1px 0 var(--rg-hairline);
+  }
+
+  .rg-grid-row:not(.rg-grid-head) {
+    position: relative;
+
+    > div:first-child {
+      font-weight: 650;
+    }
+
+    // Light sweep + accent edge on hover (decoration only; text stays on the glass fill).
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        100deg,
+        transparent 20%,
+        rgb(255 255 255 / 16%) 45%,
+        transparent 70%
+      );
+      background-size: 250% 100%;
+      background-position: 120% 0;
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        opacity var(--rg-dur) var(--rg-ease),
+        background-position 0.9s var(--rg-ease);
+    }
+
+    &:hover {
+      box-shadow: inset 3px 0 0 var(--rg-accent);
+
+      &::after {
+        opacity: 1;
+        background-position: -20% 0;
+      }
+    }
+  }
+}
+
+.rg-grid-frame .rg-grid {
+  @include glass-rim;
+
+  box-shadow:
+    inset 0 1px 0 var(--rg-glass-highlight),
+    var(--rg-shadow-lg);
+}
+
+// A grid inside a panel: the panel is the glass, the grid only draws its frame.
+.rg-embed .rg-grid {
+  background-color: transparent;
+  border-color: var(--rg-hairline);
+  border-radius: var(--rg-radius);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+// ---------- Panels on explorer pages ----------
+.rg-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+
+  h2 rg-icon {
+    color: var(--rg-accent-text);
+  }
+}
+
+// Empty state as a glass card (never text on the bare aurora).
+.rg-empty-card {
+  border-radius: var(--rg-radius-xl);
+}
+
+// ---------- S07 filter bar ----------
+.rg-filter {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.2fr) minmax(7rem, 0.5fr) auto;
+  gap: 0 1rem;
+  align-items: start;
+
+  .rg-field {
+    margin-bottom: 0;
+  }
+
+  .rg-filter-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 1.66rem;
+  }
+
+  @media (width < 1100px) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.75rem 1rem;
+
+    .rg-filter-actions {
+      padding-top: 0;
+    }
+  }
+
+  @media (width < 640px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// Results header row: view switch, spacer, refresh.
+.rg-results-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+// ---------- Pager ----------
+.rg-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: var(--rg-space);
+}
+
+.rg-pill-info {
+  padding: 0.4rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--rg-text);
+  background: var(--rg-glass-fill-strong);
+  border: 1px solid var(--rg-glass-edge);
+  border-radius: var(--rg-radius-pill);
+  box-shadow: inset 0 1px 0 var(--rg-glass-highlight);
+}
+
+// ---------- S08 document editor ----------
+.rg-doc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem);
+  gap: calc(var(--rg-space) * 1.25);
+  align-items: start;
+
+  @media (width < 1100px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rg-doc-status {
+  margin: 0.6rem 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rg-danger);
+
+  &:empty {
+    display: none;
+  }
+}
+
+.rg-meta {
+  dl {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 0;
+  }
+
+  dt {
+    margin-top: 0.55rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rg-text-muted);
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  code {
+    display: inline-block;
+    max-width: 100%;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.8rem;
+    color: var(--rg-text);
+    background: var(--rg-accent-softer);
+    border: 1px solid var(--rg-hairline);
+    border-radius: var(--rg-radius-sm);
+  }
+}
+
+// Size meter (decorative; the text next to it carries the value).
+.rg-meter {
+  height: 0.4rem;
+  margin-top: 0.4rem;
+  overflow: hidden;
+  background: var(--rg-accent-softer);
+  border-radius: var(--rg-radius-pill);
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 12%);
+
+  > span {
+    display: block;
+    min-width: 0.4rem;
+    height: 100%;
+    background-image: var(--rg-gradient-primary);
+    border-radius: inherit;
+    box-shadow: var(--rg-glow);
+    transition: width var(--rg-dur-slow) var(--rg-ease);
+  }
+}
+
+// RGN-2009 banner: glass with a warning edge.
+.rg-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: var(--rg-space);
+  padding: 0.9rem 1.15rem;
+  color: var(--rg-text);
+  background-color: var(--rg-glass-fill-strong);
+  background-image: linear-gradient(90deg, var(--rg-warning-soft), transparent 70%);
+  border: 1px solid var(--rg-glass-edge);
+  border-left: 4px solid var(--rg-warning);
+  border-radius: var(--rg-radius-lg);
+  box-shadow: var(--rg-shadow-md);
+  backdrop-filter: blur(var(--rg-blur)) saturate(var(--rg-saturate));
+  animation: rg-glide var(--rg-dur-slow) var(--rg-ease-spring) backwards;
+
+  > rg-icon {
+    color: var(--rg-warning);
+  }
+
+  p {
+    flex: 1 1 24rem;
+    margin: 0;
+  }
+}
+
+// Status-colored text needs a glass chip behind it (contrast rule of _tokens.scss).
+.rg-chip-error {
+  display: inline-block;
+  margin: 0.6rem 0 0;
+  padding: 0.35rem 0.85rem;
+  font-weight: 600;
+  color: var(--rg-danger);
+  background: var(--rg-glass-fill-strong);
+  border: 1px solid var(--rg-glass-edge);
+  border-radius: var(--rg-radius-pill);
+}
+
+// ---------- S11 indexes ----------
+.rg-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+
+  .rg-field {
+    min-width: 12rem;
+    margin-bottom: 0;
+  }
+}
+
+.rg-ix-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--rg-space) * 1.25);
+  align-items: start;
+
+  &.rg-has-detail {
+    @media (width >= 1600px) {
+      grid-template-columns: minmax(0, 1.6fr) minmax(20rem, 1fr);
+    }
+  }
+}

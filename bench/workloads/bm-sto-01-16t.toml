@@ -1,0 +1,11 @@
+id = "BM-STO-01"
+kind = "point_get"
+# Throughput variant of BM-STO-01 for the PD-020 target (>= 100 000 gets/s per node): the same
+# 1 Mi x 1 KiB store, block cache disabled, 16 reader threads (= REF-1N vCPUs) doing 1.6 M
+# uniform random gets in total. bm-sto-01.toml (one thread) measures per-get service time.
+keys = 1048576
+value_size = 1024
+ops = 1600000
+threads = 16
+block_cache_size = 0
+seed = 1

@@ -1,0 +1,3 @@
+{"_id":1,"name":"pen","price":{"$decimal":"1.50"},"_rev":"2ubppvhm5rh00000000g000","_createdAt":{"$date":"2023-11-14T22:13:20.000Z"},"_updatedAt":{"$date":"2023-11-14T22:13:20.000Z"}}
+{"_id":2,"name":"ink","price":{"$decimal":"1.50"},"_rev":"2ubppvhm642e0000000g000","_createdAt":{"$date":"2023-11-14T22:13:20.000Z"},"_updatedAt":{"$date":"2023-11-14T22:13:20.000Z"}}
+{"_id":3,"name":"pad","price":{"$decimal":"1.50"},"_rev":"2ubppvhm6cjs0000000g000","_createdAt":{"$date":"2023-11-14T22:13:20.000Z"},"_updatedAt":{"$date":"2023-11-14T22:13:20.000Z"}}

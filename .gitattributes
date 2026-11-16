@@ -1,0 +1,12 @@
+* text=auto eol=lf
+*.png binary
+# Persisted-format fixtures are compared byte for byte (implementation-rules.md section 6).
+crates/rustegon-storage/tests/fixtures/** binary
+crates/rustegon-doc/tests/fixtures/** binary
+crates/rustegon-raft/tests/fixtures/** binary
+crates/rustegon-mvcc/tests/fixtures/** binary
+crates/rustegon-catalog/tests/fixtures/** binary
+crates/rustegon-index/tests/fixtures/** binary
+crates/rustegon-query/tests/fixtures/** binary
+crates/rustegon-server/tests/fixtures/formats/** binary
+crates/rustegon-net/tests/fixtures/** binary

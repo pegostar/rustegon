@@ -1,0 +1,1114 @@
+{
+  "cases": [
+    {
+      "args": {
+        "filter": {}
+      },
+      "name": "find_all",
+      "op": "find",
+      "params": {},
+      "rgql": "FROM `c`",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "eq": [
+            "status",
+            "paid"
+          ]
+        }
+      },
+      "name": "find_filter",
+      "op": "find",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` = $f0",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "eq": [
+            "status",
+            "paid"
+          ]
+        },
+        "sort": [
+          "-createdAt",
+          "_id"
+        ]
+      },
+      "name": "find_sort_desc_then_asc",
+      "op": "find",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` = $f0 ORDER BY `createdAt` DESC, `_id`",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "orderBy": [
+            {
+              "descending": true,
+              "expr": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "createdAt"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            {
+              "expr": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "_id"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "eq": [
+            "status",
+            "paid"
+          ]
+        },
+        "limit": 50
+      },
+      "name": "find_limit",
+      "op": "find",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` = $f0 LIMIT 50",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "limit": {
+            "literal": {
+              "intValue": "50"
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {},
+        "skip": 10
+      },
+      "name": "find_skip",
+      "op": "find",
+      "params": {},
+      "rgql": "FROM `c` OFFSET 10",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "offset": {
+            "literal": {
+              "intValue": "10"
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {},
+        "limit": 10,
+        "skip": 20,
+        "sort": [
+          "_id"
+        ]
+      },
+      "name": "find_limit_skip",
+      "op": "find",
+      "params": {},
+      "rgql": "FROM `c` ORDER BY `_id` LIMIT 10 OFFSET 20",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "limit": {
+            "literal": {
+              "intValue": "10"
+            }
+          },
+          "offset": {
+            "literal": {
+              "intValue": "20"
+            }
+          },
+          "orderBy": [
+            {
+              "expr": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "_id"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "eq": [
+            "status",
+            "paid"
+          ]
+        },
+        "projection": {
+          "include": [
+            "_id",
+            "total",
+            "customer.name"
+          ]
+        }
+      },
+      "name": "find_projection_include",
+      "op": "find",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` = $f0 SELECT `_id`, `total`, `customer`.`name`",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "select": {
+            "items": {
+              "items": [
+                {
+                  "expr": {
+                    "expr": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "_id"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "expr": {
+                    "expr": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "total"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "expr": {
+                    "expr": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "customer"
+                            },
+                            {
+                              "field": "name"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {},
+        "projection": {
+          "exclude": [
+            "secret",
+            "meta"
+          ]
+        }
+      },
+      "name": "find_projection_exclude",
+      "op": "find",
+      "params": {},
+      "rgql": "FROM `c` SELECT -`secret`, -`meta`",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "select": {
+            "items": {
+              "items": [
+                {
+                  "exclude": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "secret"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "exclude": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "meta"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "and": [
+            {
+              "eq": [
+                "status",
+                "paid"
+              ]
+            },
+            {
+              "gte": [
+                "total",
+                100
+              ]
+            }
+          ]
+        },
+        "limit": 5,
+        "projection": {
+          "include": [
+            "_id",
+            "total"
+          ]
+        },
+        "skip": 5,
+        "sort": [
+          "-total"
+        ]
+      },
+      "name": "find_everything",
+      "op": "find",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        },
+        "f1": {
+          "ext_json": "100",
+          "hex": "03c801"
+        }
+      },
+      "rgql": "FROM `c` WHERE `status` = $f0 AND `total` >= $f1 SELECT `_id`, `total` ORDER BY `total` DESC LIMIT 5 OFFSET 5",
+      "statement": {
+        "query": {
+          "from": {
+            "source": {
+              "collection": {
+                "name": "c"
+              }
+            }
+          },
+          "limit": {
+            "literal": {
+              "intValue": "5"
+            }
+          },
+          "offset": {
+            "literal": {
+              "intValue": "5"
+            }
+          },
+          "orderBy": [
+            {
+              "descending": true,
+              "expr": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "total"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "select": {
+            "items": {
+              "items": [
+                {
+                  "expr": {
+                    "expr": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "_id"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "expr": {
+                    "expr": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "total"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "where": {
+            "and": {
+              "args": [
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "status"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_EQ",
+                    "right": {
+                      "param": {
+                        "name": "f0"
+                      }
+                    }
+                  }
+                },
+                {
+                  "binary": {
+                    "left": {
+                      "path": {
+                        "path": {
+                          "segments": [
+                            {
+                              "field": "total"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "AST_BINARY_OP_GE",
+                    "right": {
+                      "param": {
+                        "name": "f1"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "eq": [
+            "status",
+            "paid"
+          ]
+        },
+        "update": [
+          {
+            "set": [
+              "status",
+              "shipped"
+            ]
+          }
+        ]
+      },
+      "name": "update_one",
+      "op": "updateOne",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        },
+        "u0": {
+          "ext_json": "\"shipped\"",
+          "hex": "060773686970706564"
+        }
+      },
+      "rgql": "UPDATE `c` SET `status` = $u0 WHERE `status` = $f0 LIMIT 1",
+      "statement": {
+        "update": {
+          "limit": {
+            "literal": {
+              "intValue": "1"
+            }
+          },
+          "ops": [
+            {
+              "set": {
+                "items": [
+                  {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "status"
+                        }
+                      ]
+                    },
+                    "value": {
+                      "param": {
+                        "name": "u0"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "target": {
+            "name": "c"
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "eq": [
+            "status",
+            "paid"
+          ]
+        },
+        "update": [
+          {
+            "inc": [
+              "version",
+              1
+            ]
+          }
+        ]
+      },
+      "name": "update_many",
+      "op": "updateMany",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        },
+        "u0": {
+          "ext_json": "1",
+          "hex": "0302"
+        }
+      },
+      "rgql": "UPDATE `c` INC `version` BY $u0 WHERE `status` = $f0",
+      "statement": {
+        "update": {
+          "ops": [
+            {
+              "inc": {
+                "by": {
+                  "param": {
+                    "name": "u0"
+                  }
+                },
+                "path": {
+                  "segments": [
+                    {
+                      "field": "version"
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "target": {
+            "name": "c"
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {},
+        "update": [
+          {
+            "set": [
+              "flag",
+              true
+            ]
+          }
+        ]
+      },
+      "name": "update_many_empty_filter",
+      "op": "updateMany",
+      "params": {
+        "u0": {
+          "ext_json": "true",
+          "hex": "0201"
+        }
+      },
+      "rgql": "UPDATE `c` SET `flag` = $u0 OPTIONS (allow_full_scan_write = TRUE)",
+      "statement": {
+        "update": {
+          "ops": [
+            {
+              "set": {
+                "items": [
+                  {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "flag"
+                        }
+                      ]
+                    },
+                    "value": {
+                      "param": {
+                        "name": "u0"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "options": [
+            {
+              "name": "allow_full_scan_write",
+              "value": {
+                "literal": {
+                  "boolValue": true
+                }
+              }
+            }
+          ],
+          "target": {
+            "name": "c"
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {},
+        "update": [
+          {
+            "set": [
+              "flag",
+              true
+            ]
+          }
+        ]
+      },
+      "name": "update_one_empty_filter",
+      "op": "updateOne",
+      "params": {
+        "u0": {
+          "ext_json": "true",
+          "hex": "0201"
+        }
+      },
+      "rgql": "UPDATE `c` SET `flag` = $u0 LIMIT 1 OPTIONS (allow_full_scan_write = TRUE)",
+      "statement": {
+        "update": {
+          "limit": {
+            "literal": {
+              "intValue": "1"
+            }
+          },
+          "ops": [
+            {
+              "set": {
+                "items": [
+                  {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "flag"
+                        }
+                      ]
+                    },
+                    "value": {
+                      "param": {
+                        "name": "u0"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "options": [
+            {
+              "name": "allow_full_scan_write",
+              "value": {
+                "literal": {
+                  "boolValue": true
+                }
+              }
+            }
+          ],
+          "target": {
+            "name": "c"
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "eq": [
+            "status",
+            "paid"
+          ]
+        },
+        "replacement": {
+          "status": "archived"
+        }
+      },
+      "name": "replace_one",
+      "op": "replaceOne",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        },
+        "u0": {
+          "ext_json": "{\"status\":\"archived\"}",
+          "hex": "0d0111456f000000000673746174757306086172636869766564"
+        }
+      },
+      "rgql": "UPDATE `c` REPLACE WITH $u0 WHERE `status` = $f0 LIMIT 1",
+      "statement": {
+        "update": {
+          "limit": {
+            "literal": {
+              "intValue": "1"
+            }
+          },
+          "ops": [
+            {
+              "replace": {
+                "value": {
+                  "param": {
+                    "name": "u0"
+                  }
+                }
+              }
+            }
+          ],
+          "target": {
+            "name": "c"
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "eq": [
+            "status",
+            "paid"
+          ]
+        }
+      },
+      "name": "delete_one",
+      "op": "deleteOne",
+      "params": {
+        "f0": {
+          "ext_json": "\"paid\"",
+          "hex": "060470616964"
+        }
+      },
+      "rgql": "DELETE FROM `c` WHERE `status` = $f0 LIMIT 1",
+      "statement": {
+        "delete": {
+          "limit": {
+            "literal": {
+              "intValue": "1"
+            }
+          },
+          "target": {
+            "name": "c"
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "status"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_EQ",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {
+          "lt": [
+            "createdAt",
+            {
+              "$date": "2026-01-01T00:00:00.000Z"
+            }
+          ]
+        }
+      },
+      "name": "delete_many",
+      "op": "deleteMany",
+      "params": {
+        "f0": {
+          "ext_json": "{\"$date\":\"2026-01-01T00:00:00.000Z\"}",
+          "hex": "0880a0d5edee66"
+        }
+      },
+      "rgql": "DELETE FROM `c` WHERE `createdAt` < $f0",
+      "statement": {
+        "delete": {
+          "target": {
+            "name": "c"
+          },
+          "where": {
+            "binary": {
+              "left": {
+                "path": {
+                  "path": {
+                    "segments": [
+                      {
+                        "field": "createdAt"
+                      }
+                    ]
+                  }
+                }
+              },
+              "op": "AST_BINARY_OP_LT",
+              "right": {
+                "param": {
+                  "name": "f0"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "args": {
+        "filter": {}
+      },
+      "name": "delete_many_empty_filter",
+      "op": "deleteMany",
+      "params": {},
+      "rgql": "DELETE FROM `c` OPTIONS (allow_full_scan_write = TRUE)",
+      "statement": {
+        "delete": {
+          "options": [
+            {
+              "name": "allow_full_scan_write",
+              "value": {
+                "literal": {
+                  "boolValue": true
+                }
+              }
+            }
+          ],
+          "target": {
+            "name": "c"
+          }
+        }
+      }
+    }
+  ],
+  "collection": "c",
+  "description": "Collection operations with non-id filters -> AstStatement for QueryService.Execute. One-document writes use LIMIT 1 (documents are visited in _id order); an empty filter adds OPTIONS (allow_full_scan_write = true).",
+  "generatedBy": "crates/rustegon-server/tests/driver_ast.rs (re-bless: RGN_FIXTURES_BLESS=1 cargo nextest run -p rustegon-server --test driver_ast); format: drivers/conformance/README.md",
+  "version": 1
+}

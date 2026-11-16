@@ -1,0 +1,104 @@
+{
+  "$comment": "AC-GUI-001: GUI route -> REST operations it reaches (method + path of api/openapi/rustegon-v1.yaml). Each screen lane adds its routes. Every OpenAPI operation is in `routes` or in `excluded` with its reason; checked by scripts/check-coverage-map.mjs (npm test).",
+  "routes": {
+    "/login": ["POST /api/v1/auth/login", "GET /api/v1/server-info"],
+    "/change-password": ["POST /api/v1/auth/password", "POST /api/v1/auth/login"],
+    "(shell)": ["GET /api/v1/auth/me", "POST /api/v1/auth/logout"],
+    "/dashboard": [
+      "GET /api/v1/server-info",
+      "GET /api/v1/health/ready",
+      "GET /api/v1/databases",
+      "GET /api/v1/databases/{db}/collections"
+    ],
+    "/security/users": [
+      "GET /api/v1/users",
+      "POST /api/v1/users",
+      "PATCH /api/v1/users/{name}",
+      "DELETE /api/v1/users/{name}"
+    ],
+    "/security/roles": [
+      "GET /api/v1/roles",
+      "POST /api/v1/roles",
+      "GET /api/v1/roles/{name}",
+      "PATCH /api/v1/roles/{name}",
+      "DELETE /api/v1/roles/{name}",
+      "GET /api/v1/users/{name}"
+    ],
+    "/security/api-keys": [
+      "GET /api/v1/api-keys",
+      "POST /api/v1/api-keys",
+      "DELETE /api/v1/api-keys/{key_id}",
+      "GET /api/v1/users/{name}"
+    ],
+    "/backup": [
+      "GET /api/v1/settings",
+      "GET /api/v1/backups",
+      "POST /api/v1/backups",
+      "GET /api/v1/backups/{backup_id}",
+      "POST /api/v1/backups/{backup_id}/verify",
+      "GET /api/v1/snapshots",
+      "POST /api/v1/snapshots",
+      "DELETE /api/v1/snapshots/{name}"
+    ],
+    "/backup/restore": ["GET /api/v1/backups"],
+    "/settings": ["GET /api/v1/settings", "PATCH /api/v1/settings"],
+    "/data": [
+      "GET /api/v1/databases",
+      "GET /api/v1/databases/{db}/collections",
+      "POST /api/v1/databases"
+    ],
+    "/db/:db": [
+      "GET /api/v1/databases/{db}/collections",
+      "POST /api/v1/databases/{db}/collections",
+      "DELETE /api/v1/databases/{db}"
+    ],
+    "/db/:db/c/:coll": [
+      "GET /api/v1/databases/{db}/collections/{coll}/documents",
+      "DELETE /api/v1/databases/{db}/collections/{coll}",
+      "GET /api/v1/databases/{db}/collections/{coll}/validator",
+      "PUT /api/v1/databases/{db}/collections/{coll}/validator",
+      "DELETE /api/v1/databases/{db}/collections/{coll}/validator"
+    ],
+    "/db/:db/c/:coll/new": ["POST /api/v1/databases/{db}/collections/{coll}/documents"],
+    "/db/:db/c/:coll/doc/:id": [
+      "GET /api/v1/databases/{db}/collections/{coll}/documents/{id}",
+      "PUT /api/v1/databases/{db}/collections/{coll}/documents/{id}",
+      "DELETE /api/v1/databases/{db}/collections/{coll}/documents/{id}"
+    ],
+    "/query": [
+      "GET /api/v1/databases",
+      "GET /api/v1/databases/{db}/collections",
+      "POST /api/v1/databases/{db}/query",
+      "POST /api/v1/databases/{db}/explain",
+      "POST /api/v1/cursors/{cursor_id}/next",
+      "DELETE /api/v1/cursors/{cursor_id}"
+    ],
+    "/indexes": [
+      "GET /api/v1/databases",
+      "GET /api/v1/databases/{db}/collections",
+      "GET /api/v1/databases/{db}/collections/{coll}/indexes",
+      "POST /api/v1/databases/{db}/collections/{coll}/indexes",
+      "GET /api/v1/databases/{db}/collections/{coll}/indexes/{name}",
+      "DELETE /api/v1/databases/{db}/collections/{coll}/indexes/{name}",
+      "GET /api/v1/databases/{db}/collections/{coll}/indexes/{name}/progress"
+    ]
+  },
+  "excluded": {
+    "GET /api/v1/health/live": "Probe/monitoring endpoint for load balancers and Prometheus, not an admin operation.",
+    "GET /api/v1/ping": "Probe/monitoring endpoint for load balancers and Prometheus, not an admin operation.",
+    "GET /metrics": "Probe/monitoring endpoint for load balancers and Prometheus, not an admin operation.",
+    "POST /api/v1/auth/scram/start": "Driver/CLI SCRAM handshake; the GUI signs in with POST /api/v1/auth/login (PD-126).",
+    "POST /api/v1/auth/scram/finish": "Driver/CLI SCRAM handshake; the GUI signs in with POST /api/v1/auth/login (PD-126).",
+    "POST /api/v1/transactions": "Data plane: interactive transactions; the GUI transaction mode moves with S12 (PD-126, PD-137 (g)).",
+    "GET /api/v1/transactions/{txn_id}": "Data plane: interactive transactions; the GUI transaction mode moves with S12 (PD-126, PD-137 (g)).",
+    "POST /api/v1/transactions/{txn_id}/commit": "Data plane: interactive transactions; the GUI transaction mode moves with S12 (PD-126, PD-137 (g)).",
+    "POST /api/v1/transactions/{txn_id}/heartbeat": "Data plane: interactive transactions; the GUI transaction mode moves with S12 (PD-126, PD-137 (g)).",
+    "POST /api/v1/transactions/{txn_id}/rollback": "Data plane: interactive transactions; the GUI transaction mode moves with S12 (PD-126, PD-137 (g)).",
+    "PATCH /api/v1/databases/{db}/collections/{coll}/documents/{id}": "Data plane bulk/partial access used by drivers; the document editor replaces documents with PUT + If-Match (PD-133).",
+    "POST /api/v1/databases/{db}/collections/{coll}/bulk": "Data plane bulk/partial access used by drivers; the document editor replaces documents with PUT + If-Match (PD-133).",
+    "POST /api/v1/databases/{db}/collections/{coll}/get-many": "Data plane bulk/partial access used by drivers; the document editor replaces documents with PUT + If-Match (PD-133).",
+    "GET /api/v1/databases/{db}": "No editable database/collection settings in R1: S05/S06 scope (PD-133, PD-146).",
+    "GET /api/v1/databases/{db}/collections/{coll}": "No editable database/collection settings in R1: S05/S06 scope (PD-133, PD-146).",
+    "PATCH /api/v1/databases/{db}/collections/{coll}": "No editable database/collection settings in R1: S05/S06 scope (PD-133, PD-146)."
+  }
+}

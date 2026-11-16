@@ -1,0 +1,25 @@
+[package]
+name = "rustegon-mvcc"
+description = "MVCC key encoding, readers and writers, write intents, garbage collection and hybrid logical clocks."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+bytes.workspace = true
+rustegon-common.workspace = true
+rustegon-sim-api.workspace = true
+rustegon-storage.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+twox-hash.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+rustegon-sim.workspace = true

@@ -1,0 +1,25 @@
+# coding-standards.md §3.3 / ADR-029: time, randomness and network I/O must go through the
+# rustegon-sim-api traits so that rustegon-sim can run the code deterministically. Only the
+# production implementations in rustegon-sim-api opt out (module-level `allow`).
+disallowed-methods = [
+  { path = "std::time::SystemTime::now", reason = "use rustegon_sim_api::Clock (ADR-029)" },
+  { path = "std::time::Instant::now", reason = "use rustegon_sim_api::Clock (ADR-029)" },
+  { path = "std::thread::sleep", reason = "use rustegon_sim_api::Clock::sleep (ADR-029)" },
+  { path = "tokio::time::sleep", reason = "use rustegon_sim_api::Clock::sleep (ADR-029)", allow-invalid = true },
+  { path = "tokio::time::Instant::now", reason = "use rustegon_sim_api::Clock (ADR-029)", allow-invalid = true },
+  { path = "rand::rng", reason = "use rustegon_sim_api::Rng (ADR-029)", allow-invalid = true },
+  { path = "rand::thread_rng", reason = "use rustegon_sim_api::Rng (ADR-029)", allow-invalid = true },
+  { path = "rand::random", reason = "use rustegon_sim_api::Rng (ADR-029)", allow-invalid = true },
+  { path = "std::net::TcpListener::bind", reason = "use rustegon_sim_api::Network (ADR-029)" },
+  { path = "std::net::TcpStream::connect", reason = "use rustegon_sim_api::Network (ADR-029)" },
+  { path = "std::net::UdpSocket::bind", reason = "use rustegon_sim_api::Network (ADR-029)" },
+  { path = "tokio::net::TcpListener::bind", reason = "use rustegon_sim_api::Network (ADR-029)", allow-invalid = true },
+  { path = "tokio::net::TcpStream::connect", reason = "use rustegon_sim_api::Network (ADR-029)", allow-invalid = true },
+  { path = "tokio::net::UdpSocket::bind", reason = "use rustegon_sim_api::Network (ADR-029)", allow-invalid = true },
+]
+
+# Tests may unwrap/expect/panic/print (coding-standards.md §3.1).
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-print-in-tests = true

@@ -1,0 +1,549 @@
+# Retry-policy conformance against an in-process fake gRPC server (PD-073).
+# dotnet-driver.md §8 (both drivers: java-driver.md §6), transactions.md §4-§5.
+#
+# Fake server contract (each driver implements it in its test project):
+# - serves the rustegon.v1 services on a local plaintext HTTP/2 port; the client is created
+#   with `credential: apiKey` ("rgn_fake_key") unless a scenario says `credential: scram`
+#   (then the fake server runs the SCRAM server side for user `fake` / password
+#   `fake-password-123`, any salt and iteration count >= 4096);
+# - `server` maps an RPC name to a list of scripted replies consumed one per call; when the
+#   list is exhausted the LAST reply repeats. RPCs not listed answer the `ok` default of
+#   README.md ("Fake server defaults").
+# - a reply is `{ok: <response JSON>}`, `{error: {code, retryable, committed?, details?,
+#   retryAfterMs?}}` (a gRPC status with the catalog's grpc code and a packed ErrorDetail),
+#   `{transport: <GRPC_STATUS_NAME>}` (status without ErrorDetail), and may add
+#   `delayMs: n` (the server waits n ms before answering). Response JSON is the protobuf JSON
+#   mapping, except that documents and values are canonical extended JSON (the fake server
+#   encodes them to RDoc) and a `QueryService.Execute` reply is `{batches: [ResultBatch, ...]}`
+#   (one streamed ExecuteResponse per batch);
+# - the fake server records every call: RPC name, `rgn-request-id`, `rgn-txn-id` /
+#   request txn_id, `grpc-timeout`, and the arrival time.
+#
+# Expectations:
+# - `calls`: exact number of calls per RPC (RPCs not listed: any number, normally 0);
+# - `outcome`: `{result: ...}` (match: subset) or `{error: {code, exception, retryable}}`;
+#   `exception` is the language-neutral class id of errors-map.yaml;
+# - `sameRequestId: [rpc]`: all calls of that RPC carry the same non-empty rgn-request-id;
+# - `delays`: for the n-th retry (1-based) the gap between the failed reply and the next call
+#   must lie in [0, min(capMs, baseMs * 2^(n-1))] + 250 ms tolerance (full jitter), or be
+#   >= minMs when given (RateLimited retry_after_ms). The tolerance absorbs scheduling delays on
+#   a loaded host (50 ms failed with gaps of 61 and 78 ms in a Java gate); it still catches a
+#   driver that waits the 1 s cap or seconds instead of milliseconds.
+#
+# Retry rules under test (normative, both drivers):
+# R1 an operation is retried only if the failure's ErrorDetail.retryable is true (or the
+#    transport fallback of errors-map.yaml says retryable), at most `maxRetries` times
+#    (default 1), with full-jitter backoff base 10 ms, factor 2, cap 1 s; RateLimited waits at
+#    least retry_after_ms;
+# R2 reads are retried when retryReads is true; writes only when retryWrites is true, the
+#    request carries an rgn-request-id (the same on every attempt) and no transaction;
+#    operations inside a transaction are never retried individually;
+# R3 a cursor's GetMore and an Execute stream that already delivered a batch are not retried;
+# R4 DEADLINE_EXCEEDED of the caller's own deadline (operation timeout) is never retried;
+# R5 RGN-4005 SessionExpired on a SCRAM session: re-authenticate once and resend once (not
+#    counted in maxRetries); a second RGN-4005 is surfaced;
+# R6 withTransaction follows transactions.md §5: retryable errors from the callback or the
+#    commit roll back (best effort), back off and re-run the callback while
+#    now < start + maxRetryTime; RGN-2006 on commit is resolved with Status, never by
+#    re-running blindly: COMMITTED -> success, ABORTED -> re-run like a retryable error,
+#    ACTIVE/COMMITTING/UNSPECIFIED, or a failed Status call -> poll Status with the same
+#    backoff until the deadline (never re-run while the outcome is unknown), then
+#    CommitOutcomeUnknown; a Commit that fails without ErrorDetail after it was sent counts
+#    as RGN-2006 (PD-122, PD-119): it may have been applied; non-retryable errors and
+#    exceptions thrown by the callback itself roll back and propagate without retry.
+# R7 operation classes (PD-097, PD-101): reads = Get, Execute of find, listings
+#    (databases, collections, indexes), GetServerInfo/Ping, index build polling; writes =
+#    document and bulk writes, statement writes and Database.query RGQL text (it may write);
+#    never retried alone = DDL (create/drop database, collection, index: a lost reply would
+#    turn the retry into RGN-1031/1030), Begin/Commit/Rollback/Status/Heartbeat (the
+#    transaction is the unit of retry, R6), GetMore/KillCursor (R3), admin calls;
+# R8 the operation timeout is one deadline for the whole operation, every attempt and backoff
+#    included (each attempt sends the remaining time as grpc-timeout).
+version: 1
+defaults:
+  settings: {retryReads: true, retryWrites: true, maxRetries: 1, operationTimeoutMs: 30000}
+  backoff: {baseMs: 10, factor: 2, capMs: 1000, jitter: full}
+scenarios:
+  # ------------------------------------------------------------------ reads
+  - name: read_retried_once_then_succeeds
+    covers: [Behavior.RetryReads, Collection.FindById]
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get:
+        - {error: {code: 3002, retryable: true}}
+        - {ok: {document: {"_id": 1, "n": 1}}}
+    expect:
+      calls: {DocumentService.Get: 2}
+      delays: [{retry: 1}]
+      outcome: {result: {"_id": 1, "n": 1}}
+  - name: read_retry_budget_exhausted
+    covers: [Behavior.RetryReads]
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get: [{error: {code: 3002, retryable: true}}]
+    expect:
+      calls: {DocumentService.Get: 2}
+      outcome: {error: {code: 3002, exception: Unavailable, retryable: true}}
+  - name: read_max_retries_three
+    covers: [Behavior.RetryReads]
+    settings: {maxRetries: 3}
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get:
+        - {error: {code: 3004, retryable: true}}
+        - {error: {code: 3002, retryable: true}}
+        - {error: {code: 5004, retryable: true}}
+        - {ok: {document: {"_id": 1}}}
+    expect:
+      calls: {DocumentService.Get: 4}
+      delays: [{retry: 1}, {retry: 2}, {retry: 3}]
+      outcome: {result: {"_id": 1}}
+  - name: read_not_retried_on_non_retryable_code
+    covers: [Behavior.RetryReads, Behavior.ErrorMapping]
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get: [{error: {code: 1001, retryable: false}}]
+    expect:
+      calls: {DocumentService.Get: 1}
+      outcome: {error: {code: 1001, exception: Client, retryable: false}}
+  - name: read_retry_follows_the_response_flag_not_the_catalog
+    covers: [Behavior.RetryReads]
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get: [{error: {code: 3002, retryable: false}}]
+    expect:
+      calls: {DocumentService.Get: 1}
+      outcome: {error: {code: 3002, exception: Unavailable, retryable: false}}
+  - name: read_retry_disabled
+    covers: [Behavior.RetryReads]
+    settings: {retryReads: false}
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get: [{error: {code: 3002, retryable: true}}]
+    expect:
+      calls: {DocumentService.Get: 1}
+      outcome: {error: {code: 3002, exception: Unavailable, retryable: true}}
+  - name: read_transport_unavailable_without_detail_is_retried
+    covers: [Behavior.RetryReads, Behavior.ErrorMapping]
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get:
+        - {transport: UNAVAILABLE}
+        - {ok: {document: {"_id": 1}}}
+    expect:
+      calls: {DocumentService.Get: 2}
+      outcome: {result: {"_id": 1}}
+  - name: rate_limited_waits_retry_after
+    covers: [Behavior.RetryReads, Behavior.ErrorMapping]
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get:
+        - {error: {code: 4003, retryable: true, retryAfterMs: 200}}
+        - {ok: {document: {"_id": 1}}}
+    expect:
+      calls: {DocumentService.Get: 2}
+      delays: [{retry: 1, minMs: 200}]
+      outcome: {result: {"_id": 1}}
+  - name: query_retried_before_the_first_batch
+    covers: [Behavior.RetryReads, Collection.Find, Find.ToList]
+    operation: {object: collection, name: find, args: {filter: {eq: ["n", 1]}}, then: toList}
+    server:
+      QueryService.Execute:
+        - {error: {code: 3002, retryable: true}}
+        - {ok: {batches: [{docs: [{"_id": 1, "n": 1}]}]}}
+    expect:
+      calls: {QueryService.Execute: 2}
+      outcome: {result: [{"_id": 1, "n": 1}]}
+  - name: get_more_is_not_retried
+    covers: [Behavior.RetryReads, Cursor.Next]
+    operation: {object: collection, name: find, args: {filter: {}, batchSize: 1}, then: toList}
+    server:
+      QueryService.Execute:
+        - {ok: {batches: [{docs: [{"_id": 1}], cursorId: "c-1"}]}}
+      QueryService.GetMore:
+        - {error: {code: 3002, retryable: true}}
+    expect:
+      calls: {QueryService.Execute: 1, QueryService.GetMore: 1}
+      outcome: {error: {code: 3002, exception: Unavailable, retryable: true}}
+  - name: operation_timeout_is_not_retried
+    covers: [Behavior.OperationTimeout, Behavior.RetryReads]
+    settings: {operationTimeoutMs: 100}
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get: [{delayMs: 1000, ok: {document: {"_id": 1}}}]
+    expect:
+      calls: {DocumentService.Get: 1}
+      grpcTimeoutSent: true
+      outcome: {error: {code: 5006, exception: Timeout, retryable: false}}
+  - name: session_expired_reauthenticates_once
+    covers: [Behavior.SessionReauthentication, Credential.Scram]
+    credential: scram
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get:
+        - {error: {code: 4005, retryable: true}}
+        - {ok: {document: {"_id": 1}}}
+    expect:
+      calls: {AuthService.Authenticate: 2, DocumentService.Get: 2}
+      outcome: {result: {"_id": 1}}
+  - name: session_expired_twice_is_surfaced
+    covers: [Behavior.SessionReauthentication]
+    credential: scram
+    settings: {maxRetries: 0}
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get: [{error: {code: 4005, retryable: true}}]
+    expect:
+      calls: {AuthService.Authenticate: 2, DocumentService.Get: 2}
+      outcome: {error: {code: 4005, exception: Authentication, retryable: true}}
+  # ------------------------------------------------------------------ operation classes (R7, R8)
+  - name: listing_is_retried_as_a_read
+    covers: [Behavior.RetryReads, Database.ListCollectionNames]
+    settings: {retryWrites: false}
+    operation: {object: database, name: listCollectionNames}
+    server:
+      SchemaService.ListCollections:
+        - {error: {code: 3002, retryable: true}}
+        - {ok: {collections: [{name: c}]}}
+    expect:
+      calls: {SchemaService.ListCollections: 2}
+      outcome: {result: ["c"]}
+  - name: rgql_query_is_retried_as_a_write
+    covers: [Behavior.RetryWrites, Database.Query]
+    settings: {retryReads: false}
+    operation: {object: database, name: query, args: {rgql: "FROM c"}}
+    server:
+      QueryService.Execute:
+        - {error: {code: 3002, retryable: true}}
+        - {ok: {batches: [{docs: [{"_id": 1}]}]}}
+    expect:
+      calls: {QueryService.Execute: 2}
+      sameRequestId: [QueryService.Execute]
+      outcome: {result: [{"_id": 1}]}
+  - name: rgql_query_not_retried_without_retry_writes
+    covers: [Behavior.RetryWrites, Database.Query]
+    settings: {retryWrites: false}
+    operation: {object: database, name: query, args: {rgql: "FROM c"}}
+    server:
+      QueryService.Execute: [{error: {code: 3002, retryable: true}}]
+    expect:
+      calls: {QueryService.Execute: 1}
+      outcome: {error: {code: 3002, exception: Unavailable, retryable: true}}
+  - name: ddl_is_not_retried
+    covers: [Behavior.RetryWrites, Database.CreateCollection]
+    operation: {object: database, name: createCollection, args: {name: c}}
+    server:
+      SchemaService.CreateCollection: [{error: {code: 3002, retryable: true}}]
+    expect:
+      calls: {SchemaService.CreateCollection: 1}
+      outcome: {error: {code: 3002, exception: Unavailable, retryable: true}}
+  - name: begin_transaction_is_not_retried
+    covers: [Behavior.TransactionRetry, Client.BeginTransaction]
+    operation:
+      object: client
+      name: manualTransaction
+      args:
+        steps: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      TransactionService.Begin: [{error: {code: 3002, retryable: true}}]
+    expect:
+      calls: {TransactionService.Begin: 1, DocumentService.Insert: 0}
+      outcome: {error: {code: 3002, exception: Unavailable, retryable: true}}
+  - name: operation_timeout_bounds_all_attempts
+    covers: [Behavior.OperationTimeout, Behavior.RetryReads]
+    settings: {operationTimeoutMs: 300, maxRetries: 3}
+    operation: {object: collection, name: findById, args: {id: 1}}
+    server:
+      DocumentService.Get: [{delayMs: 200, error: {code: 3002, retryable: true}}]
+    expect:
+      calls: {DocumentService.Get: 2}
+      outcome: {error: {code: 5006, exception: Timeout, retryable: false}}
+  # ------------------------------------------------------------------ writes
+  - name: write_retried_with_the_same_request_id
+    covers: [Behavior.RetryWrites, Collection.InsertOne]
+    operation: {object: collection, name: insertOne, args: {document: {"_id": 7, "x": 1}}}
+    server:
+      DocumentService.Insert:
+        - {error: {code: 3002, retryable: true}}
+        - {ok: {results: [{id: 7}]}}
+    expect:
+      calls: {DocumentService.Insert: 2}
+      sameRequestId: [DocumentService.Insert]
+      outcome: {result: {insertedId: 7}}
+  - name: write_retry_disabled
+    covers: [Behavior.RetryWrites]
+    settings: {retryWrites: false}
+    operation: {object: collection, name: insertOne, args: {document: {"_id": 7}}}
+    server:
+      DocumentService.Insert: [{error: {code: 3002, retryable: true}}]
+    expect:
+      calls: {DocumentService.Insert: 1}
+      outcome: {error: {code: 3002, exception: Unavailable, retryable: true}}
+  - name: write_not_retried_on_duplicate_key
+    covers: [Behavior.RetryWrites, Behavior.ErrorMapping]
+    operation: {object: collection, name: insertOne, args: {document: {"_id": 7}}}
+    server:
+      DocumentService.Insert: [{error: {code: 1005, retryable: false}}]
+    expect:
+      calls: {DocumentService.Insert: 1}
+      outcome: {error: {code: 1005, exception: DuplicateKey, retryable: false}}
+  - name: statement_write_retried_with_the_same_request_id
+    covers: [Behavior.RetryWrites, Collection.UpdateMany]
+    operation: {object: collection, name: updateMany, args: {filter: {eq: ["s", "a"]}, update: [{set: ["s", "b"]}]}}
+    server:
+      QueryService.Execute:
+        - {error: {code: 3002, retryable: true}}
+        - {ok: {batches: [{stats: {docsAffected: 2}}]}}
+    expect:
+      calls: {QueryService.Execute: 2}
+      sameRequestId: [QueryService.Execute]
+      outcome: {result: {matchedCount: 2, modifiedCount: 2}}
+  - name: write_in_transaction_is_not_retried_alone
+    covers: [Behavior.RetryWrites, Client.BeginTransaction, Transaction.GetCollection]
+    operation:
+      object: client
+      name: manualTransaction
+      args:
+        steps:
+          - {object: transaction, name: insertOne, collection: c, args: {document: {"_id": 7}}, expect: {error: {code: 3002, exception: Unavailable, retryable: true}}}
+    server:
+      DocumentService.Insert: [{error: {code: 3002, retryable: true}}]
+    expect:
+      calls: {TransactionService.Begin: 1, DocumentService.Insert: 1, TransactionService.Rollback: 1}
+      outcome: {result: null}
+  # ------------------------------------------------------------------ withTransaction (transactions.md §5)
+  - name: with_transaction_retries_a_conflict_in_the_callback
+    covers: [Behavior.TransactionRetry, Client.WithTransaction]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      DocumentService.Insert:
+        - {error: {code: 2001, retryable: true}}
+        - {ok: {results: [{id: 1}]}}
+    expect:
+      calls: {TransactionService.Begin: 2, DocumentService.Insert: 2, TransactionService.Rollback: 1, TransactionService.Commit: 1}
+      delays: [{retry: 1}]
+      outcome: {result: null}
+  - name: with_transaction_retries_a_conflict_at_commit
+    covers: [Behavior.TransactionRetry, Client.WithTransaction]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      TransactionService.Commit:
+        - {error: {code: 2001, retryable: true}}
+        - {ok: {}}
+    expect:
+      calls: {TransactionService.Begin: 2, DocumentService.Insert: 2, TransactionService.Commit: 2}
+      outcome: {result: null}
+  - name: with_transaction_retries_deadlock_and_old_read_timestamp
+    covers: [Behavior.TransactionRetry]
+    settings: {}
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: findById, collection: c, args: {id: 1}}]
+    server:
+      DocumentService.Get:
+        - {error: {code: 2005, retryable: true}}
+        - {error: {code: 2007, retryable: true}}
+        - {ok: {document: {"_id": 1}}}
+    expect:
+      calls: {TransactionService.Begin: 3, DocumentService.Get: 3, TransactionService.Commit: 1}
+      delays: [{retry: 1}, {retry: 2}]
+      outcome: {result: null}
+  - name: with_transaction_retries_aborted_with_retryable_reason
+    covers: [Behavior.TransactionRetry]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      DocumentService.Insert:
+        - {error: {code: 2002, retryable: true, details: {reason: "timeout_pushed"}}}
+        - {ok: {results: [{id: 1}]}}
+    expect:
+      calls: {TransactionService.Begin: 2, TransactionService.Commit: 1}
+      outcome: {result: null}
+  - name: with_transaction_does_not_retry_aborted_by_rollback
+    covers: [Behavior.TransactionRetry, Behavior.ErrorMapping]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      DocumentService.Insert: [{error: {code: 2002, retryable: false, details: {reason: "killed"}}}]
+    expect:
+      calls: {TransactionService.Begin: 1, TransactionService.Commit: 0}
+      outcome: {error: {code: 2002, exception: TransactionAborted, retryable: false}}
+  - name: with_transaction_does_not_retry_non_retryable_errors
+    covers: [Behavior.TransactionRetry]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      DocumentService.Insert: [{error: {code: 1005, retryable: false}}]
+    expect:
+      calls: {TransactionService.Begin: 1, TransactionService.Rollback: 1, TransactionService.Commit: 0}
+      outcome: {error: {code: 1005, exception: DuplicateKey, retryable: false}}
+  - name: with_transaction_does_not_retry_transaction_timeout
+    covers: [Behavior.TransactionRetry]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      TransactionService.Commit: [{error: {code: 2003, retryable: false}}]
+    expect:
+      calls: {TransactionService.Begin: 1, TransactionService.Commit: 1}
+      outcome: {error: {code: 2003, exception: Timeout, retryable: false}}
+  - name: with_transaction_callback_exception_propagates_without_retry
+    covers: [Behavior.TransactionRetry]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: runner, name: throwApplicationError}]
+    expect:
+      calls: {TransactionService.Begin: 1, TransactionService.Rollback: 1, TransactionService.Commit: 0}
+      outcome: {error: {applicationError: true}}
+  - name: with_transaction_stops_at_the_deadline
+    covers: [Behavior.TransactionRetry]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        options: {maxRetryTimeMs: 0}
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      DocumentService.Insert: [{error: {code: 2001, retryable: true}}]
+    expect:
+      calls: {TransactionService.Begin: 1, DocumentService.Insert: 1}
+      outcome: {error: {code: 2001, exception: TransactionConflict, retryable: true}}
+  - name: with_transaction_rollback_failure_is_best_effort
+    covers: [Behavior.TransactionRetry]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      DocumentService.Insert:
+        - {error: {code: 2001, retryable: true}}
+        - {ok: {results: [{id: 1}]}}
+      TransactionService.Rollback: [{error: {code: 3002, retryable: true}}]
+    expect:
+      calls: {TransactionService.Begin: 2, TransactionService.Commit: 1}
+      outcome: {result: null}
+  - name: with_transaction_resolves_unknown_commit_as_committed
+    covers: [Behavior.CommitOutcomeResolution, Client.WithTransaction]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      TransactionService.Commit: [{error: {code: 2006, retryable: false}}]
+      TransactionService.Status: [{ok: {state: TRANSACTION_STATE_COMMITTED}}]
+    expect:
+      calls: {TransactionService.Begin: 1, DocumentService.Insert: 1, TransactionService.Commit: 1, TransactionService.Status: 1}
+      outcome: {result: null}
+  - name: with_transaction_reruns_after_unknown_commit_resolved_as_aborted
+    covers: [Behavior.CommitOutcomeResolution]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      TransactionService.Commit:
+        - {error: {code: 2006, retryable: false}}
+        - {ok: {}}
+      TransactionService.Status: [{ok: {state: TRANSACTION_STATE_ABORTED, abortReason: "conflict"}}]
+    expect:
+      calls: {TransactionService.Begin: 2, TransactionService.Commit: 2, TransactionService.Status: 1}
+      outcome: {result: null}
+  - name: with_transaction_polls_while_the_commit_is_still_unknown
+    covers: [Behavior.CommitOutcomeResolution]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      TransactionService.Commit: [{error: {code: 2006, retryable: false}}]
+      TransactionService.Status:
+        - {ok: {state: TRANSACTION_STATE_COMMITTING}}
+        - {ok: {state: TRANSACTION_STATE_COMMITTED}}
+    expect:
+      calls: {TransactionService.Begin: 1, TransactionService.Commit: 1, TransactionService.Status: 2}
+      outcome: {result: null}
+  - name: with_transaction_commit_transport_failure_resolves_via_status
+    covers: [Behavior.CommitOutcomeResolution]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      TransactionService.Commit: [{transport: UNAVAILABLE}]
+      TransactionService.Status: [{ok: {state: TRANSACTION_STATE_COMMITTED}}]
+    expect:
+      calls: {TransactionService.Begin: 1, DocumentService.Insert: 1, TransactionService.Commit: 1, TransactionService.Status: 1}
+      outcome: {result: null}
+  - name: with_transaction_status_poll_failure_keeps_polling
+    covers: [Behavior.CommitOutcomeResolution]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      TransactionService.Commit: [{error: {code: 2006, retryable: false}}]
+      TransactionService.Status:
+        - {error: {code: 3004, retryable: true}}
+        - {ok: {state: TRANSACTION_STATE_COMMITTED}}
+    expect:
+      calls: {TransactionService.Begin: 1, DocumentService.Insert: 1, TransactionService.Commit: 1, TransactionService.Status: 2}
+      outcome: {result: null}
+  - name: with_transaction_unknown_commit_at_the_deadline
+    covers: [Behavior.CommitOutcomeResolution, Behavior.ErrorMapping]
+    operation:
+      object: client
+      name: withTransaction
+      args:
+        options: {maxRetryTimeMs: 0}
+        callback: [{object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}]
+    server:
+      TransactionService.Commit: [{error: {code: 2006, retryable: false}}]
+      TransactionService.Status: [{ok: {state: TRANSACTION_STATE_COMMITTING}}]
+    expect:
+      calls: {TransactionService.Begin: 1, TransactionService.Commit: 1}
+      outcome: {error: {code: 2006, exception: CommitOutcomeUnknown}}
+  - name: manual_commit_unknown_is_exposed_and_resolvable
+    covers: [Behavior.CommitOutcomeResolution, Transaction.Commit, Transaction.Resolve]
+    operation:
+      object: client
+      name: manualTransaction
+      args:
+        steps:
+          - {object: transaction, name: insertOne, collection: c, args: {document: {"_id": 1}}}
+          - {object: transaction, name: commit, expect: {error: {code: 2006, exception: CommitOutcomeUnknown}}}
+          - {object: transaction, name: resolve, expect: {result: committed}}
+    server:
+      TransactionService.Commit: [{error: {code: 2006, retryable: false}}]
+      TransactionService.Status: [{ok: {state: TRANSACTION_STATE_COMMITTED}}]
+    expect:
+      calls: {TransactionService.Begin: 1, TransactionService.Commit: 1, TransactionService.Status: 1}
+      outcome: {result: null}

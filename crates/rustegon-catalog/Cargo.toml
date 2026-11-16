@@ -1,0 +1,23 @@
+[package]
+name = "rustegon-catalog"
+description = "Catalog: descriptors, schema leases, validators and zone configurations."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+rustegon-common.workspace = true
+rustegon-doc.workspace = true
+regex.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true

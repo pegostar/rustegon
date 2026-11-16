@@ -1,0 +1,834 @@
+{
+  "cases": [
+    {
+      "name": "set",
+      "operations": [
+        {
+          "set": {
+            "items": [
+              {
+                "path": {
+                  "segments": [
+                    {
+                      "field": "status"
+                    }
+                  ]
+                },
+                "value": {
+                  "param": {
+                    "name": "u0"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "\"shipped\"",
+          "hex": "060773686970706564"
+        }
+      },
+      "rgql": "SET `status` = $u0",
+      "update": [
+        {
+          "set": [
+            "status",
+            "shipped"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "set_nested_path",
+      "operations": [
+        {
+          "set": {
+            "items": [
+              {
+                "path": {
+                  "segments": [
+                    {
+                      "field": "address"
+                    },
+                    {
+                      "field": "city"
+                    }
+                  ]
+                },
+                "value": {
+                  "param": {
+                    "name": "u0"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "\"Milan\"",
+          "hex": "06054d696c616e"
+        }
+      },
+      "rgql": "SET `address`.`city` = $u0",
+      "update": [
+        {
+          "set": [
+            "address.city",
+            "Milan"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "set_document_value",
+      "operations": [
+        {
+          "set": {
+            "items": [
+              {
+                "path": {
+                  "segments": [
+                    {
+                      "field": "address"
+                    }
+                  ]
+                },
+                "value": {
+                  "param": {
+                    "name": "u0"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "{\"city\":\"Milan\",\"zip\":\"20100\"}",
+          "hex": "0d0217346800000000f2ff0c000000046369747906054d696c616e037a697006053230313030"
+        }
+      },
+      "rgql": "SET `address` = $u0",
+      "update": [
+        {
+          "set": [
+            "address",
+            {
+              "city": "Milan",
+              "zip": "20100"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "set_two_fields",
+      "operations": [
+        {
+          "set": {
+            "items": [
+              {
+                "path": {
+                  "segments": [
+                    {
+                      "field": "a"
+                    }
+                  ]
+                },
+                "value": {
+                  "param": {
+                    "name": "u0"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "set": {
+            "items": [
+              {
+                "path": {
+                  "segments": [
+                    {
+                      "field": "b"
+                    }
+                  ]
+                },
+                "value": {
+                  "param": {
+                    "name": "u1"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "1",
+          "hex": "0302"
+        },
+        "u1": {
+          "ext_json": "\"x\"",
+          "hex": "060178"
+        }
+      },
+      "rgql": "SET `a` = $u0 SET `b` = $u1",
+      "update": [
+        {
+          "set": [
+            "a",
+            1
+          ]
+        },
+        {
+          "set": [
+            "b",
+            "x"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "unset",
+      "operations": [
+        {
+          "unset": {
+            "paths": [
+              {
+                "segments": [
+                  {
+                    "field": "legacy"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "params": {},
+      "rgql": "UNSET `legacy`",
+      "update": [
+        {
+          "unset": "legacy"
+        }
+      ]
+    },
+    {
+      "name": "inc",
+      "operations": [
+        {
+          "inc": {
+            "by": {
+              "param": {
+                "name": "u0"
+              }
+            },
+            "path": {
+              "segments": [
+                {
+                  "field": "views"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "1",
+          "hex": "0302"
+        }
+      },
+      "rgql": "INC `views` BY $u0",
+      "update": [
+        {
+          "inc": [
+            "views",
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "inc_negative_decimal",
+      "operations": [
+        {
+          "inc": {
+            "by": {
+              "param": {
+                "name": "u0"
+              }
+            },
+            "path": {
+              "segments": [
+                {
+                  "field": "balance"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "{\"$decimal\":\"-10.50\"}",
+          "hex": "051a040000000000000000000000003cb0"
+        }
+      },
+      "rgql": "INC `balance` BY $u0",
+      "update": [
+        {
+          "inc": [
+            "balance",
+            {
+              "$decimal": "-10.50"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "mul",
+      "operations": [
+        {
+          "mul": {
+            "by": {
+              "param": {
+                "name": "u0"
+              }
+            },
+            "path": {
+              "segments": [
+                {
+                  "field": "price"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "1.1",
+          "hex": "049a9999999999f13f"
+        }
+      },
+      "rgql": "MUL `price` BY $u0",
+      "update": [
+        {
+          "mul": [
+            "price",
+            1.1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "min",
+      "operations": [
+        {
+          "min": {
+            "path": {
+              "segments": [
+                {
+                  "field": "low"
+                }
+              ]
+            },
+            "value": {
+              "param": {
+                "name": "u0"
+              }
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "3",
+          "hex": "0306"
+        }
+      },
+      "rgql": "MIN `low` WITH $u0",
+      "update": [
+        {
+          "min": [
+            "low",
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "name": "max",
+      "operations": [
+        {
+          "max": {
+            "path": {
+              "segments": [
+                {
+                  "field": "high"
+                }
+              ]
+            },
+            "value": {
+              "param": {
+                "name": "u0"
+              }
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "9",
+          "hex": "0312"
+        }
+      },
+      "rgql": "MAX `high` WITH $u0",
+      "update": [
+        {
+          "max": [
+            "high",
+            9
+          ]
+        }
+      ]
+    },
+    {
+      "name": "push",
+      "operations": [
+        {
+          "push": {
+            "path": {
+              "segments": [
+                {
+                  "field": "tags"
+                }
+              ]
+            },
+            "value": {
+              "param": {
+                "name": "u0"
+              }
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "\"new\"",
+          "hex": "06036e6577"
+        }
+      },
+      "rgql": "PUSH `tags` VALUE $u0",
+      "update": [
+        {
+          "push": [
+            "tags",
+            "new"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "push_document",
+      "operations": [
+        {
+          "push": {
+            "path": {
+              "segments": [
+                {
+                  "field": "items"
+                }
+              ]
+            },
+            "value": {
+              "param": {
+                "name": "u0"
+              }
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "{\"qty\":1,\"sku\":\"A-1\"}",
+          "hex": "0d020f31320000000051cc0600000003717479030203736b750603412d31"
+        }
+      },
+      "rgql": "PUSH `items` VALUE $u0",
+      "update": [
+        {
+          "push": [
+            "items",
+            {
+              "qty": 1,
+              "sku": "A-1"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "add_to_set",
+      "operations": [
+        {
+          "addToSet": {
+            "path": {
+              "segments": [
+                {
+                  "field": "tags"
+                }
+              ]
+            },
+            "value": {
+              "param": {
+                "name": "u0"
+              }
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "\"new\"",
+          "hex": "06036e6577"
+        }
+      },
+      "rgql": "ADD TO SET `tags` VALUE $u0",
+      "update": [
+        {
+          "addToSet": [
+            "tags",
+            "new"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pull",
+      "operations": [
+        {
+          "pull": {
+            "path": {
+              "segments": [
+                {
+                  "field": "tags"
+                }
+              ]
+            },
+            "where": {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "tags"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "u0"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "\"old\"",
+          "hex": "06036f6c64"
+        }
+      },
+      "rgql": "PULL `tags` WHERE `tags` = $u0",
+      "update": [
+        {
+          "pull": [
+            "tags",
+            "old"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pull_nested_path",
+      "operations": [
+        {
+          "pull": {
+            "path": {
+              "segments": [
+                {
+                  "field": "meta"
+                },
+                {
+                  "field": "tags"
+                }
+              ]
+            },
+            "where": {
+              "binary": {
+                "left": {
+                  "path": {
+                    "path": {
+                      "segments": [
+                        {
+                          "field": "tags"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "AST_BINARY_OP_EQ",
+                "right": {
+                  "param": {
+                    "name": "u0"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "\"old\"",
+          "hex": "06036f6c64"
+        }
+      },
+      "rgql": "PULL `meta`.`tags` WHERE `tags` = $u0",
+      "update": [
+        {
+          "pull": [
+            "meta.tags",
+            "old"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pop_first",
+      "operations": [
+        {
+          "pop": {
+            "end": "AST_POP_END_FIRST",
+            "path": {
+              "segments": [
+                {
+                  "field": "queue"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "params": {},
+      "rgql": "POP `queue` FIRST",
+      "update": [
+        {
+          "pop": [
+            "queue",
+            "first"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pop_last",
+      "operations": [
+        {
+          "pop": {
+            "end": "AST_POP_END_LAST",
+            "path": {
+              "segments": [
+                {
+                  "field": "queue"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "params": {},
+      "rgql": "POP `queue` LAST",
+      "update": [
+        {
+          "pop": [
+            "queue",
+            "last"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "rename",
+      "operations": [
+        {
+          "rename": {
+            "from": {
+              "segments": [
+                {
+                  "field": "colour"
+                }
+              ]
+            },
+            "to": {
+              "segments": [
+                {
+                  "field": "color"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "params": {},
+      "rgql": "RENAME `colour` TO `color`",
+      "update": [
+        {
+          "rename": [
+            "colour",
+            "color"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "current_date",
+      "operations": [
+        {
+          "currentDate": {
+            "path": {
+              "segments": [
+                {
+                  "field": "updatedAt"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "params": {},
+      "rgql": "CURRENT DATE `updatedAt`",
+      "update": [
+        {
+          "currentDate": "updatedAt"
+        }
+      ]
+    },
+    {
+      "name": "set_and_inc",
+      "operations": [
+        {
+          "set": {
+            "items": [
+              {
+                "path": {
+                  "segments": [
+                    {
+                      "field": "status"
+                    }
+                  ]
+                },
+                "value": {
+                  "param": {
+                    "name": "u0"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "inc": {
+            "by": {
+              "param": {
+                "name": "u1"
+              }
+            },
+            "path": {
+              "segments": [
+                {
+                  "field": "version"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "\"shipped\"",
+          "hex": "060773686970706564"
+        },
+        "u1": {
+          "ext_json": "1",
+          "hex": "0302"
+        }
+      },
+      "rgql": "SET `status` = $u0 INC `version` BY $u1",
+      "update": [
+        {
+          "set": [
+            "status",
+            "shipped"
+          ]
+        },
+        {
+          "inc": [
+            "version",
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "name": "replace",
+      "operations": [
+        {
+          "replace": {
+            "value": {
+              "param": {
+                "name": "u0"
+              }
+            }
+          }
+        }
+      ],
+      "params": {
+        "u0": {
+          "ext_json": "{\"name\":\"x\",\"qty\":2}",
+          "hex": "0d020e313208000000d57700000000046e616d65060178037174790304"
+        }
+      },
+      "rgql": "REPLACE WITH $u0",
+      "update": [
+        {
+          "replace": {
+            "name": "x",
+            "qty": 2
+          }
+        }
+      ]
+    }
+  ],
+  "collection": "c",
+  "description": "Update builder -> repeated AstUpdateOp (DocumentService.Update.operations, BulkUpdate.operations). `rgql` is the operator text only; parameters u0, u1, ... in DSL order.",
+  "generatedBy": "crates/rustegon-server/tests/driver_ast.rs (re-bless: RGN_FIXTURES_BLESS=1 cargo nextest run -p rustegon-server --test driver_ast); format: drivers/conformance/README.md",
+  "version": 1
+}

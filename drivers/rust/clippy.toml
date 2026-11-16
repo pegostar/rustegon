@@ -1,0 +1,6 @@
+# The driver is not server code: the root clippy.toml rules about rustegon-sim-api (ADR-029)
+# do not apply (PD-180). Tests may unwrap/expect/panic/print (coding-standards.md 3.1).
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-print-in-tests = true

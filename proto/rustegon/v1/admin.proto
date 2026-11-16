@@ -1,0 +1,324 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+syntax = "proto3";
+
+package rustegon.v1;
+
+import "rustegon/v1/common.proto";
+
+// Administration (protocol.md §2; security.md §2–§3). This version covers users, roles,
+// API keys and settings; zone configs, nodes, ranges, jobs, transactions, queries, audit and
+// diagnostics are added additively in later milestones (PD-045).
+service AdminService {
+  // Creates a user.
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  // Describes a user.
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  // Lists users.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  // Changes user attributes (revokes the user's sessions on password/role/disable changes).
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  // Drops a user (revokes sessions and API keys).
+  rpc DropUser(DropUserRequest) returns (DropUserResponse);
+  // Changes the caller's own password (allowed with `must_change_password`).
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  // Creates a custom role.
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse);
+  // Describes a role.
+  rpc GetRole(GetRoleRequest) returns (GetRoleResponse);
+  // Lists roles (built-in and custom).
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+  // Replaces the privileges/inheritance of a custom role (cycles are rejected).
+  rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse);
+  // Drops a custom role.
+  rpc DropRole(DropRoleRequest) returns (DropRoleResponse);
+  // Creates an API key; the secret is returned once.
+  rpc CreateApiKey(CreateApiKeyRequest) returns (CreateApiKeyResponse);
+  // Lists API keys (never their secrets).
+  rpc ListApiKeys(ListApiKeysRequest) returns (ListApiKeysResponse);
+  // Revokes an API key.
+  rpc RevokeApiKey(RevokeApiKeyRequest) returns (RevokeApiKeyResponse);
+  // Reads settings.
+  rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse);
+  // Changes runtime-mutable settings.
+  rpc UpdateSettings(UpdateSettingsRequest) returns (UpdateSettingsResponse);
+}
+
+// A user (credentials are never returned).
+message User {
+  // Name.
+  string name = 1;
+  // Direct role grants.
+  repeated RoleGrant roles = 2;
+  // Disabled users cannot authenticate.
+  bool disabled = 3;
+  // The password must be changed at next login.
+  bool must_change_password = 4;
+  // X.509 subject mapped to this user (`x509:CN=...`), if any.
+  optional string x509_subject = 5;
+  // Creation time.
+  int64 created_at_unix_ms = 6;
+}
+
+// Request of AdminService.CreateUser.
+message CreateUserRequest {
+  // Name.
+  string name = 1;
+  // Initial password (TLS only; the server stores SCRAM keys, never the password). Secret.
+  optional string password = 2;
+  // Role grants.
+  repeated RoleGrant roles = 3;
+  // Force a password change at first login.
+  bool must_change_password = 4;
+  // X.509 subject to map to this user.
+  optional string x509_subject = 5;
+}
+
+// Response of AdminService.CreateUser.
+message CreateUserResponse {
+  // The user.
+  User user = 1;
+}
+
+// Request of AdminService.GetUser.
+message GetUserRequest {
+  // Name.
+  string name = 1;
+}
+
+// Response of AdminService.GetUser.
+message GetUserResponse {
+  // The user.
+  User user = 1;
+}
+
+// Request of AdminService.ListUsers.
+message ListUsersRequest {}
+
+// Response of AdminService.ListUsers.
+message ListUsersResponse {
+  // Users, by name.
+  repeated User users = 1;
+}
+
+// Replacement list of role grants (distinguishes "unchanged" from "set to empty").
+message RoleGrantList {
+  // Grants.
+  repeated RoleGrant grants = 1;
+}
+
+// Request of AdminService.UpdateUser. Unset fields are unchanged.
+message UpdateUserRequest {
+  // Name.
+  string name = 1;
+  // New password. Secret.
+  optional string password = 2;
+  // New role grants.
+  optional RoleGrantList roles = 3;
+  // Enable/disable.
+  optional bool disabled = 4;
+  // Force a password change.
+  optional bool must_change_password = 5;
+  // New X.509 subject mapping ("" removes it).
+  optional string x509_subject = 6;
+}
+
+// Response of AdminService.UpdateUser.
+message UpdateUserResponse {
+  // The user.
+  User user = 1;
+}
+
+// Request of AdminService.DropUser.
+message DropUserRequest {
+  // Name.
+  string name = 1;
+}
+
+// Response of AdminService.DropUser.
+message DropUserResponse {}
+
+// Request of AdminService.ChangePassword.
+message ChangePasswordRequest {
+  // Current password. Secret.
+  string current_password = 1;
+  // New password. Secret.
+  string new_password = 2;
+}
+
+// Response of AdminService.ChangePassword.
+message ChangePasswordResponse {}
+
+// A privilege: actions on a resource (security.md §3.1–§3.2).
+message Privilege {
+  // Resource: "cluster", "database:<db>" or "collection:<db>.<coll>" ("*" wildcards allowed).
+  string resource = 1;
+  // Actions, e.g. "find", "insert", "create_index".
+  repeated string actions = 2;
+}
+
+// A role.
+message Role {
+  // Name.
+  string name = 1;
+  // Privileges granted directly.
+  repeated Privilege privileges = 2;
+  // Inherited roles.
+  repeated string inherits = 3;
+  // Built-in roles cannot be changed or dropped.
+  bool built_in = 4;
+}
+
+// Request of AdminService.CreateRole.
+message CreateRoleRequest {
+  // The role (`built_in` must be false).
+  Role role = 1;
+}
+
+// Response of AdminService.CreateRole.
+message CreateRoleResponse {
+  // The role.
+  Role role = 1;
+}
+
+// Request of AdminService.GetRole.
+message GetRoleRequest {
+  // Name.
+  string name = 1;
+}
+
+// Response of AdminService.GetRole.
+message GetRoleResponse {
+  // The role.
+  Role role = 1;
+}
+
+// Request of AdminService.ListRoles.
+message ListRolesRequest {}
+
+// Response of AdminService.ListRoles.
+message ListRolesResponse {
+  // Roles, by name.
+  repeated Role roles = 1;
+}
+
+// Request of AdminService.UpdateRole.
+message UpdateRoleRequest {
+  // The role, replacing the stored privileges and inheritance.
+  Role role = 1;
+}
+
+// Response of AdminService.UpdateRole.
+message UpdateRoleResponse {
+  // The role.
+  Role role = 1;
+}
+
+// Request of AdminService.DropRole.
+message DropRoleRequest {
+  // Name.
+  string name = 1;
+}
+
+// Response of AdminService.DropRole.
+message DropRoleResponse {}
+
+// An API key (without its secret).
+message ApiKey {
+  // Key id (the `<key_id>` part of `rgn_<key_id>_<secret>`).
+  string key_id = 1;
+  // Owning user.
+  string user = 2;
+  // Description.
+  string description = 3;
+  // Scope: a subset of the owner's grants.
+  repeated RoleGrant roles = 4;
+  // Expiry; absent = no expiry.
+  optional int64 expires_at_unix_ms = 5;
+  // Allowed client IPs/CIDRs; empty = any.
+  repeated string ip_allowlist = 6;
+  // Creation time.
+  int64 created_at_unix_ms = 7;
+}
+
+// Request of AdminService.CreateApiKey.
+message CreateApiKeyRequest {
+  // Owning user (default: the caller).
+  optional string user = 1;
+  // Description.
+  string description = 2;
+  // Scope.
+  repeated RoleGrant roles = 3;
+  // Expiry.
+  optional int64 expires_at_unix_ms = 4;
+  // Allowed client IPs/CIDRs.
+  repeated string ip_allowlist = 5;
+}
+
+// Response of AdminService.CreateApiKey.
+message CreateApiKeyResponse {
+  // The key.
+  ApiKey key = 1;
+  // Full key `rgn_<key_id>_<secret>`, returned only here. Secret: never log it.
+  string secret = 2;
+}
+
+// Request of AdminService.ListApiKeys.
+message ListApiKeysRequest {
+  // Only keys of this user (default: all keys the caller may see).
+  optional string user = 1;
+}
+
+// Response of AdminService.ListApiKeys.
+message ListApiKeysResponse {
+  // Keys.
+  repeated ApiKey keys = 1;
+}
+
+// Request of AdminService.RevokeApiKey.
+message RevokeApiKeyRequest {
+  // Key id.
+  string key_id = 1;
+}
+
+// Response of AdminService.RevokeApiKey.
+message RevokeApiKeyResponse {}
+
+// A setting.
+message Setting {
+  // Dotted name, e.g. "security.session.idle_timeout".
+  string name = 1;
+  // Current value as TOML text; secrets are redacted.
+  string value = 2;
+  // Default value as TOML text.
+  string default_value = 3;
+  // Whether it can change at runtime (else it needs a restart).
+  bool runtime_mutable = 4;
+  // Description.
+  string description = 5;
+}
+
+// Request of AdminService.GetSettings.
+message GetSettingsRequest {
+  // Names to read; empty = all.
+  repeated string names = 1;
+}
+
+// Response of AdminService.GetSettings.
+message GetSettingsResponse {
+  // Settings, by name.
+  repeated Setting settings = 1;
+}
+
+// Request of AdminService.UpdateSettings.
+message UpdateSettingsRequest {
+  // New values as TOML text, by name; applied atomically (all or none).
+  map<string, string> values = 1;
+}
+
+// Response of AdminService.UpdateSettings.
+message UpdateSettingsResponse {
+  // The changed settings after the update.
+  repeated Setting settings = 1;
+}

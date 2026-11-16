@@ -1,0 +1,79 @@
+{
+  "environment": {
+    "arch": "x86_64",
+    "commit": "601f449",
+    "cpus": 24,
+    "date": "2026-11-03",
+    "env": "dev-win11-x64",
+    "host": {
+      "allocation_unit": 4096,
+      "battery_status": "2",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "collected_at_utc": "2026-11-03T13:10:30.1135806Z",
+      "cpu_cores": 12,
+      "cpu_logical": 24,
+      "cpu_max_mhz": 2000,
+      "cpu_model": "AMD Ryzen AI 9 HX PRO 470 w/ Radeon 890M",
+      "data_dir": "C:\\bench-rustegon",
+      "disk_bus": "NVMe",
+      "disk_media": "SSD",
+      "disk_model": "Micron MTFDKBA1T0TGW-2BP15ABLT",
+      "disk_size": 1024209543168,
+      "filesystem": "NTFS",
+      "os": "Microsoft Windows 11 Pro",
+      "os_build": "26300",
+      "os_version": "10.0.26300",
+      "power_plan": "GUID combinazione risparmio energia: 381b4222-f694-41f0-9685-ff5bb260df2e  (Bilanciato)",
+      "ram_bytes": 67798491136,
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "volume_free": 495458873344,
+      "volume_size": 1021622349824
+    },
+    "notes": "provisional reference (owner decision 2026-11-03) instead of REF-1N; laptop on AC, Balanced power plan; dataset fits the OS page cache, cache miss = engine block cache disabled",
+    "os": "windows",
+    "release_build": true
+  },
+  "result": {
+    "bytes_per_second": 99397217.65636984,
+    "dataset_hash": "1c15919d5b80c5b9",
+    "latency": {
+      "count": 65536,
+      "max": 1015.4999999999999,
+      "p50": 3.5999999999999996,
+      "p95": 9.2,
+      "p99": 28.3,
+      "p999": 72.3
+    },
+    "levels": [
+      {
+        "bytes": 27250584,
+        "files": 1,
+        "level": 0
+      },
+      {
+        "bytes": 1066386175,
+        "files": 5,
+        "level": 6
+      }
+    ],
+    "load_seconds": 0.0,
+    "measured_seconds": 11.013521,
+    "ops_per_second": 95208.06288924313,
+    "space_amplification": 0.9990165599004519,
+    "stall_seconds": 1.4016785999999999,
+    "stalls": 1,
+    "workload": {
+      "batch_size": 16,
+      "block_cache_size": 0,
+      "id": "BM-STO-02",
+      "key_order": "sequential",
+      "keys": 1048576,
+      "kind": "write_batches",
+      "ops": 0,
+      "seed": 2,
+      "threads": 1,
+      "value_size": 1024
+    },
+    "write_amplification": 1.9731160845336329
+  }
+}

@@ -1,0 +1,1416 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+syntax = "proto3";
+
+package rustegon.v1;
+
+// Structured RGQL AST (query-language.md §13, FR-QL-002), the normative definition of the
+// structured query form drivers send instead of text. It mirrors the JSON form of
+// `rustegon_query::ast` exactly:
+// - a JSON object with a "kind" discriminator <-> a message with a `oneof kind` whose field
+//   names are the "kind" values (snake_case);
+// - JSON field names = proto field names; absent optional JSON fields = unset fields; omitted
+//   JSON booleans are false; omitted JSON lists are empty;
+// - a JSON path (array of segments) <-> AstPath.segments;
+// - typed literals keep their JSON text form (decimal, ISO-8601 datetime, hex object id,
+//   hyphenated uuid, interval text).
+// An AST is accepted only if it is canonical: parsing its canonical text yields the same AST
+// (otherwise RGN-1010; nesting limits give RGN-1013), so text and structured requests obey the
+// same rules.
+
+// ---------------------------------------------------------------------------------------------
+// Expressions (§4)
+// ---------------------------------------------------------------------------------------------
+
+// An expression.
+message AstExpr {
+  // Expression kind.
+  oneof kind {
+    // Literal value.
+    AstLiteral literal = 1;
+    // Parameter `$name` / `$1`.
+    AstParam param = 2;
+    // Field path rooted at the current row.
+    AstPathExpr path = 3;
+    // Path segments applied to a computed value.
+    AstAccess access = 4;
+    // Binary operator.
+    AstBinary binary = 5;
+    // `a AND b AND …`.
+    AstNary and = 6;
+    // `a OR b OR …`.
+    AstNary or = 7;
+    // Unary minus.
+    AstUnary neg = 8;
+    // `NOT`.
+    AstUnary not = 9;
+    // `expr BETWEEN low AND high`.
+    AstBetween between = 10;
+    // `expr IS [NOT] NULL|MISSING`.
+    AstIs is = 11;
+    // Function call.
+    AstCall call = 12;
+    // `*` as a function argument.
+    AstStar star = 13;
+    // `extract(unit FROM expr)`.
+    AstExtract extract = 14;
+    // `CASE … END`.
+    AstCase case = 15;
+    // Lambda `x -> body`.
+    AstLambda lambda = 16;
+    // `ANY|EVERY x IN arr SATISFIES pred`.
+    AstQuantified quantified = 17;
+    // `ELEM MATCH (path, predicate)`.
+    AstElemMatch elem_match = 18;
+    // Array constructor.
+    AstArray array = 19;
+    // Object constructor.
+    AstObject object = 20;
+  }
+}
+
+// `null` literal marker.
+message AstNullLiteral {}
+
+// A literal value (JSON: {"kind":"literal","value":…} or {"kind":"literal","type":…,"value":…}).
+message AstLiteral {
+  // Literal value.
+  oneof value {
+    // `NULL`.
+    AstNullLiteral null = 1;
+    // `TRUE` / `FALSE`.
+    bool bool_value = 2;
+    // int64 literal.
+    int64 int_value = 3;
+    // float64 literal (finite).
+    double float_value = 4;
+    // String literal.
+    string string_value = 5;
+    // Decimal literal text (`12.50`), JSON type "decimal".
+    string decimal = 6;
+    // `DATE '…'` as ISO-8601 UTC with milliseconds, JSON type "datetime".
+    string datetime = 7;
+    // `OID '…'` as 24 lowercase hex digits, JSON type "object_id".
+    string object_id = 8;
+    // `UUID '…'` in 8-4-4-4-12 lowercase hex, JSON type "uuid".
+    string uuid = 9;
+    // `INTERVAL '…'` text, JSON type "interval".
+    string interval = 10;
+  }
+}
+
+// Parameter.
+message AstParam {
+  // Name, or the 1-based decimal position of a positional parameter.
+  string name = 1;
+}
+
+// A path segment.
+message AstSegment {
+  // Segment kind.
+  oneof segment {
+    // `.name` (JSON: a string).
+    string field = 1;
+    // `.0` (JSON: a non-negative integer).
+    uint32 position = 2;
+    // `[expr]` (JSON: {"index": expr}).
+    AstExpr index = 3;
+    // `[]`, every element, INCLUDE paths only (JSON: {"each": true}); always true when set.
+    bool each = 4;
+  }
+}
+
+// A field path; the first segment is a field.
+message AstPath {
+  // Segments.
+  repeated AstSegment segments = 1;
+}
+
+// Path expression.
+message AstPathExpr {
+  // The path.
+  AstPath path = 1;
+}
+
+// Path applied to a computed value (base is never a path or an access).
+message AstAccess {
+  // Accessed value.
+  AstExpr base = 1;
+  // Segments.
+  AstPath path = 2;
+}
+
+// Binary operators (§4.1).
+enum AstBinaryOp {
+  // Not set (invalid).
+  AST_BINARY_OP_UNSPECIFIED = 0;
+  // `=`.
+  AST_BINARY_OP_EQ = 1;
+  // `==`.
+  AST_BINARY_OP_EQ_WHOLE = 2;
+  // `!=`.
+  AST_BINARY_OP_NE = 3;
+  // `<`.
+  AST_BINARY_OP_LT = 4;
+  // `<=`.
+  AST_BINARY_OP_LE = 5;
+  // `>`.
+  AST_BINARY_OP_GT = 6;
+  // `>=`.
+  AST_BINARY_OP_GE = 7;
+  // `IN`.
+  AST_BINARY_OP_IN = 8;
+  // `NOT IN`.
+  AST_BINARY_OP_NOT_IN = 9;
+  // `LIKE`.
+  AST_BINARY_OP_LIKE = 10;
+  // `ILIKE`.
+  AST_BINARY_OP_ILIKE = 11;
+  // `MATCHES`.
+  AST_BINARY_OP_MATCHES = 12;
+  // `CONTAINS`.
+  AST_BINARY_OP_CONTAINS = 13;
+  // `CONTAINS ANY`.
+  AST_BINARY_OP_CONTAINS_ANY = 14;
+  // `CONTAINS ALL`.
+  AST_BINARY_OP_CONTAINS_ALL = 15;
+  // `+`.
+  AST_BINARY_OP_ADD = 16;
+  // `-`.
+  AST_BINARY_OP_SUB = 17;
+  // `*`.
+  AST_BINARY_OP_MUL = 18;
+  // `/`.
+  AST_BINARY_OP_DIV = 19;
+  // `%`.
+  AST_BINARY_OP_MOD = 20;
+  // `||`.
+  AST_BINARY_OP_CONCAT = 21;
+}
+
+// Binary operation.
+message AstBinary {
+  // Operator (JSON: snake_case name, e.g. "eq", "contains_any").
+  AstBinaryOp op = 1;
+  // Left operand.
+  AstExpr left = 2;
+  // Right operand.
+  AstExpr right = 3;
+}
+
+// n-ary AND / OR (at least two operands).
+message AstNary {
+  // Operands.
+  repeated AstExpr args = 1;
+}
+
+// Unary operation.
+message AstUnary {
+  // Operand.
+  AstExpr expr = 1;
+}
+
+// `expr BETWEEN low AND high`.
+message AstBetween {
+  // Tested value.
+  AstExpr expr = 1;
+  // Lower bound.
+  AstExpr low = 2;
+  // Upper bound.
+  AstExpr high = 3;
+}
+
+// What `IS` tests.
+enum AstIsTest {
+  // Not set (invalid).
+  AST_IS_TEST_UNSPECIFIED = 0;
+  // `NULL`.
+  AST_IS_TEST_NULL = 1;
+  // `MISSING`.
+  AST_IS_TEST_MISSING = 2;
+}
+
+// `expr IS [NOT] …`.
+message AstIs {
+  // Tested value.
+  AstExpr expr = 1;
+  // `IS NOT`.
+  bool negated = 2;
+  // Test.
+  AstIsTest test = 3;
+}
+
+// Function call.
+message AstCall {
+  // Function name as written.
+  string name = 1;
+  // Arguments.
+  repeated AstExpr args = 2;
+}
+
+// `*` argument marker.
+message AstStar {}
+
+// `extract(unit FROM expr)`.
+message AstExtract {
+  // Date part.
+  string unit = 1;
+  // Date value.
+  AstExpr expr = 2;
+}
+
+// `WHEN … THEN …`.
+message AstWhenThen {
+  // Condition or compared value.
+  AstExpr when = 1;
+  // Result.
+  AstExpr then = 2;
+}
+
+// `CASE [operand] WHEN … THEN … [ELSE …] END`.
+message AstCase {
+  // Simple-form operand.
+  AstExpr operand = 1;
+  // Branches.
+  repeated AstWhenThen whens = 2;
+  // ELSE value (JSON field "else").
+  AstExpr else = 3;
+}
+
+// Lambda.
+message AstLambda {
+  // Parameter names.
+  repeated string params = 1;
+  // Body.
+  AstExpr body = 2;
+}
+
+// Quantifier.
+enum AstQuantifier {
+  // Not set (invalid).
+  AST_QUANTIFIER_UNSPECIFIED = 0;
+  // `ANY`.
+  AST_QUANTIFIER_ANY = 1;
+  // `EVERY`.
+  AST_QUANTIFIER_EVERY = 2;
+}
+
+// `ANY|EVERY var IN source SATISFIES predicate`.
+message AstQuantified {
+  // Quantifier.
+  AstQuantifier quantifier = 1;
+  // Bound variable.
+  string var = 2;
+  // Array iterated.
+  AstExpr source = 3;
+  // Predicate.
+  AstExpr predicate = 4;
+}
+
+// `ELEM MATCH (path, predicate)`.
+message AstElemMatch {
+  // Array path.
+  AstPath path = 1;
+  // Element predicate.
+  AstExpr predicate = 2;
+}
+
+// Array constructor.
+message AstArray {
+  // Elements.
+  repeated AstExpr elements = 1;
+}
+
+// Object field.
+message AstObjectField {
+  // Name.
+  string name = 1;
+  // Value.
+  AstExpr value = 2;
+}
+
+// Object constructor.
+message AstObject {
+  // Fields in order.
+  repeated AstObjectField fields = 1;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Queries and pipelines (§3, §5, §7, §8)
+// ---------------------------------------------------------------------------------------------
+
+// `[database.]name`.
+message AstQualifiedName {
+  // Database (default: session database).
+  optional string database = 1;
+  // Name.
+  string name = 2;
+}
+
+// `[db.]collection.index`.
+message AstIndexName {
+  // Collection.
+  AstQualifiedName collection = 1;
+  // Index.
+  string index = 2;
+}
+
+// Sub-query source.
+message AstSubquerySource {
+  // Inner query.
+  AstQuery query = 1;
+}
+
+// Map-reduce index source.
+message AstIndexSource {
+  // Collection.
+  AstQualifiedName collection = 1;
+  // Index name.
+  string index = 2;
+}
+
+// FROM source.
+message AstSource {
+  // Source kind.
+  oneof kind {
+    // Collection (JSON fields "database", "name" inline).
+    AstQualifiedName collection = 1;
+    // `( query )`.
+    AstSubquerySource subquery = 2;
+    // `INDEX db.coll.idx`.
+    AstIndexSource index = 3;
+  }
+}
+
+// `FROM source [AS alias] [AS OF SYSTEM TIME expr]`.
+message AstFromClause {
+  // Source.
+  AstSource source = 1;
+  // Alias.
+  optional string alias = 2;
+  // Historical read timestamp.
+  AstExpr as_of = 3;
+}
+
+// `LOOKUP coll [AS a] ON local = foreign INTO field`.
+message AstLookupClause {
+  // Joined collection.
+  AstQualifiedName collection = 1;
+  // Alias.
+  optional string alias = 2;
+  // Local expression.
+  AstExpr local = 3;
+  // Foreign path.
+  AstPath foreign = 4;
+  // Output field.
+  string into = 5;
+}
+
+// `GROUP BY` key.
+message AstGroupKey {
+  // Key.
+  AstExpr expr = 1;
+  // Output name.
+  optional string alias = 2;
+}
+
+// `expr [DESC]`.
+message AstOrderItem {
+  // Sort key.
+  AstExpr expr = 1;
+  // Descending.
+  bool descending = 2;
+}
+
+// `name = value` (OPTIONS / WITH).
+message AstOptionItem {
+  // Name.
+  string name = 1;
+  // Value.
+  AstExpr value = 2;
+}
+
+// `path = expr`.
+message AstSetItem {
+  // Target.
+  AstPath path = 1;
+  // Value.
+  AstExpr value = 2;
+}
+
+// `name = expr` (AGG / COMPUTE).
+message AstAggItem {
+  // Output field.
+  string name = 1;
+  // Expression.
+  AstExpr expr = 2;
+}
+
+// `GROUP BY keys [AGG aggs]`.
+message AstGroupSpec {
+  // Keys.
+  repeated AstGroupKey keys = 1;
+  // Aggregates.
+  repeated AstAggItem aggs = 2;
+}
+
+// `expr [AS alias]` projection.
+message AstExprProjection {
+  // Value.
+  AstExpr expr = 1;
+  // Output name.
+  optional string alias = 2;
+}
+
+// `path.*` / `-path` projection.
+message AstPathProjection {
+  // Path.
+  AstPath path = 1;
+}
+
+// Projection item.
+message AstProjection {
+  // Projection kind.
+  oneof kind {
+    // `expr [AS alias]`.
+    AstExprProjection expr = 1;
+    // `path.*`.
+    AstPathProjection wildcard = 2;
+    // `-path`.
+    AstPathProjection exclude = 3;
+  }
+}
+
+// `SELECT *` marker.
+message AstSelectStar {}
+
+// `SELECT items`.
+message AstSelectItems {
+  // Projections.
+  repeated AstProjection items = 1;
+}
+
+// `SELECT VALUE expr`.
+message AstSelectValue {
+  // Value.
+  AstExpr expr = 1;
+}
+
+// SELECT clause.
+message AstSelect {
+  // Select kind.
+  oneof kind {
+    // `*`.
+    AstSelectStar star = 1;
+    // Projection list.
+    AstSelectItems items = 2;
+    // `VALUE expr`.
+    AstSelectValue value = 3;
+  }
+}
+
+// Read query.
+message AstQuery {
+  // FROM clause.
+  AstFromClause from = 1;
+  // LOOKUP clauses.
+  repeated AstLookupClause lookups = 2;
+  // WHERE (JSON field "where").
+  AstExpr where = 3;
+  // GROUP BY keys.
+  repeated AstGroupKey group_by = 4;
+  // HAVING.
+  AstExpr having = 5;
+  // SELECT.
+  AstSelect select = 6;
+  // ORDER BY.
+  repeated AstOrderItem order_by = 7;
+  // LIMIT.
+  AstExpr limit = 8;
+  // OFFSET.
+  AstExpr offset = 9;
+  // INCLUDE paths.
+  repeated AstPath include = 10;
+  // OPTIONS.
+  repeated AstOptionItem options = 11;
+  // Pipeline stages.
+  repeated AstStage pipeline = 12;
+}
+
+// `MATCH expr`.
+message AstMatchStage {
+  // Filter.
+  AstExpr predicate = 1;
+}
+
+// `LIMIT n` / `SKIP n`.
+message AstCountStage {
+  // Row count.
+  AstExpr count = 1;
+}
+
+// `SAMPLE n`.
+message AstSampleStage {
+  // Sample size.
+  AstExpr size = 1;
+}
+
+// `REPLACE ROOT WITH expr` / `SORT BY COUNT expr`.
+message AstExprStage {
+  // Expression.
+  AstExpr expr = 1;
+}
+
+// `PROJECT …`.
+message AstProjectStage {
+  // Projections.
+  repeated AstProjection items = 1;
+}
+
+// `SET …`.
+message AstSetStage {
+  // Assignments.
+  repeated AstSetItem items = 1;
+}
+
+// `UNSET …`.
+message AstUnsetStage {
+  // Removed paths.
+  repeated AstPath paths = 1;
+}
+
+// `SORT …`.
+message AstSortStage {
+  // Keys.
+  repeated AstOrderItem items = 1;
+}
+
+// `UNWIND path [AS alias] [WITH INDEX index] [PRESERVE EMPTY]`.
+message AstUnwindStage {
+  // Array path.
+  AstPath path = 1;
+  // Element name.
+  optional string alias = 2;
+  // Position field name.
+  optional string index = 3;
+  // Keep empty/missing arrays.
+  bool preserve_empty = 4;
+}
+
+// `LOOKUP … [PIPELINE (…)]`.
+message AstLookupStage {
+  // Join specification.
+  AstLookupClause lookup = 1;
+  // Sub-pipeline (absent: none; JSON null/absent).
+  AstPipeline pipeline = 2;
+}
+
+// A non-empty sub-pipeline (JSON: an array of stages).
+message AstPipeline {
+  // Stages.
+  repeated AstStage stages = 1;
+}
+
+// `COUNT AS name`.
+message AstCountAsStage {
+  // Output field.
+  string name = 1;
+}
+
+// A named facet.
+message AstFacet {
+  // Output field.
+  string name = 1;
+  // Stages (JSON: array of stages).
+  repeated AstStage pipeline = 2;
+}
+
+// `FACET …`.
+message AstFacetStage {
+  // Facets.
+  repeated AstFacet facets = 1;
+}
+
+// `BUCKET BY … BOUNDARIES … [DEFAULT …] [AGG …]`.
+message AstBucketStage {
+  // Bucketed value.
+  AstExpr by = 1;
+  // Boundaries.
+  AstExpr boundaries = 2;
+  // Default bucket.
+  AstExpr default = 3;
+  // Aggregates.
+  repeated AstAggItem aggs = 4;
+}
+
+// `BUCKET AUTO BY … INTO n [AGG …]`.
+message AstBucketAutoStage {
+  // Bucketed value.
+  AstExpr by = 1;
+  // Number of buckets.
+  AstExpr buckets = 2;
+  // Aggregates.
+  repeated AstAggItem aggs = 3;
+}
+
+// `GRAPH LOOKUP …`.
+message AstGraphLookupStage {
+  // Traversed collection.
+  AstQualifiedName collection = 1;
+  // Start value(s).
+  AstExpr start_with = 2;
+  // Connect-from field.
+  AstPath connect_from = 3;
+  // Connect-to field.
+  AstPath connect_to = 4;
+  // Maximum depth.
+  AstExpr max_depth = 5;
+  // Filter (JSON field "where").
+  AstExpr where = 6;
+  // Output field.
+  string into = 7;
+}
+
+// `UNION WITH (query)`.
+message AstUnionWithStage {
+  // Appended query.
+  AstQuery query = 1;
+}
+
+// `WINDOW …`.
+message AstWindowStage {
+  // Partition keys.
+  repeated AstExpr partition_by = 1;
+  // Order.
+  repeated AstOrderItem order_by = 2;
+  // Computed fields.
+  repeated AstAggItem compute = 3;
+}
+
+// `OUT INTO coll`.
+message AstOutStage {
+  // Target.
+  AstQualifiedName collection = 1;
+}
+
+// `WHEN MATCHED` action.
+enum AstMergeMatched {
+  // Not set (clause absent).
+  AST_MERGE_MATCHED_UNSPECIFIED = 0;
+  // `REPLACE`.
+  AST_MERGE_MATCHED_REPLACE = 1;
+  // `UPDATE`.
+  AST_MERGE_MATCHED_UPDATE = 2;
+  // `KEEP`.
+  AST_MERGE_MATCHED_KEEP = 3;
+  // `FAIL`.
+  AST_MERGE_MATCHED_FAIL = 4;
+}
+
+// `WHEN NOT MATCHED` action.
+enum AstMergeNotMatched {
+  // Not set (clause absent).
+  AST_MERGE_NOT_MATCHED_UNSPECIFIED = 0;
+  // `INSERT`.
+  AST_MERGE_NOT_MATCHED_INSERT = 1;
+  // `DISCARD`.
+  AST_MERGE_NOT_MATCHED_DISCARD = 2;
+}
+
+// `MERGE INTO … ON … [WHEN MATCHED …] [WHEN NOT MATCHED …]`.
+message AstMergeStage {
+  // Target.
+  AstQualifiedName collection = 1;
+  // Match fields.
+  repeated AstPath on = 2;
+  // Matched action.
+  AstMergeMatched when_matched = 3;
+  // Not-matched action.
+  AstMergeNotMatched when_not_matched = 4;
+}
+
+// A pipeline stage (§7).
+message AstStage {
+  // Stage kind.
+  oneof kind {
+    // `MATCH`.
+    AstMatchStage match = 1;
+    // `PROJECT`.
+    AstProjectStage project = 2;
+    // `SET`.
+    AstSetStage set = 3;
+    // `UNSET`.
+    AstUnsetStage unset = 4;
+    // `GROUP BY … AGG …` (JSON fields "keys", "aggs" inline).
+    AstGroupSpec group = 5;
+    // `SORT`.
+    AstSortStage sort = 6;
+    // `LIMIT`.
+    AstCountStage limit = 7;
+    // `SKIP`.
+    AstCountStage skip = 8;
+    // `UNWIND`.
+    AstUnwindStage unwind = 9;
+    // `LOOKUP`.
+    AstLookupStage lookup = 10;
+    // `COUNT AS`.
+    AstCountAsStage count = 11;
+    // `FACET`.
+    AstFacetStage facet = 12;
+    // `BUCKET`.
+    AstBucketStage bucket = 13;
+    // `BUCKET AUTO`.
+    AstBucketAutoStage bucket_auto = 14;
+    // `SAMPLE`.
+    AstSampleStage sample = 15;
+    // `REPLACE ROOT WITH`.
+    AstExprStage replace_root = 16;
+    // `SORT BY COUNT`.
+    AstExprStage sort_by_count = 17;
+    // `GRAPH LOOKUP`.
+    AstGraphLookupStage graph_lookup = 18;
+    // `UNION WITH`.
+    AstUnionWithStage union_with = 19;
+    // `WINDOW` (set_window_fields).
+    AstWindowStage window = 20;
+    // `OUT INTO`.
+    AstOutStage out = 21;
+    // `MERGE INTO`.
+    AstMergeStage merge = 22;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Write statements (§3, §6, §10)
+// ---------------------------------------------------------------------------------------------
+
+// Update operation (§3 update_ops).
+message AstUpdateOp {
+  // Operation kind.
+  oneof kind {
+    // `SET path = expr, …`.
+    AstSetStage set = 1;
+    // `UNSET a, b`.
+    AstUnsetStage unset = 2;
+    // `INC path BY n`.
+    AstPathBy inc = 3;
+    // `MUL path BY n`.
+    AstPathBy mul = 4;
+    // `PUSH path VALUE v [POSITION p] [SLICE n] [SORT …]`.
+    AstPushOp push = 5;
+    // `PULL path WHERE predicate`.
+    AstPullOp pull = 6;
+    // `ADD TO SET path VALUE v`.
+    AstPathValue add_to_set = 7;
+    // `POP path FIRST|LAST`.
+    AstPopOp pop = 8;
+    // `RENAME from TO to`.
+    AstRenameOp rename = 9;
+    // `MIN path WITH v`.
+    AstPathValue min = 10;
+    // `MAX path WITH v`.
+    AstPathValue max = 11;
+    // `CURRENT DATE path`.
+    AstPathOnly current_date = 12;
+    // `REPLACE WITH doc` (sole operation).
+    AstReplaceOp replace = 13;
+  }
+}
+
+// `path BY expr`.
+message AstPathBy {
+  // Target.
+  AstPath path = 1;
+  // Operand.
+  AstExpr by = 2;
+}
+
+// `path … value`.
+message AstPathValue {
+  // Target.
+  AstPath path = 1;
+  // Value.
+  AstExpr value = 2;
+}
+
+// Single path.
+message AstPathOnly {
+  // Target.
+  AstPath path = 1;
+}
+
+// `PUSH`.
+message AstPushOp {
+  // Target array.
+  AstPath path = 1;
+  // Pushed value.
+  AstExpr value = 2;
+  // Insert position.
+  AstExpr position = 3;
+  // Slice after push.
+  AstExpr slice = 4;
+  // Sort after push.
+  repeated AstOrderItem sort = 5;
+}
+
+// `PULL`.
+message AstPullOp {
+  // Target array.
+  AstPath path = 1;
+  // Removed-element predicate (JSON field "where").
+  AstExpr where = 2;
+}
+
+// End removed by POP.
+enum AstPopEnd {
+  // Not set (invalid).
+  AST_POP_END_UNSPECIFIED = 0;
+  // `FIRST`.
+  AST_POP_END_FIRST = 1;
+  // `LAST`.
+  AST_POP_END_LAST = 2;
+}
+
+// `POP`.
+message AstPopOp {
+  // Target array.
+  AstPath path = 1;
+  // Removed end.
+  AstPopEnd end = 2;
+}
+
+// `RENAME`.
+message AstRenameOp {
+  // Old path.
+  AstPath from = 1;
+  // New path.
+  AstPath to = 2;
+}
+
+// `REPLACE WITH`.
+message AstReplaceOp {
+  // New document.
+  AstExpr value = 1;
+}
+
+// Returned image.
+enum AstImage {
+  // Not set (invalid).
+  AST_IMAGE_UNSPECIFIED = 0;
+  // Before the write.
+  AST_IMAGE_OLD = 1;
+  // After the write.
+  AST_IMAGE_NEW = 2;
+}
+
+// `RETURNING OLD|NEW [projections]`.
+message AstReturning {
+  // Image.
+  AstImage image = 1;
+  // Projections.
+  repeated AstProjection items = 2;
+}
+
+// `VALUE expr`.
+message AstInsertValue {
+  // Document.
+  AstExpr expr = 1;
+}
+
+// `VALUES e1, e2`.
+message AstInsertValues {
+  // Documents.
+  repeated AstExpr rows = 1;
+}
+
+// One wide-column row.
+message AstTuple {
+  // Values (JSON: an array).
+  repeated AstExpr values = 1;
+}
+
+// `(cols) VALUES (…), …`.
+message AstInsertTuples {
+  // Columns.
+  repeated string columns = 1;
+  // Rows (JSON: array of arrays).
+  repeated AstTuple rows = 2;
+}
+
+// `INSERT INTO … FROM …`.
+message AstInsertQuery {
+  // Source query.
+  AstQuery query = 1;
+}
+
+// INSERT rows.
+message AstInsertSource {
+  // Source kind.
+  oneof kind {
+    // `VALUE`.
+    AstInsertValue value = 1;
+    // `VALUES`.
+    AstInsertValues values = 2;
+    // Wide-column tuples.
+    AstInsertTuples tuples = 3;
+    // Query.
+    AstInsertQuery query = 4;
+  }
+}
+
+// `DO NOTHING` marker.
+message AstDoNothing {}
+
+// `DO UPDATE ops`.
+message AstDoUpdate {
+  // Operations.
+  repeated AstUpdateOp ops = 1;
+}
+
+// `ON CONFLICT …`.
+message AstOnConflict {
+  // Conflict action.
+  oneof kind {
+    // `DO NOTHING`.
+    AstDoNothing do_nothing = 1;
+    // `DO UPDATE`.
+    AstDoUpdate do_update = 2;
+  }
+}
+
+// `INSERT`.
+message AstInsert {
+  // Target.
+  AstQualifiedName target = 1;
+  // Rows.
+  AstInsertSource source = 2;
+  // Conflict handling.
+  AstOnConflict on_conflict = 3;
+  // `USING TTL`.
+  AstExpr ttl = 4;
+  // `RETURNING`.
+  AstReturning returning = 5;
+}
+
+// `UPDATE`.
+message AstUpdate {
+  // Target.
+  AstQualifiedName target = 1;
+  // Alias.
+  optional string alias = 2;
+  // Operations.
+  repeated AstUpdateOp ops = 3;
+  // Filter (JSON field "where").
+  AstExpr where = 4;
+  // LIMIT.
+  AstExpr limit = 5;
+  // OPTIONS.
+  repeated AstOptionItem options = 6;
+  // RETURNING.
+  AstReturning returning = 7;
+}
+
+// `UPSERT`.
+message AstUpsert {
+  // Target.
+  AstQualifiedName target = 1;
+  // Document.
+  AstExpr value = 2;
+  // Match fields.
+  repeated AstPath on = 3;
+  // RETURNING.
+  AstReturning returning = 4;
+}
+
+// `DELETE`.
+message AstDelete {
+  // Deleted wide-column cells.
+  repeated AstPath columns = 1;
+  // Target.
+  AstQualifiedName target = 2;
+  // Filter (JSON field "where").
+  AstExpr where = 3;
+  // LIMIT.
+  AstExpr limit = 4;
+  // OPTIONS.
+  repeated AstOptionItem options = 5;
+  // RETURNING.
+  AstReturning returning = 6;
+}
+
+// `EXPLAIN [ANALYZE] (query | update | delete)`.
+message AstExplain {
+  // ANALYZE.
+  bool analyze = 1;
+  // Explained statement.
+  AstStatement statement = 2;
+}
+
+// ---------------------------------------------------------------------------------------------
+// DDL and admin (§11, data-model §6/§7), transactions (§12)
+// ---------------------------------------------------------------------------------------------
+
+// `CREATE DATABASE`.
+message AstCreateDatabase {
+  // Name.
+  string name = 1;
+  // WITH options.
+  repeated AstOptionItem options = 2;
+}
+
+// `CREATE COLLECTION`.
+message AstCreateCollection {
+  // Name.
+  AstQualifiedName name = 1;
+  // WITH options.
+  repeated AstOptionItem options = 2;
+}
+
+// Column definition.
+message AstColumnDef {
+  // Name.
+  string name = 1;
+  // Type name (JSON field "type").
+  string type = 2;
+  // Descending (clustering columns only).
+  bool descending = 3;
+}
+
+// `CREATE TABLE`.
+message AstCreateTable {
+  // Name.
+  AstQualifiedName name = 1;
+  // Partition key.
+  repeated AstColumnDef partition_key = 2;
+  // Clustering key.
+  repeated AstColumnDef clustering_key = 3;
+  // Static columns.
+  repeated AstColumnDef static_columns = 4;
+  // Declared columns.
+  repeated AstColumnDef columns = 5;
+  // `hashed` | `range`.
+  optional string distribution = 6;
+  // Default TTL seconds.
+  AstExpr default_ttl = 7;
+}
+
+// `amount unit`.
+message AstDuration {
+  // Amount.
+  AstExpr amount = 1;
+  // Unit.
+  string unit = 2;
+}
+
+// `CREATE TIMESERIES`.
+message AstCreateTimeseries {
+  // Name.
+  AstQualifiedName name = 1;
+  // Time field.
+  AstPath time_field = 2;
+  // Meta field.
+  AstPath meta_field = 3;
+  // Granularity.
+  optional string granularity = 4;
+  // Maximum points per bucket.
+  AstExpr bucket_max_points = 5;
+  // Bucket span.
+  AstDuration bucket_span = 6;
+  // Retention.
+  AstDuration retention = 7;
+}
+
+// Index flavour.
+enum AstIndexType {
+  // Not set (invalid).
+  AST_INDEX_TYPE_UNSPECIFIED = 0;
+  // Plain secondary index.
+  AST_INDEX_TYPE_STANDARD = 1;
+  // `UNIQUE`.
+  AST_INDEX_TYPE_UNIQUE = 2;
+  // `TTL`.
+  AST_INDEX_TYPE_TTL = 3;
+  // `FULLTEXT`.
+  AST_INDEX_TYPE_FULLTEXT = 4;
+  // `VECTOR`.
+  AST_INDEX_TYPE_VECTOR = 5;
+  // `GEO`.
+  AST_INDEX_TYPE_GEO = 6;
+  // `LOCAL`.
+  AST_INDEX_TYPE_LOCAL = 7;
+}
+
+// Index key.
+message AstIndexKey {
+  // Key path.
+  AstPath path = 1;
+  // Descending.
+  bool descending = 2;
+  // Analyzer.
+  AstExpr analyzer = 3;
+  // Boost.
+  AstExpr boost = 4;
+}
+
+// `CREATE [type] INDEX`.
+message AstCreateIndex {
+  // Flavour.
+  AstIndexType index_type = 1;
+  // Name.
+  string name = 2;
+  // Indexed collection.
+  AstQualifiedName on = 3;
+  // Keys.
+  repeated AstIndexKey keys = 4;
+  // `EXPIRE AFTER`.
+  AstExpr expire_after = 5;
+  // WITH options.
+  repeated AstOptionItem options = 6;
+}
+
+// `CREATE MAPREDUCE INDEX`.
+message AstCreateMapreduceIndex {
+  // Name.
+  string name = 1;
+  // Indexed collection.
+  AstQualifiedName on = 2;
+  // Map query.
+  AstQuery map = 3;
+  // Reduce grouping.
+  AstGroupSpec reduce = 4;
+}
+
+// `CREATE CONTINUOUS AGGREGATE`.
+message AstCreateContinuousAggregate {
+  // Name.
+  AstQualifiedName name = 1;
+  // Source collection.
+  AstQualifiedName on = 2;
+  // Grouping.
+  AstGroupSpec group = 3;
+}
+
+// `CREATE CHANGE SUBSCRIPTION`.
+message AstCreateChangeSubscription {
+  // Name.
+  string name = 1;
+  // Watched collection.
+  AstQualifiedName on = 2;
+  // Filter (JSON field "where").
+  AstExpr where = 3;
+}
+
+// `SET (options)`.
+message AstSetOptions {
+  // Options.
+  repeated AstOptionItem options = 1;
+}
+
+// `SPLIT AT (…), …`.
+message AstSplitAt {
+  // Split points (JSON: array of arrays).
+  repeated AstTuple points = 1;
+}
+
+// ALTER COLLECTION change.
+message AstAlterCollectionAction {
+  // Action kind.
+  oneof kind {
+    // `SET (…)`.
+    AstSetOptions set_options = 1;
+    // `SPLIT AT …`.
+    AstSplitAt split_at = 2;
+  }
+}
+
+// `ALTER COLLECTION`.
+message AstAlterCollection {
+  // Collection.
+  AstQualifiedName name = 1;
+  // Change.
+  AstAlterCollectionAction action = 2;
+}
+
+// `ALTER INDEX … SET HIDDEN|VISIBLE`.
+message AstAlterIndex {
+  // Index.
+  AstIndexName name = 1;
+  // HIDDEN.
+  bool hidden = 2;
+}
+
+// `DROP DATABASE`.
+message AstDropDatabase {
+  // Name.
+  string name = 1;
+}
+
+// `DROP COLLECTION`.
+message AstDropCollection {
+  // Name.
+  AstQualifiedName name = 1;
+}
+
+// `DROP INDEX`.
+message AstDropIndex {
+  // Index.
+  AstIndexName name = 1;
+}
+
+// Empty marker for argument-less targets and statements.
+message AstEmpty {}
+
+// `SHOW INDEXES ON coll`.
+message AstShowIndexes {
+  // Collection.
+  AstQualifiedName on = 1;
+}
+
+// `SHOW RANGES FROM COLLECTION coll`.
+message AstShowRanges {
+  // Collection.
+  AstQualifiedName collection = 1;
+}
+
+// SHOW target.
+message AstShowTarget {
+  // Target kind.
+  oneof kind {
+    // `COLLECTIONS`.
+    AstEmpty collections = 1;
+    // `INDEXES ON`.
+    AstShowIndexes indexes = 2;
+    // `RANGES FROM COLLECTION`.
+    AstShowRanges ranges = 3;
+    // `TRANSACTIONS`.
+    AstEmpty transactions = 4;
+  }
+}
+
+// `SHOW`.
+message AstShow {
+  // Target.
+  AstShowTarget target = 1;
+}
+
+// KILL target.
+enum AstKillTarget {
+  // Not set (invalid).
+  AST_KILL_TARGET_UNSPECIFIED = 0;
+  // `QUERY`.
+  AST_KILL_TARGET_QUERY = 1;
+  // `TRANSACTION`.
+  AST_KILL_TARGET_TRANSACTION = 2;
+}
+
+// `KILL QUERY|TRANSACTION id`.
+message AstKill {
+  // Target.
+  AstKillTarget target = 1;
+  // Identifier.
+  AstExpr id = 2;
+}
+
+// Isolation level.
+enum AstIsolation {
+  // Not set (database default).
+  AST_ISOLATION_UNSPECIFIED = 0;
+  // `SERIALIZABLE`.
+  AST_ISOLATION_SERIALIZABLE = 1;
+  // `SNAPSHOT`.
+  AST_ISOLATION_SNAPSHOT = 2;
+  // `READ COMMITTED`.
+  AST_ISOLATION_READ_COMMITTED = 3;
+}
+
+// Transaction priority.
+enum AstPriority {
+  // Not set (default).
+  AST_PRIORITY_UNSPECIFIED = 0;
+  // `HIGH`.
+  AST_PRIORITY_HIGH = 1;
+  // `NORMAL`.
+  AST_PRIORITY_NORMAL = 2;
+  // `LOW`.
+  AST_PRIORITY_LOW = 3;
+}
+
+// `BEGIN …`.
+message AstBegin {
+  // Isolation level.
+  AstIsolation isolation = 1;
+  // `READ ONLY`.
+  bool read_only = 2;
+  // Priority.
+  AstPriority priority = 3;
+  // `AS OF SYSTEM TIME`.
+  AstExpr as_of = 4;
+}
+
+// `SAVEPOINT` / `ROLLBACK TO SAVEPOINT` / `RELEASE SAVEPOINT` name.
+message AstSavepointName {
+  // Savepoint name.
+  string name = 1;
+}
+
+// A statement.
+message AstStatement {
+  // Statement kind.
+  oneof kind {
+    // Read query (JSON: query fields inline).
+    AstQuery query = 1;
+    // INSERT (fields inline).
+    AstInsert insert = 2;
+    // UPDATE (fields inline).
+    AstUpdate update = 3;
+    // UPSERT (fields inline).
+    AstUpsert upsert = 4;
+    // DELETE (fields inline).
+    AstDelete delete = 5;
+    // EXPLAIN.
+    AstExplain explain = 6;
+    // CREATE DATABASE.
+    AstCreateDatabase create_database = 7;
+    // CREATE COLLECTION.
+    AstCreateCollection create_collection = 8;
+    // CREATE TABLE.
+    AstCreateTable create_table = 9;
+    // CREATE TIMESERIES.
+    AstCreateTimeseries create_timeseries = 10;
+    // CREATE … INDEX.
+    AstCreateIndex create_index = 11;
+    // CREATE MAPREDUCE INDEX.
+    AstCreateMapreduceIndex create_mapreduce_index = 12;
+    // CREATE CONTINUOUS AGGREGATE.
+    AstCreateContinuousAggregate create_continuous_aggregate = 13;
+    // CREATE CHANGE SUBSCRIPTION.
+    AstCreateChangeSubscription create_change_subscription = 14;
+    // ALTER COLLECTION.
+    AstAlterCollection alter_collection = 15;
+    // ALTER INDEX.
+    AstAlterIndex alter_index = 16;
+    // DROP DATABASE.
+    AstDropDatabase drop_database = 17;
+    // DROP COLLECTION.
+    AstDropCollection drop_collection = 18;
+    // DROP INDEX.
+    AstDropIndex drop_index = 19;
+    // SHOW.
+    AstShow show = 20;
+    // KILL.
+    AstKill kill = 21;
+    // BEGIN.
+    AstBegin begin = 22;
+    // SAVEPOINT.
+    AstSavepointName savepoint = 23;
+    // ROLLBACK TO SAVEPOINT.
+    AstSavepointName rollback_to_savepoint = 24;
+    // RELEASE SAVEPOINT.
+    AstSavepointName release_savepoint = 25;
+    // COMMIT.
+    AstEmpty commit = 26;
+    // ROLLBACK.
+    AstEmpty rollback = 27;
+  }
+}

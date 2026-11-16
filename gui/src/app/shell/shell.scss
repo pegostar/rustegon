@@ -1,0 +1,200 @@
+// Shell layout (angular-gui.md §2): floating glass top bar, glass side nav (expanded ≥ 1280 px,
+// rail 960–1279 px), offcanvas drawer below. Materials and tokens: src/styles (ADR-033).
+:host {
+  display: block;
+  min-height: 100vh;
+  padding: 0 0.75rem;
+}
+
+.rg-skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  z-index: 1100;
+  padding: 0.6rem 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  background: #4338ca;
+  border-radius: var(--rg-radius-pill);
+
+  &:focus {
+    top: 1rem;
+  }
+}
+
+.rg-topbar {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 1020;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: var(--rg-topbar-h);
+  margin: 0.75rem 0 1rem;
+  padding: 0 0.75rem 0 1rem;
+  border-radius: var(--rg-radius-xl);
+}
+
+.rg-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: var(--rg-text);
+  text-decoration: none;
+
+  .rg-logo {
+    transition: transform var(--rg-dur-slow) var(--rg-ease-spring);
+  }
+
+  &:hover .rg-logo {
+    transform: rotate(-10deg) scale(1.08);
+  }
+}
+
+.rg-account {
+  padding-left: 0.3rem;
+}
+
+.rg-avatar {
+  display: grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  font-size: 0.8rem;
+  font-weight: 750;
+  color: #fff;
+  background-image: var(--rg-gradient-primary);
+  border-radius: 50%;
+  box-shadow: var(--rg-glow);
+}
+
+.rg-check {
+  color: var(--rg-accent-text);
+}
+
+.rg-body {
+  display: grid;
+  grid-template-columns: var(--rg-nav-w) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+
+  &.rg-rail {
+    grid-template-columns: var(--rg-rail-w) minmax(0, 1fr);
+  }
+}
+
+@media (width < 960px) {
+  .rg-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.rg-sidebar {
+  position: sticky;
+  top: calc(var(--rg-topbar-h) + 1.75rem);
+  max-height: calc(100vh - var(--rg-topbar-h) - 2.5rem);
+  padding: 0.75rem;
+  overflow-y: auto;
+  border-radius: var(--rg-radius-xl);
+}
+
+.rg-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rg-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  font-weight: 600;
+  color: var(--rg-text);
+  text-decoration: none;
+  border-radius: var(--rg-radius);
+  transition:
+    background-color var(--rg-dur) var(--rg-ease),
+    transform var(--rg-dur) var(--rg-ease);
+
+  &:hover {
+    background: var(--rg-hover);
+    transform: translateX(2px);
+  }
+
+  &.active {
+    background: var(--rg-accent-soft);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rg-accent) 30%, transparent);
+  }
+
+  &.active .rg-nav-icon {
+    color: #fff;
+    background-image: var(--rg-gradient-primary);
+    box-shadow: var(--rg-glow);
+  }
+}
+
+.rg-nav-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--rg-accent-text);
+  background: var(--rg-accent-softer);
+  border-radius: 0.75rem;
+  transition:
+    background-color var(--rg-dur) var(--rg-ease),
+    box-shadow var(--rg-dur) var(--rg-ease);
+}
+
+// Rail: icons only; labels stay in the accessibility tree, hidden visually.
+.rg-rail {
+  .rg-nav-link {
+    justify-content: center;
+    padding: 0.35rem;
+
+    &:hover {
+      transform: none;
+    }
+  }
+
+  .rg-nav-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.rg-main {
+  min-width: 0;
+  padding: 0.25rem 0.25rem 3rem;
+  outline: none;
+  view-transition-name: rg-main;
+}
+
+@media (width < 600px) {
+  :host {
+    padding: 0 0.5rem;
+  }
+
+  // Keep the brand link's name for screen readers.
+  .rg-topbar .rg-brand-name {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

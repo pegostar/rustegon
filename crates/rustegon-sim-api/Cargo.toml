@@ -1,0 +1,20 @@
+[package]
+name = "rustegon-sim-api"
+description = "I/O abstraction traits (Clock, Rng, FileSystem, Network, Spawner) and their production implementations; simulation implementations live in rustegon-sim (ADR-029)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+getrandom.workspace = true
+tokio = { workspace = true, features = ["net", "time", "rt", "io-util"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

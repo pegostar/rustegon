@@ -1,0 +1,17 @@
+// Rustegon Console design system, "liquid glass" (ADR-033): Bootstrap 5.3 + ng-bootstrap skins,
+// tokens in styles/_tokens.scss. Order matters: Bootstrap, tokens, material, skins, guards.
+@use '@angular/cdk' as cdk;
+@import 'styles/bootstrap';
+@import 'styles/tokens';
+@import 'styles/base';
+@import 'styles/glass';
+@import 'styles/components';
+@import 'styles/layout';
+@import 'styles/shared';
+@import 'styles/data';
+@import 'styles/query';
+@import 'styles/admin';
+@import 'styles/a11y';
+
+// .cdk-visually-hidden (LiveAnnouncer, screen-reader-only text).
+@include cdk.a11y-visually-hidden;

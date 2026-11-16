@@ -1,0 +1,1 @@
+{"session_format":1,"type":"session","user":"alice","kind":"gui","created_at":{"$date":"2027-01-15T08:00:00.000Z"},"last_seen":{"$date":"2027-01-15T08:02:00.000Z"},"expires_at":{"$date":"2027-01-16T08:00:00.000Z"},"credential_epoch":3,"client_info":"Mozilla/5.0"}

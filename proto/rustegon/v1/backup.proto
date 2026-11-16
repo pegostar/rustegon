@@ -1,0 +1,300 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+syntax = "proto3";
+
+package rustegon.v1;
+
+import "rustegon/v1/common.proto";
+import "rustegon/v1/error.proto";
+
+// Single-node backup, snapshots and logical dump/restore (protocol.md §2, backup-restore.md
+// "Single-node scope"; FR-BKP-001/003/004/006/007; PD-062, PD-077). Online operations run inside
+// the server; physical and snapshot restores are offline CLI operations on a stopped node and
+// have no RPC. Cluster-wide backups, incremental chains, schedules and retention are added
+// additively in M13b.
+//
+// Privileges: `backup` on `cluster` for every RPC except `LogicalRestore`, which needs
+// `restore` on `cluster` (security.md §3.2).
+service BackupService {
+  // Takes an online backup of the node consistent at one MVCC timestamp T (PD-063) and writes
+  // it to a destination (backup format v1, PD-064). Returns once `COMPLETE` is written.
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+  // Lists the complete backups at a destination, oldest first.
+  rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
+  // Describes one complete backup (its manifest).
+  rpc GetBackup(GetBackupRequest) returns (GetBackupResponse);
+  // Verifies a backup against its manifest (shallow: presence and sizes; deep: checksums).
+  rpc VerifyBackup(VerifyBackupRequest) returns (VerifyBackupResponse);
+  // Creates a local snapshot (hard-link checkpoint) of the node's store (FR-BKP-003).
+  rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
+  // Lists the node's local snapshots.
+  rpc ListSnapshots(ListSnapshotsRequest) returns (ListSnapshotsResponse);
+  // Deletes a local snapshot.
+  rpc DeleteSnapshot(DeleteSnapshotRequest) returns (DeleteSnapshotResponse);
+  // Streams a logical dump read at one MVCC snapshot (FR-BKP-007, PD-067): the files of the
+  // dump layout as ordered chunks, `dump.json` last.
+  rpc Dump(DumpRequest) returns (stream DumpResponse);
+  // Imports a logical dump sent as the chunks `Dump` produced (FR-BKP-007, PD-067).
+  rpc LogicalRestore(stream LogicalRestoreRequest) returns (LogicalRestoreResponse);
+}
+
+// An HLC timestamp.
+message HlcTimestamp {
+  // Physical component, nanoseconds since the Unix epoch.
+  uint64 wall_ns = 1;
+  // Logical component.
+  uint32 logical = 2;
+}
+
+// The consistency point of a backup or snapshot (PD-063): restoring it yields the source as
+// read at `timestamp`.
+message BackupConsistency {
+  // Consistency timestamp T.
+  HlcTimestamp timestamp = 1;
+  // Last applied Raft log index included in the image.
+  uint64 applied_index = 2;
+  // Term of `applied_index`.
+  uint64 applied_term = 3;
+  // Every storage write with a sequence number <= this value is in the image.
+  uint64 storage_seqno = 4;
+}
+
+// How the files of a backup are protected (PD-064).
+enum BackupEncryptionMode {
+  // Not set / unknown to this receiver.
+  BACKUP_ENCRYPTION_MODE_UNSPECIFIED = 0;
+  // The source store is not encrypted: the backup is plaintext.
+  BACKUP_ENCRYPTION_MODE_PLAINTEXT = 1;
+  // Files encrypted as in the source store; the DEK registry is wrapped by the KEK `kek_id`.
+  BACKUP_ENCRYPTION_MODE_KEK = 2;
+}
+
+// Summary of one complete backup (from its manifest).
+message BackupInfo {
+  // Backup id (`<UTC yyyymmddThhmmssZ>-<8 hex digits>`).
+  string backup_id = 1;
+  // Manifest format version.
+  uint32 format_version = 2;
+  // Creation time.
+  int64 created_at_unix_ms = 3;
+  // Consistency point.
+  BackupConsistency consistency = 4;
+  // Cluster id of the source.
+  string source_cluster_id = 5;
+  // Node id of the source.
+  string source_node_id = 6;
+  // Version of the server that took the backup.
+  string source_server_version = 7;
+  // Encryption scope.
+  BackupEncryptionMode encryption = 8;
+  // KEK needed to restore (encryption = KEK only).
+  optional string kek_id = 9;
+  // Number of files.
+  uint64 file_count = 10;
+  // Total size of the files in bytes.
+  uint64 total_bytes = 11;
+}
+
+// One file of a backup.
+message BackupFile {
+  // Path relative to the backup directory, `/`-separated.
+  string path = 1;
+  // Size in bytes.
+  uint64 size = 2;
+  // BLAKE3 hash, 64 lowercase hex digits.
+  string blake3 = 3;
+}
+
+// A complete backup whose manifest cannot be used (corrupt, or a newer format).
+message UnreadableBackup {
+  // Backup id (directory name).
+  string backup_id = 1;
+  // Why the manifest cannot be used.
+  ErrorDetail error = 2;
+}
+
+// Request of BackupService.CreateBackup.
+message CreateBackupRequest {
+  // Destination: an absolute local/NFS/UNC path or a `file://` / `s3://` URL (backup-restore.md
+  // "Backup format v1"). Never contains credentials.
+  string destination = 1;
+}
+
+// Response of BackupService.CreateBackup.
+message CreateBackupResponse {
+  // The written backup.
+  BackupInfo backup = 1;
+  // Non-fatal conditions, e.g. a plaintext backup of a plaintext store.
+  repeated Warning warnings = 2;
+}
+
+// Request of BackupService.ListBackups.
+message ListBackupsRequest {
+  // Destination (as in CreateBackupRequest).
+  string destination = 1;
+}
+
+// Response of BackupService.ListBackups.
+message ListBackupsResponse {
+  // Complete backups, oldest first.
+  repeated BackupInfo backups = 1;
+  // Complete backups whose manifest cannot be used.
+  repeated UnreadableBackup unreadable = 2;
+}
+
+// Request of BackupService.GetBackup.
+message GetBackupRequest {
+  // Destination (as in CreateBackupRequest).
+  string destination = 1;
+  // Backup id.
+  string backup_id = 2;
+}
+
+// Response of BackupService.GetBackup.
+message GetBackupResponse {
+  // The backup.
+  BackupInfo backup = 1;
+  // Its files, sorted by path.
+  repeated BackupFile files = 2;
+}
+
+// Request of BackupService.VerifyBackup.
+message VerifyBackupRequest {
+  // Destination (as in CreateBackupRequest).
+  string destination = 1;
+  // Backup id.
+  string backup_id = 2;
+  // Also read every file and compare its BLAKE3 hash.
+  bool deep = 3;
+}
+
+// Response of BackupService.VerifyBackup (a failed verification is an error, RGN-5002).
+message VerifyBackupResponse {
+  // The verified backup.
+  BackupInfo backup = 1;
+  // Files checked.
+  uint64 files_checked = 2;
+  // Bytes read and hashed (0 for a shallow verification).
+  uint64 bytes_hashed = 3;
+}
+
+// A local snapshot of the node's store.
+message SnapshotInfo {
+  // Snapshot name.
+  string name = 1;
+  // Creation time.
+  int64 created_at_unix_ms = 2;
+  // Consistency point.
+  BackupConsistency consistency = 3;
+  // Number of files.
+  uint64 file_count = 4;
+  // Total size of the files in bytes (shared with the store through hard links).
+  uint64 total_bytes = 5;
+}
+
+// Request of BackupService.CreateSnapshot.
+message CreateSnapshotRequest {
+  // Snapshot name: 1-64 characters `[A-Za-z0-9._-]`, not starting with `.`.
+  string name = 1;
+}
+
+// Response of BackupService.CreateSnapshot.
+message CreateSnapshotResponse {
+  // The snapshot.
+  SnapshotInfo snapshot = 1;
+}
+
+// Request of BackupService.ListSnapshots.
+message ListSnapshotsRequest {}
+
+// Response of BackupService.ListSnapshots.
+message ListSnapshotsResponse {
+  // Snapshots, by name.
+  repeated SnapshotInfo snapshots = 1;
+}
+
+// Request of BackupService.DeleteSnapshot.
+message DeleteSnapshotRequest {
+  // Snapshot name.
+  string name = 1;
+}
+
+// Response of BackupService.DeleteSnapshot.
+message DeleteSnapshotResponse {
+  // False when no snapshot of that name existed.
+  bool deleted = 1;
+}
+
+// A piece of one file of a logical dump (PD-067 layout: `dump.json`,
+// `<db>/<coll>.ndjson`, `<db>/<coll>.metadata.json`). The chunks of one file are contiguous
+// and in order; files never interleave.
+message DumpChunk {
+  // Path of the file relative to the dump directory, `/`-separated.
+  string path = 1;
+  // The next bytes of the file.
+  bytes data = 2;
+  // This is the last chunk of the file.
+  bool end_of_file = 3;
+}
+
+// Request of BackupService.Dump.
+message DumpRequest {
+  // Databases to dump (empty: every database).
+  repeated string databases = 1;
+  // Collections to dump as `<db>.<coll>` (empty: every collection of the selected databases).
+  repeated string collections = 2;
+}
+
+// One message of the BackupService.Dump stream.
+message DumpResponse {
+  // What this message carries.
+  oneof item {
+    // First message: the snapshot timestamp T the dump is read at.
+    HlcTimestamp started = 1;
+    // A file chunk.
+    DumpChunk chunk = 2;
+  }
+}
+
+// Options of a logical restore (first message of the stream).
+message LogicalRestoreOptions {
+  // Drop existing target collections first (otherwise an existing target is refused,
+  // RGN-1031).
+  bool drop_existing = 1;
+  // Restore only these databases (empty: every database of the dump).
+  repeated string databases = 2;
+  // Restore only these collections, as `<db>.<coll>` (empty: every selected collection).
+  repeated string collections = 3;
+}
+
+// One message of the BackupService.LogicalRestore stream.
+message LogicalRestoreRequest {
+  // What this message carries.
+  oneof item {
+    // First message: the options.
+    LogicalRestoreOptions options = 1;
+    // Every later message: a chunk of the dump, in the order `Dump` produced them.
+    DumpChunk chunk = 2;
+  }
+}
+
+// One restored collection.
+message RestoredCollection {
+  // Database.
+  string database = 1;
+  // Collection.
+  string collection = 2;
+  // Documents imported.
+  uint64 documents = 3;
+  // Indexes rebuilt.
+  uint32 indexes = 4;
+}
+
+// Response of BackupService.LogicalRestore.
+message LogicalRestoreResponse {
+  // Snapshot timestamp of the dump that was imported.
+  HlcTimestamp source_timestamp = 1;
+  // Restored collections.
+  repeated RestoredCollection collections = 2;
+}

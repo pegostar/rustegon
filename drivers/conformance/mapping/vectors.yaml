@@ -1,0 +1,153 @@
+# Cross-driver object-mapping vectors (FR-DRV-001, FR-DRV-002, java-driver.md §11; PD-108…PD-113).
+# The .NET source generator (and the opt-in reflection codec) and the Java generated codec (and
+# the MethodHandles mapper) must read and write these exact documents, so data written through
+# one driver's mapped types reads back through the other's.
+#
+# Each driver declares the `models` below in its test project, member for member, in this
+# order and with these annotations (.NET: PascalCase properties whose camelCase is the member
+# name; Java: record components; nullable value types where the type ends in `?`). `json`
+# strings are canonical extended JSON (README §3) and their field order is part of the
+# expectation: encoding must give exactly that text, and the encoded RDoc bytes must equal the
+# RDoc encoding of the parsed `json`. All strings are YAML double-quoted scalars.
+#
+# - roundTrip: decode `input` (default: `json`) with the model's codec, encode, compare with
+#   `json`; then decode `json` and encode again: same text.
+# - build:     construct the value described by `value` in code (the vector name selects it in
+#   the runner; an unknown name fails the run), encode, compare with `json`.
+# - invalid:   decoding `input` must be refused (.NET RDocException, Java
+#   IllegalArgumentException).
+# Every vector runs through both codecs of each driver (generated and reflective).
+#
+# Rules pinned (PD-108 .NET, PD-111/PD-112 Java): unknown and system fields (_rev, _createdAt,
+# _updatedAt) are ignored on read; null members are written as null, a null id is omitted; the
+# id is the annotated member or, without one, the member named `id`, written first; then the
+# discriminator `_type` (value: the RgnDiscriminator value or the simple type name); then the
+# other members in declaration order; RgnRev and RgnCounter members are read only, never
+# written; an absent field gives null / 0 / false; an explicit null into a non-nullable number
+# is an error; int32 widens to int64 and reads back with a range check; float32 widens to
+# float64; enums are stored by their member name, verbatim; datetimes store the instant in ms,
+# rounded down (also before 1970), the offset dropped; decimals keep their scale;
+# RgnVector(n) is a vector_f32 of n elements; RgnGeoPoint is GeoJSON
+# {"type":"Point","coordinates":[lon, lat]}.
+version: 1
+models:
+  - name: MapItem
+    members:
+      - {name: name, type: "string?"}
+      - {name: id, type: "string?", note: "id by convention, declared after name"}
+      - {name: count, type: int32}
+      - {name: ratio, type: float32}
+      - {name: price, type: "decimal?"}
+      - {name: tags, type: "list<string>?"}
+      - {name: note, type: "string?"}
+      - {name: status, type: "MapStatus? (enum members Draft, Paid)"}
+      - {name: postalCode, type: "string?", annotation: "RgnField(zip)"}
+      - {name: rev, type: "string?", annotation: RgnRev}
+      - {name: views, type: int64, annotation: RgnCounter}
+      - {name: when, type: "datetime with offset? (.NET DateTimeOffset?, Java OffsetDateTime)"}
+  - name: MapGeo
+    members:
+      - {name: key, type: "string?", annotation: RgnId}
+      - {name: embedding, type: "float32[]?", annotation: "RgnVector(3)"}
+      - {name: location, type: "float64[]?", annotation: RgnGeoPoint}
+  - name: MapShape
+    note: "polymorphic root (.NET abstract class, Java sealed interface) of MapCircle and MapSquare"
+    members: []
+  - name: MapCircle
+    discriminator: circle
+    members:
+      - {name: id, type: "string?"}
+      - {name: radius, type: float64}
+  - name: MapSquare
+    discriminator: "(default: MapSquare)"
+    members:
+      - {name: side, type: float64}
+  - name: MapDrawing
+    members:
+      - {name: id, type: "string?"}
+      - {name: main, type: "MapShape?"}
+      - {name: shapes, type: "list<MapShape>?"}
+roundTrip:
+  - name: item_full
+    model: MapItem
+    json: "{\"_id\":\"i1\",\"name\":\"widget\",\"count\":-3,\"ratio\":0.25,\"price\":{\"$decimal\":\"12.50\"},\"tags\":[\"x\",\"y\"],\"note\":null,\"status\":\"Paid\",\"zip\":\"35100\",\"when\":{\"$date\":\"2026-11-12T10:15:30.123Z\"}}"
+  - name: item_field_order_and_id_first
+    model: MapItem
+    input: "{\"when\":{\"$date\":\"2026-11-12T10:15:30.123Z\"},\"zip\":\"35100\",\"status\":\"Paid\",\"note\":null,\"tags\":[\"x\",\"y\"],\"price\":{\"$decimal\":\"12.50\"},\"ratio\":0.25,\"count\":-3,\"name\":\"widget\",\"_id\":\"i1\"}"
+    json: "{\"_id\":\"i1\",\"name\":\"widget\",\"count\":-3,\"ratio\":0.25,\"price\":{\"$decimal\":\"12.50\"},\"tags\":[\"x\",\"y\"],\"note\":null,\"status\":\"Paid\",\"zip\":\"35100\",\"when\":{\"$date\":\"2026-11-12T10:15:30.123Z\"}}"
+  - name: item_unknown_system_and_read_only_fields_dropped
+    model: MapItem
+    input: "{\"_id\":\"i1\",\"_rev\":\"0000000000000001\",\"_createdAt\":{\"$date\":\"2026-01-01T00:00:00.000Z\"},\"_updatedAt\":{\"$date\":\"2026-01-01T00:00:00.000Z\"},\"name\":\"widget\",\"count\":-3,\"ratio\":0.25,\"price\":{\"$decimal\":\"12.50\"},\"tags\":[\"x\",\"y\"],\"note\":null,\"status\":\"Paid\",\"zip\":\"35100\",\"when\":{\"$date\":\"2026-11-12T10:15:30.123Z\"},\"views\":41,\"unknown\":{\"a\":1}}"
+    json: "{\"_id\":\"i1\",\"name\":\"widget\",\"count\":-3,\"ratio\":0.25,\"price\":{\"$decimal\":\"12.50\"},\"tags\":[\"x\",\"y\"],\"note\":null,\"status\":\"Paid\",\"zip\":\"35100\",\"when\":{\"$date\":\"2026-11-12T10:15:30.123Z\"}}"
+  - name: item_absent_fields_take_defaults
+    model: MapItem
+    input: "{\"_id\":\"a\"}"
+    json: "{\"_id\":\"a\",\"name\":null,\"count\":0,\"ratio\":0.0,\"price\":null,\"tags\":null,\"note\":null,\"status\":null,\"zip\":null,\"when\":null}"
+  - name: item_explicit_nulls_kept
+    model: MapItem
+    json: "{\"_id\":\"a\",\"name\":null,\"count\":0,\"ratio\":0.0,\"price\":null,\"tags\":null,\"note\":null,\"status\":null,\"zip\":null,\"when\":null}"
+  - name: geo_vector_and_point
+    model: MapGeo
+    json: "{\"_id\":\"g1\",\"embedding\":{\"$vector\":[1.0,2.0,3.0]},\"location\":{\"type\":\"Point\",\"coordinates\":[11.87,45.41]}}"
+  - name: shape_root_circle
+    model: MapShape
+    input: "{\"radius\":1.5,\"_type\":\"circle\",\"_id\":\"c1\"}"
+    json: "{\"_id\":\"c1\",\"_type\":\"circle\",\"radius\":1.5}"
+  - name: shape_root_default_discriminator
+    model: MapShape
+    json: "{\"_type\":\"MapSquare\",\"side\":2.0}"
+  - name: drawing_nested_polymorphism
+    model: MapDrawing
+    json: "{\"_id\":\"d1\",\"main\":{\"_id\":\"c1\",\"_type\":\"circle\",\"radius\":1.5},\"shapes\":[{\"_type\":\"MapSquare\",\"side\":2.0},{\"_type\":\"circle\",\"radius\":0.5}]}"
+  - name: drawing_null_and_empty
+    model: MapDrawing
+    json: "{\"_id\":\"d2\",\"main\":null,\"shapes\":[]}"
+build:
+  - name: null_id_omitted_read_only_not_written
+    model: MapItem
+    value: "id null, name \"n\", rev \"r1\", views 99, everything else unset"
+    json: "{\"name\":\"n\",\"count\":0,\"ratio\":0.0,\"price\":null,\"tags\":null,\"note\":null,\"status\":null,\"zip\":null,\"when\":null}"
+  - name: datetime_rounded_down_to_ms
+    model: MapItem
+    value: "id \"t1\", when 2026-11-12T10:15:30.123456789Z (.NET: 2026-11-12T10:15:30.1234567Z)"
+    json: "{\"_id\":\"t1\",\"name\":null,\"count\":0,\"ratio\":0.0,\"price\":null,\"tags\":null,\"note\":null,\"status\":null,\"zip\":null,\"when\":{\"$date\":\"2026-11-12T10:15:30.123Z\"}}"
+  - name: datetime_rounded_down_before_1970
+    model: MapItem
+    value: "id \"t2\", when 1969-12-31T23:59:59.9995Z"
+    json: "{\"_id\":\"t2\",\"name\":null,\"count\":0,\"ratio\":0.0,\"price\":null,\"tags\":null,\"note\":null,\"status\":null,\"zip\":null,\"when\":{\"$date\":\"1969-12-31T23:59:59.999Z\"}}"
+  - name: datetime_offset_dropped
+    model: MapItem
+    value: "id \"t3\", when 2026-01-02T03:04:05.999+02:00"
+    json: "{\"_id\":\"t3\",\"name\":null,\"count\":0,\"ratio\":0.0,\"price\":null,\"tags\":null,\"note\":null,\"status\":null,\"zip\":null,\"when\":{\"$date\":\"2026-01-02T01:04:05.999Z\"}}"
+  - name: float_widened_to_float64
+    model: MapItem
+    value: "id \"f1\", ratio 0.1f"
+    json: "{\"_id\":\"f1\",\"name\":null,\"count\":0,\"ratio\":0.10000000149011612,\"price\":null,\"tags\":null,\"note\":null,\"status\":null,\"zip\":null,\"when\":null}"
+invalid:
+  - name: item_null_into_int
+    model: MapItem
+    input: "{\"_id\":\"a\",\"count\":null}"
+  - name: item_int_overflow
+    model: MapItem
+    input: "{\"_id\":\"a\",\"count\":{\"$int64\":\"9223372036854775807\"}}"
+  - name: item_unknown_enum_name
+    model: MapItem
+    input: "{\"_id\":\"a\",\"status\":\"Shipped\"}"
+  - name: item_wrong_type
+    model: MapItem
+    input: "{\"_id\":\"a\",\"name\":5}"
+  - name: geo_vector_wrong_dimensions
+    model: MapGeo
+    input: "{\"_id\":\"g\",\"embedding\":{\"$vector\":[1.0,2.0]}}"
+  - name: geo_not_a_point
+    model: MapGeo
+    input: "{\"_id\":\"g\",\"location\":{\"type\":\"LineString\",\"coordinates\":[]}}"
+  - name: shape_unknown_discriminator
+    model: MapShape
+    input: "{\"_type\":\"hexagon\"}"
+  - name: shape_missing_discriminator
+    model: MapShape
+    input: "{\"radius\":1.0}"
+  - name: drawing_nested_unknown_discriminator
+    model: MapDrawing
+    input: "{\"_id\":\"d\",\"main\":{\"_type\":\"hexagon\"}}"

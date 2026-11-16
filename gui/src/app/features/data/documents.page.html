@@ -1,0 +1,202 @@
+<header class="rg-page-header">
+  <div>
+    <nav class="rg-crumbs" i18n-aria-label="@@data.breadcrumb" aria-label="Breadcrumb">
+      <ol>
+        <li>
+          <a routerLink="/data"
+            ><rg-icon name="data" [size]="16" /><span i18n="@@data.databases.heading"
+              >Databases</span
+            ></a
+          >
+        </li>
+        <li>
+          <a [routerLink]="['/db', db()]">{{ db() }}</a>
+        </li>
+        <li>
+          <a [routerLink]="['/db', db(), 'c', coll()]" aria-current="page">{{ coll() }}</a>
+        </li>
+      </ol>
+    </nav>
+    <div class="rg-title">
+      <span class="rg-title-icon"><rg-icon name="document" [size]="22" /></span>
+      <h1 i18n="@@data.documents.heading">Documents of {{ coll() }}</h1>
+    </div>
+  </div>
+  <div class="rg-actions">
+    @if (can('alter_collection')) {
+      <button class="btn btn-glass" type="button" (click)="validator()">
+        <rg-icon name="checkCircle" /><span i18n="@@data.validator.open">Validator</span>
+      </button>
+    }
+    @if (can('drop_collection')) {
+      <button class="btn btn-outline-danger" type="button" (click)="drop()">
+        <rg-icon name="delete" /><span i18n="@@data.collections.drop">Drop collection</span>
+      </button>
+    }
+    @if (can('insert')) {
+      <a class="btn btn-primary" [routerLink]="['/db', db(), 'c', coll(), 'new']"
+        ><rg-icon name="add" /><span i18n="@@data.documents.new">New document</span></a
+      >
+    }
+  </div>
+</header>
+
+<div class="rg-stack rg-stagger">
+  <form
+    class="rg-panel rg-filter"
+    (submit)="$event.preventDefault(); apply(filter.value, sort.value)"
+  >
+    <rg-field>
+      <label rgLabel i18n="@@data.documents.filter">Filter (RGQL expression)</label>
+      <input
+        rgControl
+        class="rg-mono"
+        #filter
+        [value]="query().filter"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <rg-hint>age &gt;= 18 AND status = 'active'</rg-hint>
+    </rg-field>
+    <rg-field>
+      <label rgLabel i18n="@@data.documents.sort">Sort</label>
+      <input
+        rgControl
+        class="rg-mono"
+        #sort
+        [value]="query().sort"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <rg-hint i18n="@@data.documents.sortHint">Fields, - for descending: -age,name</rg-hint>
+    </rg-field>
+    <rg-field>
+      <label rgLabel i18n="@@data.documents.pageSize">Page size</label>
+      <select rgControl (change)="setLimit(+$any($event.target).value)">
+        @for (n of sizes; track n) {
+          <option [value]="n" [selected]="n === query().limit">{{ n }}</option>
+        }
+      </select>
+    </rg-field>
+    <div class="rg-filter-actions">
+      <button class="btn btn-primary" type="submit">
+        <rg-icon name="query" /><span i18n="@@data.documents.apply">Apply</span>
+      </button>
+      <button
+        class="btn btn-ghost"
+        type="button"
+        (click)="apply('', '')"
+        i18n="@@data.documents.clear"
+      >
+        Clear filter
+      </button>
+    </div>
+  </form>
+
+  @if (failure(); as f) {
+    <rg-error-panel [error]="f" (retry)="drop()" />
+  }
+
+  <section aria-labelledby="rg-docs-results">
+    <div class="rg-results-bar">
+      <h2 id="rg-docs-results" class="cdk-visually-hidden" i18n="@@data.documents.results">
+        Results
+      </h2>
+      <div
+        class="rg-segmented"
+        role="radiogroup"
+        i18n-aria-label="@@data.documents.view"
+        aria-label="View"
+      >
+        <label class="btn">
+          <input
+            type="radio"
+            name="rg-docs-view"
+            [checked]="view() === 'grid'"
+            (change)="view.set('grid')"
+          />
+          <rg-icon name="indexes" [size]="18" />
+          <span i18n="@@data.documents.grid">Grid</span>
+        </label>
+        <label class="btn">
+          <input
+            type="radio"
+            name="rg-docs-view"
+            [checked]="view() === 'json'"
+            (change)="view.set('json')"
+          />
+          <rg-icon name="document" [size]="18" />
+          <span i18n="@@data.documents.json">JSON</span>
+        </label>
+      </div>
+      <span class="rg-spacer"></span>
+      <button class="btn btn-glass" type="button" (click)="page.reload()">
+        <rg-icon name="refresh" /><span i18n="@@data.refresh">Refresh</span>
+      </button>
+    </div>
+
+    <rg-skeleton [loading]="page.isLoading()" [lines]="6">
+      @if (page.error(); as e) {
+        <rg-error-panel [error]="e" (retry)="page.reload()" />
+      } @else if (page.value(); as p) {
+        @if (p.documents.length === 0) {
+          <rg-empty-state
+            class="rg-panel rg-empty-card rg-glide"
+            icon="document"
+            i18n-heading="@@data.documents.empty"
+            heading="No documents match"
+            i18n-message="@@data.documents.emptyMessage"
+            message="Clear the filter, or insert a document."
+          >
+            @if (query().filter) {
+              <button
+                class="btn btn-glass"
+                type="button"
+                (click)="apply('', '')"
+                i18n="@@data.documents.clear"
+              >
+                Clear filter
+              </button>
+            }
+          </rg-empty-state>
+        } @else if (view() === 'grid') {
+          <div class="rg-grid-frame rg-glide">
+            <rg-data-grid
+              [columns]="columns()"
+              [rows]="p.documents"
+              [height]="fitGrid(p.documents.length, 480)"
+              i18n-label="@@data.documents.label"
+              label="Documents"
+              (rowActivate)="open($event)"
+            />
+          </div>
+        } @else {
+          <rg-code-block class="rg-glide" [code]="json()" language="JSON" />
+        }
+        <div class="rg-pager">
+          <button
+            class="btn btn-glass"
+            type="button"
+            [disabled]="tokens().length < 2"
+            (click)="previous()"
+            i18n="@@data.documents.prev"
+          >
+            Previous page
+          </button>
+          <span class="rg-pill-info" role="status" i18n="@@data.documents.pageInfo"
+            >Page {{ tokens().length }}, {{ p.documents.length }} documents</span
+          >
+          <button
+            class="btn btn-glass"
+            type="button"
+            [disabled]="!p.continuationToken"
+            (click)="next(p.continuationToken)"
+            i18n="@@data.documents.next"
+          >
+            Next page
+          </button>
+        </div>
+      }
+    </rg-skeleton>
+  </section>
+</div>

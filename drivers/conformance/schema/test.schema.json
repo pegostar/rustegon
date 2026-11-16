@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rustegon.io/drivers/conformance/schema/test.schema.json",
+  "title": "Rustegon driver conformance test file",
+  "description": "One YAML file of drivers/conformance/<category>/ (README.md, 'Test files'). Values are canonical extended JSON written as YAML (JSON-compatible subset). Checked by crates/rustegon-common/tests/driver_conformance.rs; that validator supports the keywords used here except `pattern`, whose rules it checks by hand.",
+  "type": "object",
+  "required": ["description", "tests"],
+  "additionalProperties": false,
+  "properties": {
+    "description": {"type": "string", "minLength": 1},
+    "setup": {"$ref": "#/$defs/setup", "description": "Default setup of the tests of this file that have none."},
+    "tests": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/test"}}
+  },
+  "$defs": {
+    "opId": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Za-z]*\\.[A-Z][A-Za-z]*$",
+      "description": "An operation id of model.yaml with status r1."
+    },
+    "test": {
+      "type": "object",
+      "required": ["id", "description", "covers", "operations"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^TC-DRV-CONF-[A-Z]+-[0-9]{3}$", "description": "TC-DRV-CONF-<CATEGORY>-NNN; CATEGORY = the directory name in upper case."},
+        "description": {"type": "string", "minLength": 1},
+        "covers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/opId"}},
+        "requires": {
+          "type": "array",
+          "items": {"enum": ["admin", "api-key", "x509-client-cert", "slow", "fixture-connection-string"]},
+          "description": "Fixture capabilities; a runner without one skips the test and reports it as skipped (never as passed)."
+        },
+        "setup": {"$ref": "#/$defs/setup"},
+        "operations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/operation"}},
+        "outcome": {
+          "type": "object",
+          "description": "Expected content of collections after the operations: documents sorted by _id, compared exactly after normalisation.",
+          "additionalProperties": {"type": "array", "items": {"type": "object"}}
+        }
+      }
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collections": {"type": "array", "items": {"$ref": "#/$defs/collection"}},
+        "indexes": {"type": "array", "items": {"$ref": "#/$defs/index"}},
+        "data": {
+          "type": "object",
+          "additionalProperties": {"type": "array", "items": {"type": "object"}}
+        },
+        "users": {"type": "array", "items": {"$ref": "#/$defs/user"}}
+      }
+    },
+    "collection": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "validator": {"$ref": "#/$defs/validator"}
+      }
+    },
+    "validator": {
+      "type": "object",
+      "required": ["jsonSchema"],
+      "additionalProperties": false,
+      "properties": {
+        "jsonSchema": {"type": "object"},
+        "level": {"enum": ["off", "strict", "moderate"]},
+        "action": {"enum": ["error", "warn"]}
+      }
+    },
+    "index": {
+      "type": "object",
+      "required": ["collection", "name", "keys"],
+      "additionalProperties": false,
+      "properties": {
+        "collection": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "keys": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/indexKey"}},
+        "unique": {"type": "boolean"}
+      }
+    },
+    "indexKey": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "descending": {"type": "boolean"}
+      }
+    },
+    "user": {
+      "type": "object",
+      "required": ["name", "password", "roles"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "password": {"type": "string", "minLength": 12},
+        "roles": {"type": "array", "items": {"type": "string"}, "description": "Role references (`read@<db>`, `read_write@<db>`, ...); `<db>` = ${database}."},
+        "mustChangePassword": {"type": "boolean"}
+      }
+    },
+    "operation": {
+      "type": "object",
+      "required": ["object", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "description": {"type": "string"},
+        "object": {"type": "string", "minLength": 1, "description": "client | database | collection | runner, or a name saved by an earlier saveAs (session, transaction, cursor, client)."},
+        "name": {"type": "string", "minLength": 1, "description": "lowerCamelCase operation name (README.md, 'Operations')."},
+        "collection": {"type": "string", "minLength": 1, "description": "Collection of a collection/transaction operation (default: the first setup collection)."},
+        "session": {"type": "string", "minLength": 1, "description": "Run the operation with this saved session."},
+        "args": {"type": "object"},
+        "then": {"enum": ["toList", "first", "cursor"], "description": "For find: how the result is consumed (default toList)."},
+        "saveAs": {"type": "string", "minLength": 1},
+        "expect": {"$ref": "#/$defs/expect"},
+        "match": {"enum": ["exact", "subset"]},
+        "ordered": {"type": "boolean", "description": "Lists in the result are compared in order (default true)."},
+        "fieldOrder": {"type": "boolean", "description": "Documents in the result must also have the expected field order (default false)."}
+      }
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "oneOf": [
+        {"required": ["result"]},
+        {"required": ["error"]}
+      ],
+      "properties": {
+        "result": {},
+        "error": {"$ref": "#/$defs/error"}
+      }
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "code": {"type": "integer"},
+        "name": {"type": "string"},
+        "exception": {
+          "enum": ["Base", "Client", "QuerySyntax", "DuplicateKey", "DocumentValidation", "TransactionConflict", "TransactionAborted", "CommitOutcomeUnknown", "Authentication", "PasswordChangeRequired", "Authorization", "Unavailable", "RateLimited", "Timeout", "Server", "Argument", "InvalidState"],
+          "description": "Class id of errors-map.yaml; `Argument` = the language's argument exception (local validation)."
+        },
+        "retryable": {"type": "boolean"},
+        "committed": {"type": "boolean"},
+        "applicationError": {"type": "boolean"}
+      }
+    }
+  }
+}

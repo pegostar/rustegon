@@ -1,0 +1,8 @@
+# Gradle and IDE outputs (never committed)
+.gradle/
+build/
+**/build/
+.jqwik-database
+**/.jqwik-database
+.idea/
+*.iml

@@ -1,0 +1,102 @@
+// Accessibility guards of the glass identity (ADR-033, AC-GUI-002). They win over every skin:
+// keep this partial last.
+
+// No backdrop-filter (old engines, some remote desktops) or the user asks for less
+// transparency: surfaces become opaque, contrast no longer depends on what is behind them.
+@mixin solid-surfaces {
+  --rg-glass-fill-subtle: var(--rg-glass-solid);
+  --rg-glass-fill: var(--rg-glass-solid);
+  --rg-glass-fill-strong: var(--rg-glass-solid);
+  --rg-field-bg: var(--rg-glass-solid);
+
+  *,
+  *::before,
+  *::after {
+    backdrop-filter: none !important;
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  :root {
+    @include solid-surfaces;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    @include solid-surfaces;
+  }
+
+  body::before,
+  body::after {
+    opacity: 0.35;
+  }
+}
+
+// Reduced motion: the aurora stands still, no sheen sweeps, transitions collapse.
+@media (prefers-reduced-motion: reduce) {
+  body::before,
+  body::after {
+    animation: none !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+// Windows high contrast / forced colors: drop decoration, keep boundaries and text system colors.
+@media (forced-colors: active) {
+  body::before,
+  body::after {
+    display: none;
+  }
+
+  .rg-gradient-text,
+  main h1 {
+    background: none;
+    color: CanvasText;
+  }
+
+  .card,
+  .rg-panel,
+  .rg-glass,
+  .rg-glass-strong,
+  .rg-table,
+  .modal-content,
+  .dropdown-menu,
+  .toast,
+  .btn,
+  .rg-segmented,
+  .nav-tabs {
+    border: 1px solid CanvasText;
+    background-image: none;
+  }
+
+  .btn-primary,
+  .btn-danger,
+  .btn-check:checked + .btn,
+  .rg-segmented > .btn:has(input:checked),
+  .nav-link.active,
+  .page-item.active .page-link {
+    background-image: none;
+    forced-color-adjust: none;
+    color: HighlightText;
+    background-color: Highlight;
+  }
+
+  :focus-visible {
+    outline: 2px solid Highlight !important;
+  }
+}

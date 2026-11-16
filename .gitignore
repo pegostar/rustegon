@@ -1,0 +1,15 @@
+/target/
+# `cargo xtask dist` output (PD-154).
+/dist/
+# `cargo xtask dist --site` output (PD-204); only the explanation and the sample are committed.
+/site/downloads/*
+!/site/downloads/README.md
+!/site/downloads/manifest.example.js
+**/*.rs.bk
+/lcov.info
+/node_modules/
+*.log
+.idea/
+.vscode/
+.claude/worktrees/
+/packaging/windows/.wix/

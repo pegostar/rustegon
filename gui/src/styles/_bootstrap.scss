@@ -1,0 +1,91 @@
+// Bootstrap 5.3 with the Rustegon variable overrides (ADR-033). Only the partials the console
+// uses are imported; color modes come from `data-bs-theme` on <html> (ThemeService).
+// Bootstrap 5.3 is not written for the Sass module system, hence @import (deprecation warnings
+// are silenced in angular.json `stylePreprocessorOptions.sass`).
+@import 'bootstrap/scss/functions';
+
+// Palette: text-safe shades (white text on every solid accent ≥ 4.5:1).
+$primary: #4f46e5;
+$secondary: #475569;
+$success: #15803d;
+$info: #0e7490;
+$warning: #b45309;
+$danger: #b91c1c;
+$light: #f1f5f9;
+$dark: #0f172a;
+$body-bg: #eef0fa;
+$body-color: #0f172a;
+$body-secondary-color: #475569;
+$body-bg-dark: #060816;
+$body-color-dark: #e8ebf7;
+$body-secondary-color-dark: #a9b1cc;
+$primary-text-emphasis-dark: #c7d2fe;
+$link-color-dark: #a5b4fc;
+$link-hover-color-dark: #c7d2fe;
+$font-family-sans-serif:
+  system-ui,
+  -apple-system,
+  'Segoe UI',
+  roboto,
+  'Helvetica Neue',
+  'Noto Sans',
+  'Liberation Sans',
+  arial,
+  sans-serif;
+$font-family-monospace: ui-monospace, 'Cascadia Code', consolas, 'Liberation Mono', monospace;
+$headings-font-weight: 650;
+$border-radius: 0.75rem;
+$border-radius-sm: 0.5rem;
+$border-radius-lg: 1rem;
+$border-radius-xl: 1.5rem;
+$border-radius-xxl: 2rem;
+$btn-border-radius: 50rem;
+$btn-border-radius-sm: 50rem;
+$btn-border-radius-lg: 50rem;
+$btn-font-weight: 600;
+$btn-padding-x: 1.1rem;
+$input-border-radius: 0.75rem;
+$focus-ring-width: 0.25rem;
+$focus-ring-opacity: 0.35;
+$modal-backdrop-bg: #0b1026;
+$modal-backdrop-opacity: 0.45;
+$tooltip-bg: #0f172a;
+$tooltip-opacity: 0.96;
+$toast-max-width: 380px;
+$enable-shadows: false;
+$enable-gradients: false;
+$enable-negative-margins: true;
+
+@import 'bootstrap/scss/variables';
+@import 'bootstrap/scss/variables-dark';
+@import 'bootstrap/scss/maps';
+@import 'bootstrap/scss/mixins';
+@import 'bootstrap/scss/utilities';
+@import 'bootstrap/scss/root';
+@import 'bootstrap/scss/reboot';
+@import 'bootstrap/scss/type';
+@import 'bootstrap/scss/images';
+@import 'bootstrap/scss/containers';
+@import 'bootstrap/scss/grid';
+@import 'bootstrap/scss/tables';
+@import 'bootstrap/scss/forms';
+@import 'bootstrap/scss/buttons';
+@import 'bootstrap/scss/transitions';
+@import 'bootstrap/scss/dropdown';
+@import 'bootstrap/scss/button-group';
+@import 'bootstrap/scss/nav';
+@import 'bootstrap/scss/card';
+@import 'bootstrap/scss/breadcrumb';
+@import 'bootstrap/scss/pagination';
+@import 'bootstrap/scss/badge';
+@import 'bootstrap/scss/alert';
+@import 'bootstrap/scss/progress';
+@import 'bootstrap/scss/list-group';
+@import 'bootstrap/scss/close';
+@import 'bootstrap/scss/toasts';
+@import 'bootstrap/scss/modal';
+@import 'bootstrap/scss/tooltip';
+@import 'bootstrap/scss/spinners';
+@import 'bootstrap/scss/offcanvas';
+@import 'bootstrap/scss/helpers';
+@import 'bootstrap/scss/utilities/api';

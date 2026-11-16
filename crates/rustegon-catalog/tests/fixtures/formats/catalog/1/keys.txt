@@ -1,0 +1,8 @@
+descriptor_key(100) 026400000064
+descriptor_key(4000000000) 0264ee6b2800
+descriptor_prefix 0264
+name_key(0,shop) 026e0000000073686f70
+name_key(100,orders) 026e000000646f7264657273
+name_prefix(100) 026e00000064
+descriptor_id_sequence_key 027301
+id_value(100) 00000064

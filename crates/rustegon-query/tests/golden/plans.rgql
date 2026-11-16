@@ -1,0 +1,512 @@
+=== scan_all
+FROM orders
+--- logical
+Scan shop.orders
+--- physical
+CollectionScan shop.orders
+=== scan_qualified
+FROM shop.orders
+--- logical
+Scan shop.orders
+--- physical
+CollectionScan shop.orders
+=== filter_unindexed
+FROM orders WHERE qty > 5
+--- logical
+Filter (qty > 5)
+  Scan shop.orders
+--- physical
+Filter (qty > 5)
+  CollectionScan shop.orders
+=== eq_single_field_index
+FROM orders WHERE status = 'paid'
+--- logical
+Filter (status = 'paid')
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.by_status [('paid') .. ('paid')] fetch
+=== eq_param
+FROM orders WHERE status = $s
+--- logical
+Filter (status = 'paid')
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.by_status [('paid') .. ('paid')] fetch
+=== eq_flipped_constant_left
+FROM orders WHERE 'paid' = status
+--- logical
+Filter (status = 'paid')
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.by_status [('paid') .. ('paid')] fetch
+=== compound_eq_range_desc
+FROM orders WHERE status = 'paid' AND createdAt > DATE '2026-01-01'
+--- logical
+Filter ((status = 'paid') AND (createdAt > {"$date":"2026-01-01T00:00:00.000Z"}))
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.status_created [('paid') .. ('paid', {"$date":"2026-01-01T00:00:00.000Z"})) fetch
+=== compound_eq_both_bounds_desc
+FROM orders WHERE status = 'paid' AND createdAt >= 10 AND createdAt < 20
+--- logical
+Filter ((status = 'paid') AND (createdAt >= 10) AND (createdAt < 20))
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.status_created (('paid', 20) .. ('paid', 10)] fetch
+=== compound_eq_upper_only_desc
+FROM orders WHERE status = 'paid' AND createdAt < 20
+--- logical
+Filter ((status = 'paid') AND (createdAt < 20))
+  Scan shop.orders
+--- physical
+Filter (createdAt < 20)
+  IndexScan shop.orders.status_created (('paid', 20) .. ('paid')] fetch
+=== between_rewritten
+FROM orders WHERE qty BETWEEN 1 AND 5
+--- logical
+Filter ((qty >= 1) AND (qty <= 5))
+  Scan shop.orders
+--- physical
+Filter ((qty >= 1) AND (qty <= 5))
+  CollectionScan shop.orders
+=== between_on_index
+FROM orders WHERE status BETWEEN 'a' AND 'm'
+--- logical
+Filter ((status >= 'a') AND (status <= 'm'))
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.by_status [('a') .. ('m')] fetch
+=== in_list_points
+FROM orders WHERE status IN ['paid', 'new', 'paid']
+--- logical
+Filter (status IN ["paid","new","paid"])
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.by_status [('new') .. ('new')] | [('paid') .. ('paid')] fetch
+=== in_single_expands
+FROM orders WHERE status IN ['paid']
+--- logical
+Filter (status = 'paid')
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.by_status [('paid') .. ('paid')] fetch
+=== in_param_ids
+FROM orders WHERE _id IN $ids
+--- logical
+Filter (_id IN [3,1])
+  Scan shop.orders
+--- physical
+PrimaryGet shop.orders ids=[1, 3]
+=== not_in_not_sargable
+FROM orders WHERE status NOT IN ['paid']
+--- logical
+Filter (status != 'paid')
+  Scan shop.orders
+--- physical
+Filter (status != 'paid')
+  CollectionScan shop.orders
+=== primary_get
+FROM orders WHERE _id = 7
+--- logical
+Filter (_id = 7)
+  Scan shop.orders
+--- physical
+PrimaryGet shop.orders ids=[7]
+=== primary_get_and_residual
+FROM orders WHERE _id = 7 AND qty > 1
+--- logical
+Filter ((_id = 7) AND (qty > 1))
+  Scan shop.orders
+--- physical
+Filter (qty > 1)
+  PrimaryGet shop.orders ids=[7]
+=== primary_scan_range_sharded
+FROM events WHERE _id > 5 AND _id <= 9
+--- logical
+Filter ((_id > 5) AND (_id <= 9))
+  Scan shop.events
+--- physical
+Filter ((_id > 5) AND (_id <= 9))
+  PrimaryScan shop.events ((5) .. (9)]
+=== primary_range_hashed_is_scan
+FROM orders WHERE _id > 5
+--- logical
+Filter (_id > 5)
+  Scan shop.orders
+--- physical
+Filter (_id > 5)
+  CollectionScan shop.orders
+=== multikey_one_range_only
+FROM orders WHERE tags > 'a' AND tags < 'm'
+--- logical
+Filter ((tags > 'a') AND (tags < 'm'))
+  Scan shop.orders
+--- physical
+Filter ((tags > 'a') AND (tags < 'm'))
+  IndexScan shop.orders.tags (('a') .. +inf) dedupe fetch
+=== multikey_eq_not_exact
+FROM orders WHERE tags = 'red'
+--- logical
+Filter (tags = 'red')
+  Scan shop.orders
+--- physical
+Filter (tags = 'red')
+  IndexScan shop.orders.tags [('red') .. ('red')] dedupe fetch
+=== array_constant_not_sargable
+FROM orders WHERE tags = ['red', 'xl']
+--- logical
+Filter (tags = ["red","xl"])
+  Scan shop.orders
+--- physical
+Filter (tags = ["red","xl"])
+  CollectionScan shop.orders
+=== null_constant_folds
+FROM orders WHERE status = null
+--- logical
+Filter null
+  Scan shop.orders
+--- physical
+Filter null
+  Empty
+=== is_null_range
+FROM orders WHERE status IS NULL
+--- logical
+Filter (status IS NULL)
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.by_status [(MISSING) .. (null)] fetch
+=== sparse_needs_non_missing_predicate
+FROM orders WHERE x IS NULL
+--- logical
+Filter (x IS NULL)
+  Scan shop.orders
+--- physical
+Filter (x IS NULL)
+  CollectionScan shop.orders
+=== sparse_used_with_eq
+FROM orders WHERE x = 1
+--- logical
+Filter (x = 1)
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.sparse_x [(1) .. (1)] fetch
+=== partial_not_implied
+FROM orders WHERE total > 100
+--- logical
+Filter (total > 100)
+  Scan shop.orders
+--- physical
+Filter (total > 100)
+  CollectionScan shop.orders
+=== partial_implied
+FROM orders WHERE status = 'paid' AND total > 100
+--- logical
+Filter ((status = 'paid') AND (total > 100))
+  Scan shop.orders
+--- physical
+Filter (total > 100)
+  IndexScan shop.orders.by_status [('paid') .. ('paid')] fetch
+=== hidden_not_chosen
+FROM orders WHERE h = 1
+--- logical
+Filter (h = 1)
+  Scan shop.orders
+--- physical
+Filter (h = 1)
+  CollectionScan shop.orders
+=== hidden_forced
+FROM orders WHERE h = 1 OPTIONS (index = 'hidden_h')
+--- logical
+Filter (h = 1)
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.hidden_h [(1) .. (1)] fetch
+=== forced_unknown_index
+FROM orders WHERE h = 1 OPTIONS (index = 'nope')
+--- error
+RGN-1021 IndexNotFound: index not found: nope
+=== building_index_not_readable
+FROM orders WHERE b = 1
+--- logical
+Filter (b = 1)
+  Scan shop.orders
+--- physical
+Filter (b = 1)
+  CollectionScan shop.orders
+=== wildcard_eq
+FROM orders WHERE attrs.color = 'red'
+--- logical
+Filter (attrs.color = 'red')
+  Scan shop.orders
+--- physical
+Filter (attrs.color = 'red')
+  IndexScan shop.orders.attrs [('attrs.color', 'red') .. ('attrs.color', 'red')] dedupe fetch
+=== wildcard_range_not_used
+FROM orders WHERE attrs.size > 3
+--- logical
+Filter (attrs.size > 3)
+  Scan shop.orders
+--- physical
+Filter (attrs.size > 3)
+  CollectionScan shop.orders
+=== covered_projection
+FROM orders WHERE sku = 'a1' SELECT sku, qty
+--- logical
+Project sku AS sku, qty AS qty
+  Filter (sku = 'a1')
+    Scan shop.orders
+--- physical
+Project sku AS sku, qty AS qty
+  IndexScan shop.orders.cov [('a1') .. ('a1')] covered
+=== not_covered_needs_document
+FROM orders WHERE sku = 'a1' SELECT sku, price
+--- logical
+Project sku AS sku, price AS price
+  Filter (sku = 'a1')
+    Scan shop.orders
+--- physical
+Project sku AS sku, price AS price
+  IndexScan shop.orders.cov [('a1') .. ('a1')] fetch
+=== sort_eliminated
+FROM orders WHERE status = 'paid' ORDER BY createdAt DESC LIMIT 10
+--- logical
+Limit limit=10
+  Sort createdAt DESC
+    Filter (status = 'paid')
+      Scan shop.orders
+--- physical
+Limit limit=10
+  IndexOrder createdAt DESC
+    IndexScan shop.orders.status_created [('paid') .. ('paid')] fetch
+=== sort_wrong_direction_topk
+FROM orders WHERE status = 'paid' ORDER BY createdAt LIMIT 10
+--- logical
+Limit limit=10
+  Sort createdAt ASC
+    Filter (status = 'paid')
+      Scan shop.orders
+--- physical
+Limit limit=10
+  TopK k=10 createdAt ASC
+    IndexScan shop.orders.by_status [('paid') .. ('paid')] fetch
+=== sort_only_index
+FROM orders ORDER BY status
+--- logical
+Sort status ASC
+  Scan shop.orders
+--- physical
+IndexOrder status ASC
+  IndexScan shop.orders.by_status (-inf .. +inf) fetch
+=== sort_blocking_without_limit
+FROM orders WHERE qty > 1 ORDER BY qty DESC, price
+--- logical
+Sort qty DESC, price ASC
+  Filter (qty > 1)
+    Scan shop.orders
+--- physical
+Sort qty DESC, price ASC
+  Filter (qty > 1)
+    CollectionScan shop.orders
+=== topk_with_offset
+FROM orders ORDER BY qty LIMIT 5 OFFSET 10
+--- logical
+Limit limit=5 offset=10
+  Sort qty ASC
+    Scan shop.orders
+--- physical
+Limit limit=5 offset=10
+  TopK k=15 qty ASC
+    CollectionScan shop.orders
+=== order_by_select_alias
+FROM orders AS o SELECT o.qty * 2 AS dbl ORDER BY dbl DESC
+--- logical
+Project (qty * 2) AS dbl
+  Sort (qty * 2) DESC
+    Scan shop.orders
+--- physical
+Project (qty * 2) AS dbl
+  Sort (qty * 2) DESC
+    CollectionScan shop.orders
+=== nnf_pushdown
+FROM orders WHERE NOT (status = 'paid' OR qty < 3)
+--- logical
+Filter ((status != 'paid') AND (NOT (qty < 3)))
+  Scan shop.orders
+--- physical
+Filter ((status != 'paid') AND (NOT (qty < 3)))
+  CollectionScan shop.orders
+=== not_not_cancels
+FROM orders WHERE NOT (NOT (status = 'paid'))
+--- logical
+Filter (status = 'paid')
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.by_status [('paid') .. ('paid')] fetch
+=== constant_folding
+FROM orders WHERE qty > 1 + 2 * 3 AND upper('a') = 'A'
+--- logical
+Filter (qty > 7)
+  Scan shop.orders
+--- physical
+Filter (qty > 7)
+  CollectionScan shop.orders
+=== contradiction_empty
+FROM orders WHERE false
+--- logical
+Filter false
+  Scan shop.orders
+--- physical
+Filter false
+  Empty
+=== tautology_dropped
+FROM orders WHERE true AND status = 'new'
+--- logical
+Filter (status = 'new')
+  Scan shop.orders
+--- physical
+IndexScan shop.orders.by_status [('new') .. ('new')] fetch
+=== or_not_sargable
+FROM orders WHERE status = 'a' OR status = 'b'
+--- logical
+Filter ((status = 'a') OR (status = 'b'))
+  Scan shop.orders
+--- physical
+Filter ((status = 'a') OR (status = 'b'))
+  CollectionScan shop.orders
+=== select_value
+FROM orders SELECT VALUE qty
+--- logical
+Project VALUE qty
+  Scan shop.orders
+--- physical
+Project VALUE qty
+  CollectionScan shop.orders
+=== select_wildcard_exclude
+FROM orders SELECT customer.*, -customer.secret
+--- logical
+Project customer.*, -customer.secret
+  Scan shop.orders
+--- physical
+Project customer.*, -customer.secret
+  CollectionScan shop.orders
+=== select_derived_names
+FROM orders SELECT qty, a.b, upper(name), 1 + 2
+--- logical
+Project qty AS qty, a.b AS b, upper(name) AS _3, 3 AS _4
+  Scan shop.orders
+--- physical
+Project qty AS qty, a.b AS b, upper(name) AS _3, 3 AS _4
+  CollectionScan shop.orders
+=== lambda_and_quantifier
+FROM orders WHERE ANY x IN items SATISFIES x.qty > 1 SELECT filter(items, i -> i.qty > 0) AS f
+--- logical
+Project filter(items, (i) -> (i.qty > 0)) AS f
+  Filter (ANY x IN items SATISFIES (x.qty > 1))
+    Scan shop.orders
+--- physical
+Project filter(items, (i) -> (i.qty > 0)) AS f
+  Filter (ANY x IN items SATISFIES (x.qty > 1))
+    CollectionScan shop.orders
+=== elem_match_relative_paths
+FROM orders WHERE ELEM MATCH (items, qty > 2 AND items.price < 10)
+--- logical
+Filter ELEM MATCH (items, (($elem.qty > 2) AND ($elem.price < 10)))
+  Scan shop.orders
+--- physical
+Filter ELEM MATCH (items, (($elem.qty > 2) AND ($elem.price < 10)))
+  CollectionScan shop.orders
+=== interval_literal
+FROM orders WHERE createdAt > now() - INTERVAL '7 days'
+--- logical
+Filter (createdAt > (now() - 604800000))
+  Scan shop.orders
+--- physical
+Filter (createdAt > (now() - 604800000))
+  CollectionScan shop.orders
+=== limit_param
+FROM orders LIMIT $min
+--- logical
+Limit limit=10
+  Scan shop.orders
+--- physical
+Limit limit=10
+  CollectionScan shop.orders
+=== update_source
+UPDATE orders SET qty = 1 WHERE status = 'new' LIMIT 3
+--- logical
+Limit limit=3
+  Sort _id ASC
+    Filter (status = 'new')
+      Scan shop.orders
+--- physical
+Limit limit=3
+  IndexOrder _id ASC
+    IndexScan shop.orders.by_status [('new') .. ('new')] fetch
+=== delete_source
+DELETE FROM orders WHERE _id IN [1, 2]
+--- logical
+Sort _id ASC
+  Filter (_id IN [1,2])
+    Scan shop.orders
+--- physical
+Sort _id ASC
+  PrimaryGet shop.orders ids=[1, 2]
+=== delete_without_where
+DELETE FROM orders
+--- error
+RGN-1013 QueryTooComplex: UPDATE / DELETE without WHERE requires OPTIONS (allow_full_scan_write = true)
+=== collscan_override: collscan
+FROM orders WHERE status = 'paid'
+--- logical
+Filter (status = 'paid')
+  Scan shop.orders
+--- physical
+Filter (status = 'paid')
+  CollectionScan shop.orders
+=== unknown_function
+FROM orders WHERE frobnicate(qty)
+--- error
+RGN-1012 UnknownFunction: unknown function frobnicate()
+=== wrong_arity
+FROM orders WHERE upper(qty, 2) = 'X'
+--- error
+RGN-1011 QueryTypeError: upper() takes 1 argument(s), got 2
+=== aggregate_deferred
+FROM orders SELECT sum(qty)
+--- error
+RGN-1001 InvalidArgument: aggregate functions (sum) is not supported by this version (planned for M7)
+=== group_by_deferred
+FROM orders GROUP BY status
+--- error
+RGN-1001 InvalidArgument: GROUP BY / HAVING (aggregation) is not supported by this version (planned for M7)
+=== missing_database
+FROM nowhere.orders
+--- error
+RGN-1030 NotFound: database not found: nowhere
+=== missing_collection
+FROM shop.nothing
+--- error
+RGN-1030 NotFound: collection not found: nothing
+=== unbound_param
+FROM orders WHERE qty = $missing
+--- error
+RGN-1011 QueryTypeError: parameter $missing is not bound
+=== in_non_array
+FROM orders WHERE qty IN 5
+--- error
+RGN-1011 QueryTypeError: the right operand of IN must be an array
+=== bad_regex
+FROM orders WHERE name MATCHES '('
+--- error
+RGN-1011 QueryTypeError: invalid regular expression: regex parse error:
+    (
+    ^
+error: unclosed group
+=== negative_limit
+FROM orders LIMIT -1
+--- error
+RGN-1001 InvalidArgument: LIMIT must not be negative
+=== unknown_option
+FROM orders OPTIONS (frobnicate = 1)
+--- error
+RGN-1001 InvalidArgument: unknown option frobnicate

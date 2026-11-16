@@ -1,0 +1,1 @@
+{"index_format":1,"type":"index","id":106,"database_id":100,"collection_id":102,"name":"attrs_wildcard","kind":"secondary","fields":[{"path":"attrs.**","order":"asc"}],"unique":false,"sparse":false,"hidden":false,"scope":"global","state":"write_only","origin":"manual","version":2,"include":[],"multikey":false,"created_at":{"$date":"2026-01-01T00:00:00.000Z"}}

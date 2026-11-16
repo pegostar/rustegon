@@ -1,0 +1,66 @@
+description: "Cursors: batches (Execute with max_batches + GetMore), iteration, early close (KillCursor)."
+setup:
+  collections: [{name: items}]
+  data:
+    items:
+      - {"_id": 1, "n": 1}
+      - {"_id": 2, "n": 2}
+      - {"_id": 3, "n": 3}
+      - {"_id": 4, "n": 4}
+      - {"_id": 5, "n": 5}
+tests:
+  - id: TC-DRV-CONF-CURSOR-001
+    description: "A batch size smaller than the result still returns every row, in order."
+    covers: [Collection.Find, Find.BatchSize, Find.ToList, Cursor.Next]
+    operations:
+      - object: collection
+        name: find
+        args: {filter: {}, sort: ["_id"], batchSize: 2}
+        expect: {result: [{"_id": 1, "n": 1}, {"_id": 2, "n": 2}, {"_id": 3, "n": 3}, {"_id": 4, "n": 4}, {"_id": 5, "n": 5}]}
+
+  - id: TC-DRV-CONF-CURSOR-002
+    description: "Iterating a cursor row by row; next after the last row returns null (end)."
+    covers: [Collection.Find, Find.Cursor, Cursor.Next, Cursor.Close]
+    operations:
+      - object: collection
+        name: find
+        args: {filter: {lte: ["n", 2]}, sort: ["_id"], batchSize: 1}
+        then: cursor
+        saveAs: cur
+      - {object: cur, name: next, expect: {result: {"_id": 1, "n": 1}}}
+      - {object: cur, name: next, expect: {result: {"_id": 2, "n": 2}}}
+      - {object: cur, name: next, expect: {result: null}}
+      - {object: cur, name: close}
+
+  - id: TC-DRV-CONF-CURSOR-003
+    description: "Closing a cursor before the end releases it; the collection is unaffected and other queries work."
+    covers: [Find.Cursor, Cursor.Next, Cursor.Close]
+    operations:
+      - object: collection
+        name: find
+        args: {filter: {}, sort: ["_id"], batchSize: 1}
+        then: cursor
+        saveAs: cur
+      - {object: cur, name: next, expect: {result: {"_id": 1, "n": 1}}}
+      - {object: cur, name: close}
+      - {object: collection, name: find, args: {filter: {gt: ["n", 4]}}, expect: {result: [{"_id": 5, "n": 5}]}}
+
+  - id: TC-DRV-CONF-CURSOR-004
+    description: "Database.Query cursors use the same batching."
+    covers: [Database.Query, Cursor.Next]
+    operations:
+      - object: database
+        name: query
+        args: {rgql: "FROM items WHERE n >= $k ORDER BY _id DESC", params: {k: 2}, batchSize: 1}
+        match: subset
+        expect: {result: [{"_id": 5}, {"_id": 4}, {"_id": 3}, {"_id": 2}]}
+
+  - id: TC-DRV-CONF-CURSOR-005
+    description: "A limit smaller than the batch size ends the cursor at the limit."
+    covers: [Collection.Find, Find.Limit, Find.BatchSize]
+    operations:
+      - object: collection
+        name: find
+        args: {filter: {}, sort: ["-n"], limit: 2, batchSize: 100}
+        match: subset
+        expect: {result: [{"_id": 5}, {"_id": 4}]}

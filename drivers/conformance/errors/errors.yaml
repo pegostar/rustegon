@@ -1,0 +1,66 @@
+description: "Error mapping (errors-map.yaml, generated/errors.json): every catalog code, and real server errors with their ErrorDetail fields."
+tests:
+  - id: TC-DRV-CONF-ERRORS-001
+    description: "The driver's code -> exception mapping equals generated/errors.json for every code, unknown codes and transport fallbacks (unit level, no server)."
+    covers: [Behavior.ErrorMapping]
+    operations:
+      - {object: runner, name: checkErrorMapping, args: {file: "generated/errors.json"}}
+
+  - id: TC-DRV-CONF-ERRORS-002
+    description: "A server error exposes code, name, retryable and a trace id."
+    covers: [Behavior.ErrorMapping, Collection.InsertOne]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}]}
+    operations:
+      - object: collection
+        name: insertOne
+        args: {document: {"_id": 1}}
+        expect: {error: {code: 1005, name: "DuplicateKey", exception: DuplicateKey, retryable: false}}
+      - {object: runner, name: assertLastErrorHasTraceId}
+
+  - id: TC-DRV-CONF-ERRORS-003
+    description: "Creating an existing collection fails with AlreadyExists; dropping a missing one with NotFound."
+    covers: [Behavior.ErrorMapping, Database.CreateCollection, Database.DropCollection]
+    setup:
+      collections: [{name: items}]
+    operations:
+      - {object: database, name: createCollection, args: {name: items}, expect: {error: {code: 1031, name: "AlreadyExists", exception: Client}}}
+      - {object: database, name: dropCollection, args: {name: never_created}, expect: {error: {code: 1030, name: "NotFound", exception: Client}}}
+
+  - id: TC-DRV-CONF-ERRORS-004
+    description: "A validator violation maps to DocumentValidationException (RGN-1006)."
+    covers: [Behavior.ErrorMapping, Database.CreateCollection, Collection.InsertOne]
+    setup:
+      collections:
+        - name: people
+          validator:
+            jsonSchema: {"type": "object", "required": ["email"], "properties": {"email": {"type": "string"}}}
+    operations:
+      - {object: collection, collection: people, name: insertOne, args: {document: {"_id": 1, "email": "a@example.com"}}}
+      - {object: collection, collection: people, name: insertOne, args: {document: {"_id": 2}}, expect: {error: {code: 1006, name: "SchemaValidationFailed", exception: DocumentValidation, retryable: false}}}
+    outcome:
+      people: [{"_id": 1, "email": "a@example.com"}]
+
+  - id: TC-DRV-CONF-ERRORS-005
+    description: "A user without write privileges gets AuthorizationException (RGN-4002)."
+    covers: [Behavior.ErrorMapping, Client.Create, Credential.Scram, Collection.InsertOne, Collection.FindById]
+    requires: [admin]
+    setup:
+      collections: [{name: items}]
+      data: {items: [{"_id": 1}]}
+      users:
+        - {name: conf_reader, password: "reader-pass-123456", roles: ["read@${database}"]}
+    operations:
+      - {object: client, name: open, args: {credential: {scram: {user: conf_reader, password: "reader-pass-123456"}}}, saveAs: reader}
+      - {object: reader, name: findById, collection: items, args: {id: 1}, expect: {result: {"_id": 1}}}
+      - {object: reader, name: insertOne, collection: items, args: {document: {"_id": 2}}, expect: {error: {code: 4002, name: "PermissionDenied", exception: Authorization, retryable: false}}}
+      - {object: reader, name: close}
+    outcome:
+      items: [{"_id": 1}]
+
+  - id: TC-DRV-CONF-ERRORS-006
+    description: "Malformed RDoc bytes from the codec vectors are rejected locally with the listed codes."
+    covers: [Behavior.ErrorMapping, Codec.DecodeDocument, Codec.DecodeValue, Codec.FromJson]
+    operations:
+      - {object: runner, name: checkInvalidVectors, args: {file: "codec/invalid.yaml"}}

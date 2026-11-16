@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- AC-DRV-001 sample (compiled by every build of the solution) and the TC-DRV-NET-026 smoke
+       test: published with Native AOT (trimmed, no JIT), so any trimming or AOT warning of the
+       driver or of the generated codecs fails the publish (warnings are errors). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Rustegon.Driver.Sample</AssemblyName>
+    <RootNamespace>Rustegon.Driver.Sample</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- Trim/AOT warnings are reported per assembly, not collapsed into one IL2104 per package. -->
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <!-- An application has no synchronization context to escape: ConfigureAwait would be noise. -->
+    <NoWarn>$(NoWarn);CA2007</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- As a package user gets them: the driver plus its source generator as an analyzer. -->
+    <ProjectReference Include="..\..\src\Rustegon.Driver\Rustegon.Driver.csproj" />
+    <ProjectReference Include="..\..\src\Rustegon.Driver.Generators\Rustegon.Driver.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

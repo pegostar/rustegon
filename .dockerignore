@@ -1,0 +1,17 @@
+# Build context of packaging/docker/Dockerfile (context = repository root, PD-150): only what
+# the GUI and release builds read. gui/dist is rebuilt by the image's GUI stage.
+.git
+.github
+.claude
+**/target
+**/node_modules
+gui/dist
+gui/.angular
+gui/test-results
+gui/playwright-report
+bench
+decisions
+docs
+drivers
+fuzz
+dist

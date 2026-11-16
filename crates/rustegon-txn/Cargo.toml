@@ -1,0 +1,26 @@
+[package]
+name = "rustegon-txn"
+description = "Transaction coordinator: parallel commit, wait queues, deadlock detection and consistency levels."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+bytes.workspace = true
+rustegon-common.workspace = true
+rustegon-mvcc.workspace = true
+rustegon-sim-api.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+rustegon-cluster.workspace = true
+rustegon-raft.workspace = true
+rustegon-sim.workspace = true
+rustegon-storage.workspace = true

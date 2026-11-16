@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+syntax = "proto3";
+
+package rustegon.v1;
+
+import "rustegon/v1/common.proto";
+import "rustegon/v1/query_ast.proto";
+
+// Interactive transactions (protocol.md §2; transaction-management.md). Operations join a
+// transaction through `txn_id` fields or `rgn-txn-id` metadata. The client sends Heartbeat
+// while idle so the coordinator does not abort the transaction (RGN-2003 TransactionTimeout).
+service TransactionService {
+  // Starts a transaction.
+  rpc Begin(BeginRequest) returns (BeginResponse);
+  // Commits; on RGN-2006 CommitOutcomeUnknown the client must check Status, not retry blindly.
+  rpc Commit(CommitRequest) returns (CommitResponse);
+  // Rolls back (idempotent).
+  rpc Rollback(RollbackRequest) returns (RollbackResponse);
+  // Current state of a transaction (resolves an unknown commit outcome).
+  rpc Status(StatusRequest) returns (StatusResponse);
+  // Keeps an idle transaction alive.
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+// Request of TransactionService.Begin.
+message BeginRequest {
+  // Isolation level (same enum as RGQL `BEGIN`).
+  AstIsolation isolation = 1;
+  // Read-only transaction.
+  bool read_only = 2;
+  // Priority.
+  AstPriority priority = 3;
+  // Read consistency; only FOLLOWER/BOUNDED_STALENESS on read-only transactions
+  // (consistency.md, read-only transactions).
+  ReadConsistency consistency = 4;
+  // Idle timeout requested by the client (server caps it).
+  optional uint32 idle_timeout_ms = 5;
+  // Write concern applied at commit.
+  WriteConcern write_concern = 6;
+}
+
+// Response of TransactionService.Begin.
+message BeginResponse {
+  // Transaction id (UUID text).
+  string txn_id = 1;
+  // Interval at which the client should send Heartbeat while idle.
+  uint32 heartbeat_interval_ms = 2;
+}
+
+// Request of TransactionService.Commit.
+message CommitRequest {
+  // Transaction.
+  string txn_id = 1;
+}
+
+// Response of TransactionService.Commit.
+message CommitResponse {}
+
+// Request of TransactionService.Rollback.
+message RollbackRequest {
+  // Transaction.
+  string txn_id = 1;
+}
+
+// Response of TransactionService.Rollback.
+message RollbackResponse {}
+
+// Transaction state.
+enum TransactionState {
+  // Unknown to this server (e.g. a newer state value); treat as unknown, not as aborted.
+  TRANSACTION_STATE_UNSPECIFIED = 0;
+  // Open and accepting operations.
+  TRANSACTION_STATE_ACTIVE = 1;
+  // Commit in progress (staging).
+  TRANSACTION_STATE_COMMITTING = 2;
+  // Committed.
+  TRANSACTION_STATE_COMMITTED = 3;
+  // Aborted or rolled back.
+  TRANSACTION_STATE_ABORTED = 4;
+}
+
+// Request of TransactionService.Status.
+message StatusRequest {
+  // Transaction.
+  string txn_id = 1;
+}
+
+// Response of TransactionService.Status.
+message StatusResponse {
+  // State.
+  TransactionState state = 1;
+  // Abort reason (error name), when aborted.
+  optional string abort_reason = 2;
+}
+
+// Request of TransactionService.Heartbeat.
+message HeartbeatRequest {
+  // Transaction.
+  string txn_id = 1;
+}
+
+// Response of TransactionService.Heartbeat.
+message HeartbeatResponse {
+  // Time until the transaction expires without another heartbeat or operation.
+  uint32 expires_in_ms = 1;
+}

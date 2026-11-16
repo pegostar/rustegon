@@ -1,0 +1,32 @@
+[package]
+name = "rustegon-sim"
+description = "Deterministic simulation harness and workloads (ADR-029)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+rustegon-catalog.workspace = true
+rustegon-cluster.workspace = true
+rustegon-common.workspace = true
+rustegon-doc.workspace = true
+rustegon-engine.workspace = true
+rustegon-index.workspace = true
+rustegon-mvcc.workspace = true
+rustegon-raft.workspace = true
+rustegon-sim-api.workspace = true
+rustegon-storage.workspace = true
+rustegon-txn.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+# Pretty-printing of the EXPLAIN golden fixtures (TC-QL-006).
+serde_json.workspace = true
+# The engine differential test (TC-QL-010) uses the generators and oracles of `testkit`.
+rustegon-query = { workspace = true, features = ["testkit"] }

@@ -1,0 +1,153 @@
+<div class="dash rg-stagger">
+  <header class="rg-panel dash-hero">
+    <div class="dash-brand">
+      <span class="dash-mark"><rg-logo [size]="56" /></span>
+      <div class="dash-titles">
+        <h1 i18n="@@dashboard.heading">Dashboard</h1>
+        <section class="dash-status" aria-labelledby="dash-status">
+          <h2 id="dash-status" i18n="@@dashboard.status">Status</h2>
+          <rg-skeleton [loading]="ready.isLoading()" [lines]="1">
+            @if (ready.error(); as e) {
+              <rg-error-panel [error]="e" (retry)="ready.reload()" />
+            } @else {
+              @if (ready.value() === 'ready') {
+                <rg-status-badge
+                  class="rg-live"
+                  status="ok"
+                  i18n-label="@@dashboard.ready"
+                  label="Ready"
+                />
+              } @else {
+                <rg-status-badge
+                  status="error"
+                  i18n-label="@@dashboard.notReady"
+                  label="Not ready: the node is starting, draining or unhealthy"
+                />
+              }
+            }
+          </rg-skeleton>
+        </section>
+      </div>
+    </div>
+    <button class="btn btn-glass" type="button" (click)="refresh()">
+      <rg-icon name="refresh" />
+      <span i18n="@@dashboard.refresh">Refresh</span>
+    </button>
+  </header>
+
+  <section class="dash-tiles" aria-labelledby="dash-overview">
+    <h2 id="dash-overview" class="cdk-visually-hidden" i18n="@@dashboard.overview">Overview</h2>
+    <section class="rg-panel dash-card" aria-labelledby="dash-server">
+      <h3 id="dash-server" i18n="@@dashboard.server">Server</h3>
+      <rg-skeleton [loading]="info.isLoading()">
+        @if (info.error(); as e) {
+          <rg-error-panel [error]="e" (retry)="info.reload()" />
+        } @else if (info.value(); as i) {
+          <dl class="dash-stats">
+            <div class="dash-stat">
+              <dt>
+                <span class="rg-page-icon sm"><rg-icon name="tag" /></span>
+                <span i18n="@@dashboard.version">Version</span>
+              </dt>
+              <dd>{{ i.serverVersion }}</dd>
+            </div>
+            <div class="dash-stat">
+              <dt>
+                <span class="rg-page-icon sm"><rg-icon name="swap" /></span>
+                <span i18n="@@dashboard.protocol">Protocol</span>
+              </dt>
+              <dd>{{ i.protocolVersion }}</dd>
+            </div>
+            <div class="dash-stat">
+              <dt>
+                <span class="rg-page-icon sm"><rg-icon name="dns" /></span>
+                <span i18n="@@dashboard.nodes">Nodes</span>
+              </dt>
+              <dd>{{ i.nodeAddresses.length }}</dd>
+            </div>
+          </dl>
+        }
+      </rg-skeleton>
+    </section>
+    <section class="rg-panel dash-card" aria-labelledby="dash-data">
+      <h3 id="dash-data" i18n="@@dashboard.data">Data</h3>
+      <rg-skeleton [loading]="data.isLoading()">
+        @if (data.error(); as e) {
+          <rg-error-panel [error]="e" (retry)="data.reload()" />
+        } @else if (data.value(); as d) {
+          @if (d.databases === 0) {
+            <rg-empty-state
+              icon="data"
+              i18n-heading="@@dashboard.noDatabases"
+              heading="No databases yet"
+              i18n-message="@@dashboard.noDatabasesMessage"
+              message="Create your first database to start storing documents."
+            >
+              <a class="btn btn-primary" routerLink="/data" i18n="@@dashboard.createDatabase"
+                >Create your first database</a
+              >
+            </rg-empty-state>
+          } @else {
+            <dl class="dash-stats">
+              <div class="dash-stat">
+                <dt>
+                  <span class="rg-page-icon sm"><rg-icon name="data" /></span>
+                  <span i18n="@@dashboard.databases">Databases</span>
+                </dt>
+                <dd>
+                  <a routerLink="/data">{{ d.databases }}</a>
+                </dd>
+              </div>
+              <div class="dash-stat">
+                <dt>
+                  <span class="rg-page-icon sm"><rg-icon name="folder" /></span>
+                  <span i18n="@@dashboard.collections">Collections</span>
+                </dt>
+                <dd>{{ d.collections }}</dd>
+              </div>
+            </dl>
+          }
+        }
+      </rg-skeleton>
+    </section>
+  </section>
+
+  <section class="rg-panel dash-metrics" aria-labelledby="dash-metrics">
+    <h2 id="dash-metrics" i18n="@@dashboard.metrics">Metrics</h2>
+    <rg-empty-state
+      icon="chart"
+      i18n-heading="@@dashboard.noMetrics"
+      heading="Metrics are not available yet"
+      i18n-message="@@dashboard.noMetricsMessage"
+      message="This server does not expose a metrics summary to the console yet, so throughput, latency and storage charts are not shown. Prometheus can scrape /metrics."
+    />
+    <!-- Decorative outline of the charts to come: no data, hidden from assistive tech. -->
+    <svg
+      class="dash-ghost"
+      viewBox="0 0 600 90"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <linearGradient id="dash-ghost-stroke" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" class="s1" />
+          <stop offset="0.55" class="s2" />
+          <stop offset="1" class="s3" />
+        </linearGradient>
+        <linearGradient id="dash-ghost-fill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" class="f1" />
+          <stop offset="1" class="f2" />
+        </linearGradient>
+      </defs>
+      <path
+        class="area"
+        d="M0 70 C60 62 90 40 150 46 S250 72 310 50 S420 18 480 30 S560 52 600 36 V90 H0 Z"
+      />
+      <path
+        class="line"
+        d="M0 70 C60 62 90 40 150 46 S250 72 310 50 S420 18 480 30 S560 52 600 36"
+      />
+    </svg>
+  </section>
+</div>

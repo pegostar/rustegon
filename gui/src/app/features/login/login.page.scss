@@ -1,0 +1,65 @@
+// S01: one glass card floating on the aurora.
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.25rem;
+  min-height: 100vh;
+  padding: 1rem;
+  outline: none;
+}
+
+.rg-login-card {
+  width: min(26rem, 100%);
+  padding: 2.25rem 2rem 2rem;
+  border-radius: var(--rg-radius-xl);
+  box-shadow:
+    inset 0 1px 0 var(--rg-glass-highlight),
+    var(--rg-shadow-lg);
+  animation: rg-rise var(--rg-dur-slow) var(--rg-ease) both;
+}
+
+.rg-login-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-bottom: 1rem;
+
+  // Copper and indigo halo behind the mark (decorative).
+  &::before {
+    content: '';
+    position: absolute;
+    width: 7.5rem;
+    height: 5.5rem;
+    border-radius: 50%;
+    background:
+      radial-gradient(closest-side, rgb(245 158 11 / 28%), transparent),
+      radial-gradient(closest-side at 70% 60%, var(--rg-accent-soft), transparent);
+    filter: blur(6px);
+  }
+
+  rg-logo {
+    filter: drop-shadow(0 10px 24px rgb(194 65 12 / 45%));
+  }
+}
+
+h1 {
+  margin: 0 0 1.5rem;
+  text-align: center;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+}
+
+.rg-error {
+  min-height: 1.5em;
+  margin-bottom: 0.75rem;
+}
+
+footer {
+  font-size: 0.875rem;
+  color: var(--rg-text-muted);
+}

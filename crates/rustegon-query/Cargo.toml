@@ -1,0 +1,39 @@
+[package]
+name = "rustegon-query"
+description = "RGQL query engine: lexer, parser, binder, planner, optimizer, executor and reference interpreter."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+rustegon-catalog.workspace = true
+rustegon-common.workspace = true
+rustegon-doc.workspace = true
+rustegon-index.workspace = true
+rustegon-sim-api.workspace = true
+rustegon-txn.workspace = true
+# RGQL `MATCHES` and the `regex_*` functions (engine and reference interpreter): linear-time
+# matching (no ReDoS), as for validators.
+regex.workspace = true
+serde.workspace = true
+# Exact float round trip: the structured AST must decode to the identical literal (TC-QL-003).
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+thiserror.workspace = true
+# XXH3-64 hashing of key-encoded values for the HyperLogLog NDV sketch (stats::hll).
+twox-hash.workspace = true
+
+[features]
+# Differential-testing kit (generators, oracles, engine adapter trait) for tests of this and
+# other crates; never enabled in production builds.
+testkit = []
+
+[dev-dependencies]
+proptest.workspace = true
+# Self dev-dependency: the integration tests use the `testkit` feature.
+rustegon-query = { path = ".", features = ["testkit"] }

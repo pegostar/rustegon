@@ -1,0 +1,155 @@
+description: "Interactive transactions against a real server (transactions.md §3, §5; retry behaviour itself: retry.yaml)."
+setup:
+  collections: [{name: accounts}, {name: log}]
+  data:
+    accounts:
+      - {"_id": "a1", "balance": 100}
+      - {"_id": "a2", "balance": 50}
+tests:
+  - id: TC-DRV-CONF-TXN-001
+    description: "withTransaction commits every write of the callback."
+    covers: [Client.WithTransaction, Transaction.GetCollection, Collection.UpdateOne, Update.Inc]
+    operations:
+      - object: client
+        name: withTransaction
+        args:
+          callback:
+            - {object: transaction, name: updateOne, collection: accounts, args: {filter: {id: "a1"}, update: [{inc: ["balance", -10]}]}}
+            - {object: transaction, name: updateOne, collection: accounts, args: {filter: {id: "a2"}, update: [{inc: ["balance", 10]}]}}
+            - {object: transaction, name: insertOne, collection: log, args: {document: {"_id": 1, "from": "a1", "to": "a2", "amount": 10}}}
+        expect: {result: null}
+    outcome:
+      accounts: [{"_id": "a1", "balance": 90}, {"_id": "a2", "balance": 60}]
+      log: [{"_id": 1, "from": "a1", "to": "a2", "amount": 10}]
+
+  - id: TC-DRV-CONF-TXN-002
+    description: "Manual mode: begin, write, commit."
+    covers: [Client.BeginTransaction, Transaction.GetCollection, Transaction.Commit]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: insertOne, collection: log, args: {document: {"_id": 1}}}
+      - {object: txn, name: commit}
+    outcome:
+      log: [{"_id": 1}]
+
+  - id: TC-DRV-CONF-TXN-003
+    description: "Rollback discards the writes; rollback is idempotent."
+    covers: [Client.BeginTransaction, Transaction.Rollback]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: insertOne, collection: log, args: {document: {"_id": 1}}}
+      - {object: txn, name: rollback}
+      - {object: txn, name: rollback}
+    outcome:
+      log: []
+
+  - id: TC-DRV-CONF-TXN-004
+    description: "Closing (disposing) a transaction that was not committed rolls it back."
+    covers: [Client.BeginTransaction, Transaction.Close]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: updateOne, collection: accounts, args: {filter: {id: "a1"}, update: [{set: ["balance", 0]}]}}
+      - {object: txn, name: close}
+    outcome:
+      accounts: [{"_id": "a1", "balance": 100}, {"_id": "a2", "balance": 50}]
+
+  - id: TC-DRV-CONF-TXN-005
+    description: "Read-your-writes inside the transaction; the write is visible outside after commit. (A read outside the transaction of a key it wrote may wait for it, so the suite does not read it before the commit.)"
+    covers: [Client.BeginTransaction, Transaction.GetCollection, Collection.FindById, Transaction.Commit]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: insertOne, collection: log, args: {document: {"_id": 7, "x": 1}}}
+      - {object: txn, name: findById, collection: log, args: {id: 7}, expect: {result: {"_id": 7, "x": 1}}}
+      - {object: txn, name: commit}
+      - {object: collection, collection: log, name: findById, args: {id: 7}, expect: {result: {"_id": 7, "x": 1}}}
+
+  - id: TC-DRV-CONF-TXN-006
+    description: "A statement error (duplicate key) rolls back that statement only; the transaction stays active (PD-049)."
+    covers: [Client.BeginTransaction, Transaction.GetCollection, Transaction.Commit, Behavior.ErrorMapping]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: insertOne, collection: log, args: {document: {"_id": 1}}}
+      - {object: txn, name: insertOne, collection: accounts, args: {document: {"_id": "a1"}}, expect: {error: {code: 1005, exception: DuplicateKey}}}
+      - {object: txn, name: insertOne, collection: log, args: {document: {"_id": 2}}}
+      - {object: txn, name: commit}
+    outcome:
+      log: [{"_id": 1}, {"_id": 2}]
+      accounts: [{"_id": "a1", "balance": 100}, {"_id": "a2", "balance": 50}]
+
+  - id: TC-DRV-CONF-TXN-007
+    description: "RGQL inside a transaction (Transaction.Query) sees the transaction's writes."
+    covers: [Transaction.Query, Client.BeginTransaction, Transaction.Commit]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: query, args: {rgql: "UPDATE accounts SET balance = balance + $d WHERE _id = $id", params: {d: 5, id: "a2"}}, expect: {result: []}}
+      - {object: txn, name: query, args: {rgql: "FROM accounts WHERE _id = $id SELECT VALUE balance", params: {id: "a2"}}, expect: {result: [{"value": 55}]}}
+      - {object: txn, name: commit}
+    outcome:
+      accounts: [{"_id": "a1", "balance": 100}, {"_id": "a2", "balance": 55}]
+
+  - id: TC-DRV-CONF-TXN-008
+    description: "Commit of a committed transaction returns the same result (FR-TXN-006); resolve reports committed."
+    covers: [Transaction.Commit, Transaction.Resolve]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: insertOne, collection: log, args: {document: {"_id": 1}}}
+      - {object: txn, name: commit}
+      - {object: txn, name: commit}
+      - {object: txn, name: resolve, expect: {result: committed}}
+    outcome:
+      log: [{"_id": 1}]
+
+  - id: TC-DRV-CONF-TXN-009
+    description: "After a rollback the transaction is aborted: further operations fail with TransactionAborted (RGN-2002)."
+    covers: [Transaction.Rollback, Transaction.GetCollection, Behavior.ErrorMapping]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: rollback}
+      - {object: txn, name: insertOne, collection: log, args: {document: {"_id": 1}}, expect: {error: {code: 2002, exception: TransactionAborted}}}
+    outcome:
+      log: []
+
+  - id: TC-DRV-CONF-TXN-010
+    description: "DDL is refused inside an interactive transaction (RGN-1001); the transaction stays usable."
+    covers: [Transaction.Query, Transaction.Commit]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: query, args: {rgql: "CREATE COLLECTION other"}, expect: {error: {code: 1001, exception: Client}}}
+      - {object: txn, name: insertOne, collection: log, args: {document: {"_id": 1}}}
+      - {object: txn, name: commit}
+    outcome:
+      log: [{"_id": 1}]
+
+  - id: TC-DRV-CONF-TXN-011
+    description: "An idle transaction is kept alive by the driver's heartbeat beyond txn.liveness_timeout (5 s)."
+    covers: [Behavior.TransactionHeartbeat, Client.BeginTransaction, Transaction.Commit]
+    requires: [slow]
+    operations:
+      - {object: client, name: beginTransaction, saveAs: txn}
+      - {object: txn, name: insertOne, collection: log, args: {document: {"_id": 1}}}
+      - {object: runner, name: sleep, args: {ms: 7000}}
+      - {object: txn, name: commit}
+    outcome:
+      log: [{"_id": 1}]
+
+  - id: TC-DRV-CONF-TXN-012
+    description: "withTransaction rolls back and propagates a non-retryable error from the callback."
+    covers: [Client.WithTransaction, Behavior.TransactionRetry]
+    operations:
+      - object: client
+        name: withTransaction
+        args:
+          callback:
+            - {object: transaction, name: insertOne, collection: log, args: {document: {"_id": 1}}}
+            - {object: transaction, name: insertOne, collection: accounts, args: {document: {"_id": "a2"}}}
+        expect: {error: {code: 1005, exception: DuplicateKey, retryable: false}}
+    outcome:
+      log: []
+
+  - id: TC-DRV-CONF-TXN-013
+    description: "A read-only transaction reads committed data; options are passed to Begin."
+    covers: [Client.BeginTransaction, Transaction.GetCollection, Transaction.Commit]
+    operations:
+      - {object: client, name: beginTransaction, args: {options: {readOnly: true, isolation: snapshot}}, saveAs: txn}
+      - {object: txn, name: findById, collection: accounts, args: {id: "a1"}, expect: {result: {"_id": "a1", "balance": 100}}}
+      - {object: txn, name: commit}

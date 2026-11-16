@@ -1,0 +1,80 @@
+{
+  "environment": {
+    "arch": "x86_64",
+    "commit": "f1e2bd5",
+    "cpus": 24,
+    "date": "2026-11-03",
+    "env": "dev-win11-x64",
+    "host": {
+      "allocation_unit": 4096,
+      "battery_status": "2",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "collected_at_utc": "2026-11-03T13:36:55.3149707Z",
+      "cpu_cores": 12,
+      "cpu_logical": 24,
+      "cpu_max_mhz": 2000,
+      "cpu_model": "AMD Ryzen AI 9 HX PRO 470 w/ Radeon 890M",
+      "data_dir": "C:\\bench-rustegon",
+      "disk_bus": "NVMe",
+      "disk_media": "SSD",
+      "disk_model": "Micron MTFDKBA1T0TGW-2BP15ABLT",
+      "disk_size": 1024209543168,
+      "filesystem": "NTFS",
+      "os": "Microsoft Windows 11 Pro",
+      "os_build": "26300",
+      "os_version": "10.0.26300",
+      "power_plan": "GUID combinazione risparmio energia: 381b4222-f694-41f0-9685-ff5bb260df2e  (Bilanciato)",
+      "ram_bytes": 67798491136,
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "volume_free": 495221170176,
+      "volume_size": 1021622349824
+    },
+    "notes": "provisional reference (owner decision 2026-11-03) instead of REF-1N; laptop on AC, Balanced power plan; scheduler: 1 flush + max(2, cpus/4) compaction threads",
+    "os": "windows",
+    "release_build": true
+  },
+  "result": {
+    "bytes_per_second": 53683690.525378235,
+    "dataset_hash": "89ecb8e8f41ed4cc",
+    "latency": {
+      "count": 524288,
+      "max": 1882.9,
+      "p50": 31.2,
+      "p95": 48.5,
+      "p99": 63.4,
+      "p999": 115.10000000000001
+    },
+    "levels": [
+      {
+        "bytes": 650462355,
+        "files": 3,
+        "level": 5
+      },
+      {
+        "bytes": 8099021112,
+        "files": 31,
+        "level": 6
+      }
+    ],
+    "load_seconds": 0.0,
+    "measured_seconds": 163.1353334,
+    "ops_per_second": 51421.15950706728,
+    "space_amplification": 0.9990610230243069,
+    "stall_seconds": 42.0108859,
+    "stalls": 21,
+    "workload": {
+      "batch_size": 16,
+      "block_cache_size": 0,
+      "compaction_threads": 6,
+      "id": "BM-STO-02",
+      "key_order": "random",
+      "keys": 8388608,
+      "kind": "write_batches",
+      "ops": 0,
+      "seed": 2,
+      "threads": 1,
+      "value_size": 1024
+    },
+    "write_amplification": 5.359908314043535
+  }
+}

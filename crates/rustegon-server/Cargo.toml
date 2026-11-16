@@ -1,0 +1,72 @@
+[package]
+name = "rustegon-server"
+description = "Client-facing services: gRPC (tonic), REST (axum), WebSocket and GUI embedding."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[features]
+# Exposes the fuzz oracles of the security-relevant parsers (`fuzzing` module) to the cargo-fuzz
+# targets in `fuzz/` (TC-SEC-010, PD-060). Off in every shipped build.
+fuzzing = []
+
+[dependencies]
+aes-gcm.workspace = true
+axum.workspace = true
+base64.workspace = true
+blake3.workspace = true
+bytes.workspace = true
+http.workspace = true
+http-body.workspace = true
+hyper = { workspace = true, features = ["server", "http1", "http2"] }
+hyper-util = { workspace = true, features = ["server", "server-auto", "server-graceful", "service", "http1", "http2", "tokio"] }
+prost.workspace = true
+prost-reflect.workspace = true
+rustegon-backup.workspace = true
+rustegon-catalog.workspace = true
+rustegon-common.workspace = true
+rustegon-doc.workspace = true
+rustegon-engine.workspace = true
+rustegon-index.workspace = true
+rustegon-net.workspace = true
+rustegon-proto.workspace = true
+rustegon-query.workspace = true
+rustegon-security.workspace = true
+rustegon-sim-api.workspace = true
+serde.workspace = true
+# `raw_value`: documents in REST bodies reach the extended-JSON parser as text, so field
+# order and duplicate names survive (PD-055).
+serde_json = { workspace = true, features = ["raw_value"] }
+subtle.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "sync"] }
+tonic.workspace = true
+tower-service.workspace = true
+tracing.workspace = true
+utoipa.workspace = true
+utoipa-axum.workspace = true
+yaml-rust2.workspace = true
+zeroize.workspace = true
+
+[dev-dependencies]
+http-body-util.workspace = true
+hyper = { workspace = true, features = ["client", "http1", "http2"] }
+prost.workspace = true
+# `serde`: the TC-API-003 golden fixtures are protobuf JSON, mapped onto dynamic messages
+# through the descriptor set (tests/golden_api.rs, PD-060).
+prost-reflect = { workspace = true, features = ["serde"] }
+prost-types.workspace = true
+# Simulated file system and clock for the logical dump tests (TC-BKP-013: time beyond
+# `txn.max_duration` without waiting).
+rustegon-sim.workspace = true
+tempfile.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+tonic-prost.workspace = true
+tower = { workspace = true, features = ["util"] }

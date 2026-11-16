@@ -1,0 +1,96 @@
+description: "RGQL text with parameters (Database.Query; parameters travel as Value.rdoc_value, never interpolated)."
+setup:
+  collections: [{name: products}]
+  data:
+    products:
+      - {"_id": 1, "name": "Rome pen", "qty": 10, "status": "paid"}
+      - {"_id": 2, "name": "Milan ink", "qty": 0, "status": "shipped"}
+      - {"_id": 3, "name": "Rome paper", "qty": 25, "status": "paid"}
+      - {"_id": 4, "name": "Turin clip", "qty": 100, "status": "cancelled"}
+tests:
+  - id: TC-DRV-CONF-QUERY-030
+    description: "Named parameters bind typed values; projection and order in the text."
+    covers: [Database.Query]
+    operations:
+      - object: database
+        name: query
+        args:
+          rgql: "FROM products WHERE qty > $min SELECT name ORDER BY _id"
+          params: {min: 10}
+        expect: {result: [{"name": "Rome paper"}, {"name": "Turin clip"}]}
+
+  - id: TC-DRV-CONF-QUERY-031
+    description: "A parameter holding a string with quotes is data, not syntax (no injection)."
+    covers: [Database.Query]
+    operations:
+      - object: database
+        name: query
+        args:
+          rgql: "FROM products WHERE name = $n"
+          params: {n: "x' OR 1 = 1 --"}
+        expect: {result: []}
+
+  - id: TC-DRV-CONF-QUERY-032
+    description: "SELECT VALUE rows arrive as {value: x} documents."
+    covers: [Database.Query]
+    operations:
+      - object: database
+        name: query
+        args:
+          rgql: "FROM products WHERE status = $s SELECT VALUE qty ORDER BY _id"
+          params: {s: "paid"}
+        expect: {result: [{"value": 10}, {"value": 25}]}
+
+  - id: TC-DRV-CONF-QUERY-033
+    description: "A write statement through Database.Query returns its RETURNING rows."
+    covers: [Database.Query]
+    operations:
+      - object: database
+        name: query
+        args:
+          rgql: "UPDATE products SET flag = true WHERE status = $s RETURNING NEW _id"
+          params: {s: "paid"}
+        ordered: false
+        expect: {result: [{"_id": 1}, {"_id": 3}]}
+      - object: collection
+        collection: products
+        name: find
+        args: {filter: {eq: ["flag", true]}, sort: ["_id"]}
+        match: subset
+        expect: {result: [{"_id": 1}, {"_id": 3}]}
+
+  - id: TC-DRV-CONF-QUERY-034
+    description: "Syntax errors map to QuerySyntaxException (RGN-1010)."
+    covers: [Database.Query, Behavior.ErrorMapping]
+    operations:
+      - object: database
+        name: query
+        args: {rgql: "FROM products WHERE"}
+        expect: {error: {code: 1010, name: "QuerySyntaxError", exception: QuerySyntax, retryable: false}}
+
+  - id: TC-DRV-CONF-QUERY-035
+    description: "Unknown functions map to QuerySyntaxException (RGN-1012)."
+    covers: [Database.Query, Behavior.ErrorMapping]
+    operations:
+      - object: database
+        name: query
+        args: {rgql: "FROM products WHERE no_such_function(qty) = 1"}
+        expect: {error: {code: 1012, name: "UnknownFunction", exception: QuerySyntax}}
+
+  - id: TC-DRV-CONF-QUERY-036
+    description: "A referenced parameter that is not bound is an error, not null."
+    covers: [Database.Query]
+    operations:
+      - object: database
+        name: query
+        args: {rgql: "FROM products WHERE qty > $missing"}
+        expect: {error: {exception: Client}}
+
+  - id: TC-DRV-CONF-QUERY-037
+    description: "UPDATE without WHERE needs allow_full_scan_write (RGN-1013) - the driver never adds it to user text."
+    covers: [Database.Query]
+    operations:
+      - object: database
+        name: query
+        args: {rgql: "UPDATE products SET flag = true"}
+        expect: {error: {code: 1013, exception: Client}}

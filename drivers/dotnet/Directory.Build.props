@@ -1,0 +1,54 @@
+<Project>
+  <!-- Shared build settings of the .NET driver (dotnet-driver.md §2, coding-standards.md §4, DEC-020). -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AnalysisLevel>latest-all</AnalysisLevel>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <Deterministic>true</Deterministic>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <Authors>The Rustegon Authors</Authors>
+    <Copyright>Copyright The Rustegon Authors</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <!-- SourceLink is part of the .NET SDK (8+); these make the package debuggable from source. -->
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>portable</DebugType>
+    <!-- Versioning (dotnet-driver.md §2, PD-118): semantic versioning, driver major = protocol
+         major (protocol.md §9, "1.<minor>"), so 1.x drivers speak protocol 1. Pre-1.0 releases
+         are previews of protocol 1. AssemblyVersion changes only with a breaking release
+         (major.0.0.0; 0.minor.0.0 before 1.0) so strong-named consumers bind across compatible
+         updates; FileVersion and the package version carry the full version. -->
+    <Version>0.1.0-alpha.1</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <RepositoryUrl>https://github.com/rustegon/rustegon</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/rustegon/rustegon/tree/main/drivers/dotnet</PackageProjectUrl>
+    <!-- Symbols ship as a separate .snupkg (portable PDB) next to the .nupkg. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- Strong naming (dotnet-driver.md §2, PD-117): every assembly of the solution is signed with
+         the checked-in key pair Rustegon.snk. A strong name is an identity, not a security
+         boundary, so the private key is public on purpose (common practice for open source
+         .NET libraries); authenticity comes from NuGet package signing (README "Release"). -->
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)Rustegon.snk</AssemblyOriginatorKeyFile>
+    <!-- Public key of Rustegon.snk, for InternalsVisibleTo. -->
+    <RustegonPublicKey>0024000004800000940000000602000000240000525341310004000001000100459391e660cb86da64ccf344615bf06288e99e99a4760424ec9a4f19987a8aaa88e446b179e8c6125bf9ccb71f2069cb8243ea21f0f2bc4b982876ecc4e6e0173d5a9073aea31341be985a363023ccf0ebc2c4ae3d42a0c0a34ad12e99bb9cf402b89b31f39a5bef63b7a13b5c15c4fa0adc6b0283daa7c56fde59308a42fde4</RustegonPublicKey>
+  </PropertyGroup>
+
+  <!-- Reproducible paths in CI builds only (local builds keep real paths for debugging). -->
+  <PropertyGroup Condition="'$(CI)' == 'true' Or '$(GITHUB_ACTIONS)' == 'true' Or '$(TF_BUILD)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Root of the repository (drivers/dotnet/../..): protos and Rust fixtures live there. -->
+    <RustegonRepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</RustegonRepoRoot>
+  </PropertyGroup>
+</Project>

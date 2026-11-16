@@ -1,0 +1,84 @@
+{
+  "environment": {
+    "arch": "x86_64",
+    "commit": "6db1a5d",
+    "cpus": 24,
+    "date": "2026-11-05",
+    "env": "dev-win11-x64",
+    "host": {
+      "allocation_unit": 4096,
+      "battery_status": "2",
+      "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+      "collected_at_utc": "2026-11-05T11:07:01.5078926Z",
+      "cpu_cores": 12,
+      "cpu_logical": 24,
+      "cpu_max_mhz": 2000,
+      "cpu_model": "AMD Ryzen AI 9 HX PRO 470 w/ Radeon 890M",
+      "data_dir": "C:\\bench-rustegon",
+      "disk_bus": "NVMe",
+      "disk_media": "SSD",
+      "disk_model": "Micron MTFDKBA1T0TGW-2BP15ABLT",
+      "disk_size": 1024209543168,
+      "filesystem": "NTFS",
+      "os": "Microsoft Windows 11 Pro",
+      "os_build": "26300",
+      "os_version": "10.0.26300",
+      "power_plan": "GUID combinazione risparmio energia: 381b4222-f694-41f0-9685-ff5bb260df2e  (Bilanciato)",
+      "ram_bytes": 67798491136,
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "volume_free": 494194487296,
+      "volume_size": 1021622349824
+    },
+    "notes": "provisional reference (owner decision 2026-11-03) instead of REF-1N; laptop on AC, Balanced power plan; Windows read handle pool; scheduler 1 flush + max(2, cpus/4) compactions; L0 subcompactions (7588279)",
+    "os": "windows",
+    "release_build": true
+  },
+  "result": {
+    "bytes_per_second": 42917099.64828401,
+    "dataset_hash": "89ecb8e8f41ed4cc",
+    "latency": {
+      "count": 524288,
+      "max": 2490.7000000000003,
+      "p50": 34.5,
+      "p95": 55.300000000000004,
+      "p99": 78.80000000000001,
+      "p999": 183.3
+    },
+    "levels": [
+      {
+        "bytes": 793881923,
+        "files": 5,
+        "level": 5
+      },
+      {
+        "bytes": 7955723514,
+        "files": 32,
+        "level": 6
+      }
+    ],
+    "load_seconds": 0.0,
+    "measured_seconds": 204.0610112,
+    "ops_per_second": 41108.33299644063,
+    "space_amplification": 0.9990749501862288,
+    "stall_seconds": 46.8658067,
+    "stall_seconds_by_reason": {
+      "L0Files": 33.2245794,
+      "MemtablesFull": 13.6412273
+    },
+    "stalls": 22,
+    "workload": {
+      "batch_size": 16,
+      "block_cache_size": 0,
+      "compaction_threads": 6,
+      "id": "BM-STO-02",
+      "key_order": "random",
+      "keys": 8388608,
+      "kind": "write_batches",
+      "ops": 0,
+      "seed": 2,
+      "threads": 1,
+      "value_size": 1024
+    },
+    "write_amplification": 5.651588596375053
+  }
+}

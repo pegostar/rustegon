@@ -1,0 +1,64 @@
+description: "Unit-level conformance driven by the shared data files (no server unless stated): codec vectors, builder -> AST vectors, connection strings, retry scenarios on the fake server."
+tests:
+  - id: TC-DRV-CONF-CLIENT-001
+    description: "RDoc value vectors: encode ext_json -> hex, decode hex -> ext_json, non-canonical inputs normalise."
+    covers: [Codec.EncodeValue, Codec.DecodeValue, Codec.FromJson, Codec.ToJson]
+    operations:
+      - {object: runner, name: checkValueVectors, args: {file: "codec/values.yaml"}}
+
+  - id: TC-DRV-CONF-CLIENT-002
+    description: "RDoc document vectors: byte-exact encoding, name_hash16, index order, depth limit, non-canonical documents."
+    covers: [Codec.EncodeDocument, Codec.DecodeDocument, Codec.FromJson, Codec.ToJson]
+    operations:
+      - {object: runner, name: checkDocumentVectors, args: {file: "codec/documents.yaml"}}
+
+  - id: TC-DRV-CONF-CLIENT-003
+    description: "Invalid RDoc bytes and extended-JSON texts are rejected with the listed codes."
+    covers: [Codec.DecodeDocument, Codec.DecodeValue, Codec.FromJson]
+    operations:
+      - {object: runner, name: checkInvalidVectors, args: {file: "codec/invalid.yaml"}}
+
+  - id: TC-DRV-CONF-CLIENT-004
+    description: "Filter builders produce exactly the AST and parameters of ast/filters.json."
+    covers: [Filter.Empty, Filter.Id, Filter.Eq, Filter.Ne, Filter.Gt, Filter.Gte, Filter.Lt, Filter.Lte, Filter.In, Filter.Nin, Filter.Exists, Filter.IsNull, Filter.Contains, Filter.ContainsAny, Filter.ContainsAll, Filter.ElemMatch, Filter.Like, Filter.Regex, Filter.And, Filter.Or, Filter.Not]
+    operations:
+      - {object: runner, name: checkAstVectors, args: {file: "ast/filters.json"}}
+
+  - id: TC-DRV-CONF-CLIENT-005
+    description: "Update builders produce exactly the AstUpdateOp list and parameters of ast/updates.json."
+    covers: [Update.Set, Update.Unset, Update.Inc, Update.Mul, Update.Min, Update.Max, Update.Push, Update.AddToSet, Update.Pull, Update.Pop, Update.Rename, Update.CurrentDate]
+    operations:
+      - {object: runner, name: checkAstVectors, args: {file: "ast/updates.json"}}
+
+  - id: TC-DRV-CONF-CLIENT-006
+    description: "Collection operations with non-id filters, sort, limit, skip and projection produce the statements of ast/statements.json."
+    covers: [Collection.Find, Find.Sort, Find.Limit, Find.Skip, Find.Project, Sort.Ascending, Sort.Descending, Projection.Include, Projection.Exclude, Collection.UpdateOne, Collection.UpdateMany, Collection.ReplaceOne, Collection.DeleteOne, Collection.DeleteMany]
+    operations:
+      - {object: runner, name: checkAstVectors, args: {file: "ast/statements.json"}}
+
+  - id: TC-DRV-CONF-CLIENT-007
+    description: "Connection strings parse to the settings of connstring.yaml or are rejected before any I/O."
+    covers: [Settings.FromConnectionString, Client.CreateFromConnectionString]
+    operations:
+      - {object: runner, name: checkConnectionStrings, args: {file: "connstring.yaml"}}
+
+  - id: TC-DRV-CONF-CLIENT-008
+    description: "Retry, timeout, re-authentication and withTransaction scenarios of retry.yaml on the in-process fake server (PD-073)."
+    covers: [Behavior.RetryReads, Behavior.RetryWrites, Behavior.TransactionRetry, Behavior.CommitOutcomeResolution, Behavior.SessionReauthentication, Behavior.OperationTimeout]
+    operations:
+      - {object: runner, name: runRetryScenarios, args: {file: "retry.yaml"}}
+
+  - id: TC-DRV-CONF-CLIENT-009
+    description: "Closing a client is idempotent and later operations fail without I/O."
+    covers: [Client.Close, Client.Create]
+    operations:
+      - {object: client, name: open, args: {credential: {scram: {user: "${adminUser}", password: "${adminPassword}"}}}, saveAs: c2}
+      - {object: c2, name: close}
+      - {object: c2, name: close}
+      - {object: c2, name: listDatabaseNames, expect: {error: {exception: InvalidState}}}
+
+  - id: TC-DRV-CONF-CLIENT-010
+    description: "SASLprep and SCRAM-SHA-256 (gs2 header n,,) reproduce scram/vectors.yaml byte for byte with the given client nonce (PD-074)."
+    covers: [Credential.Scram]
+    operations:
+      - {object: runner, name: checkScramVectors, args: {file: "scram/vectors.yaml"}}

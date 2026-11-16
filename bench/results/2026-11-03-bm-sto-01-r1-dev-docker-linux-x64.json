@@ -1,0 +1,65 @@
+{
+  "environment": {
+    "arch": "x86_64",
+    "commit": "f1e2bd5",
+    "cpus": 24,
+    "date": "2026-11-03",
+    "env": "dev-docker-linux-x64",
+    "host": {
+      "cpu_model": "AMD Ryzen AI 9 HX PRO 470 w/ Radeon 890M",
+      "cpus_visible": 24,
+      "filesystem": "overlay",
+      "kernel": "6.18.54.1-microsoft-standard-WSL2",
+      "mem_total_kb": 32420848,
+      "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+      "virtualization": "Docker Desktop WSL2 VM on the dev-win11-x64 host"
+    },
+    "notes": "control experiment for the BM-STO-01 16-thread p99 (Windows handle serialization hypothesis); Linux container on the dev-win11-x64 host, not a reference environment",
+    "os": "linux",
+    "release_build": true
+  },
+  "result": {
+    "bytes_per_second": 170748821.63134784,
+    "dataset_hash": "68875641101948ff",
+    "latency": {
+      "count": 200000,
+      "max": 2625.625,
+      "p50": 5.561,
+      "p95": 7.404,
+      "p99": 10.861,
+      "p999": 38.195
+    },
+    "levels": [
+      {
+        "bytes": 27250584,
+        "files": 1,
+        "level": 0
+      },
+      {
+        "bytes": 1066401453,
+        "files": 4,
+        "level": 6
+      }
+    ],
+    "load_seconds": 15.712769439,
+    "measured_seconds": 1.222848849,
+    "ops_per_second": 163552.51114113777,
+    "space_amplification": 0.9990305160654003,
+    "stall_seconds": 2.236155471,
+    "stalls": 11,
+    "workload": {
+      "batch_size": 16,
+      "block_cache_size": 0,
+      "compaction_threads": 6,
+      "id": "BM-STO-01",
+      "key_order": "sequential",
+      "keys": 1048576,
+      "kind": "point_get",
+      "ops": 200000,
+      "seed": 1,
+      "threads": 1,
+      "value_size": 1024
+    },
+    "write_amplification": null
+  }
+}

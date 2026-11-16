@@ -1,0 +1,119 @@
+# Error code -> exception class mapping, shared by the .NET and Java drivers
+# (dotnet-driver.md §8, java-driver.md §6 and §11, PD-075).
+#
+# This file is hand-written and normative for both drivers. The generated tables in
+# `generated/` (ErrorCodes.g.cs, ErrorCodes.java, errors.json) join it with proto/errors.yaml;
+# `crates/rustegon-common/tests/driver_tables.rs` fails when a catalog code is missing here,
+# when a class is unknown, or when the generated files are stale
+# (re-bless: RGN_FIXTURES_BLESS=1 cargo nextest run -p rustegon-common --test driver_tables).
+#
+# Rules for the drivers:
+# - The class is chosen by `ErrorDetail.code` only. `IsRetryable`/`isRetryable()` and
+#   `Committed`/`committed()` come from `ErrorDetail.retryable` / `ErrorDetail.committed` of the
+#   response, never from this table (the table's `retryable` column is documentation of the
+#   catalog default; RGN-2002 for instance depends on the abort reason).
+# - A code unknown to the driver (newer server) maps to `unknown` (the base class) with
+#   `Code`/`code()` set, so new codes never break old drivers (protocol.md §9).
+# - A failed call without an `ErrorDetail` (transport errors, proxies) maps through
+#   `transport` by gRPC status code; the driver synthesizes the listed code and retryable flag.
+# - Cancellation requested by the caller (CancellationToken / Thread.interrupt / Future.cancel)
+#   is reported with the language's own cancellation exception (OperationCanceledException /
+#   CancellationException), not with a RustegonException.
+version: 1
+
+# Exception hierarchy. `id` is the language-neutral name used below; `parent` is an `id`.
+classes:
+  - {id: Base, dotnet: RustegonException, java: RustegonException, parent: null}
+  - {id: Client, dotnet: RustegonClientException, java: RustegonClientException, parent: Base}
+  - {id: QuerySyntax, dotnet: QuerySyntaxException, java: QuerySyntaxException, parent: Client}
+  - {id: DuplicateKey, dotnet: DuplicateKeyException, java: DuplicateKeyException, parent: Base}
+  - {id: DocumentValidation, dotnet: DocumentValidationException, java: DocumentValidationException, parent: Base}
+  - {id: TransactionConflict, dotnet: TransactionConflictException, java: TransactionConflictException, parent: Base}
+  - {id: TransactionAborted, dotnet: TransactionAbortedException, java: TransactionAbortedException, parent: Base}
+  - {id: CommitOutcomeUnknown, dotnet: CommitOutcomeUnknownException, java: CommitOutcomeUnknownException, parent: Base}
+  - {id: Authentication, dotnet: AuthenticationException, java: AuthenticationException, parent: Base}
+  # PD-076: raised by the driver itself after a successful login whose AuthSuccess has
+  # must_change_password = true (unless AllowPasswordChangeOnly / allowPasswordChangeOnly);
+  # no catalog code maps to it.
+  - {id: PasswordChangeRequired, dotnet: PasswordChangeRequiredException, java: PasswordChangeRequiredException, parent: Authentication}
+  - {id: Authorization, dotnet: AuthorizationException, java: AuthorizationException, parent: Base}
+  - {id: Unavailable, dotnet: UnavailableException, java: UnavailableException, parent: Base}
+  - {id: RateLimited, dotnet: RateLimitedException, java: RateLimitedException, parent: Base}
+  # Divergence (drivers/DIVERGENCES.md): the .NET name is `Rustegon.Driver.TimeoutException`
+  # (it does not derive from System.TimeoutException), Java uses RustegonTimeoutException.
+  - {id: Timeout, dotnet: TimeoutException, java: RustegonTimeoutException, parent: Base}
+  - {id: Server, dotnet: RustegonServerException, java: RustegonServerException, parent: Base}
+
+# Every code of proto/errors.yaml, internal ones included (they should never reach a client,
+# but a driver must still map them deterministically).
+codes:
+  1001: Client                # InvalidArgument
+  1002: Client                # DocumentTooLarge
+  1003: Client                # NestingTooDeep
+  1004: Client                # InvalidFieldName
+  1005: DuplicateKey          # DuplicateKey
+  1006: DocumentValidation    # SchemaValidationFailed
+  1007: Client                # PartitionTooLarge
+  1008: Client                # IndexKeyTooLarge
+  1009: Client                # CounterOverflow
+  1010: QuerySyntax           # QuerySyntaxError
+  1011: QuerySyntax           # QueryTypeError
+  1012: QuerySyntax           # UnknownFunction
+  1013: Client                # QueryTooComplex / ScanNotAllowed
+  1020: Client                # IndexAlreadyExists
+  1021: Client                # IndexNotFound
+  1022: Client                # IndexBuildFailed
+  1023: Client                # IndexLimitExceeded
+  1024: Timeout               # IndexStaleTimeout
+  1025: Client                # MultikeyCompoundArrays
+  1030: Client                # NotFound
+  1031: Client                # AlreadyExists
+  1032: Client                # ResumeTokenExpired
+  1033: Client                # SchemaChangeInProgress (retryable flag set by the server)
+  1034: Server                # DescriptorVersionMismatch (internal)
+  1040: Client                # InvalidVector
+  1041: Client                # InvalidGeometry
+  2001: TransactionConflict   # TransactionConflict
+  2002: TransactionAborted    # TransactionAborted
+  2003: Timeout               # TransactionTimeout (dotnet-driver.md §8: TimeoutException maps 5006/2003)
+  2004: Client                # TransactionTooLarge
+  2005: TransactionConflict   # DeadlockDetected
+  2006: CommitOutcomeUnknown  # CommitOutcomeUnknown
+  2007: TransactionConflict   # ReadTimestampTooOld
+  2008: TransactionConflict   # WriteTooOld
+  2009: Client                # PreconditionFailed
+  3001: Unavailable           # NotLeaseholder (internal)
+  3002: Unavailable           # Unavailable
+  3003: Unavailable           # RangeKeyMismatch (internal)
+  3004: Unavailable           # NodeDraining
+  3005: Unavailable           # ClockOffsetExceeded
+  3006: Timeout               # WriteConcernTimeout (committed = true)
+  3007: Unavailable           # StaleReadUnavailable
+  4001: Authentication        # Unauthenticated
+  4002: Authorization         # PermissionDenied
+  4003: RateLimited           # RateLimited
+  4004: Authentication        # TlsRequired
+  4005: Authentication        # SessionExpired (the driver re-authenticates once before surfacing it)
+  4006: Server                # KeyUnavailable
+  4007: Authentication        # AccountLocked
+  5001: Server                # Internal
+  5002: Server                # StorageCorruption
+  5003: Server                # DiskFull
+  5004: Server                # ResourceExhausted
+  5005: Server                # Cancelled (server-side cancellation, e.g. KILL QUERY)
+  5006: Timeout               # DeadlineExceeded
+  5007: Client                # VersionIncompatible
+
+# Codes unknown to the driver.
+unknown: Base
+
+# Failures without ErrorDetail, by gRPC status code name.
+transport:
+  UNAVAILABLE: {class: Unavailable, code: 3002, retryable: true}
+  DEADLINE_EXCEEDED: {class: Timeout, code: 5006, retryable: false}
+  RESOURCE_EXHAUSTED: {class: Server, code: 5004, retryable: true}
+  UNAUTHENTICATED: {class: Authentication, code: 4001, retryable: false}
+  PERMISSION_DENIED: {class: Authorization, code: 4002, retryable: false}
+  INTERNAL: {class: Server, code: 5001, retryable: false}
+  UNKNOWN: {class: Server, code: 5001, retryable: false}
+  default: {class: Server, code: 5001, retryable: false}

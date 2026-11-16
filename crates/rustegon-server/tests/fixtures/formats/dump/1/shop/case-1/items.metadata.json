@@ -1,0 +1,36 @@
+{
+  "format_version": 1,
+  "database": "shop",
+  "collection": "items",
+  "kind": "document",
+  "shard_key": {
+    "strategy": "hashed",
+    "fields": [
+      "_id"
+    ]
+  },
+  "options": {
+    "validator": "{\"$jsonSchema\":{\"required\":[\"name\"]}}",
+    "validation_level": "strict",
+    "validation_action": "error"
+  },
+  "indexes": [
+    {
+      "name": "by_name",
+      "fields": [
+        {
+          "path": "name",
+          "order": "asc"
+        }
+      ],
+      "unique": true,
+      "sparse": false,
+      "partial": null,
+      "hidden": false,
+      "scope": "global",
+      "origin": "manual",
+      "include": [],
+      "created_at_ms": 1700000000000
+    }
+  ]
+}

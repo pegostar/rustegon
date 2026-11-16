@@ -1,0 +1,130 @@
+{
+  "description": "TC-API-003 AuthService over gRPC: SCRAM-SHA-256(-PLUS) login, WhoAmI, Logout.",
+  "steps": [
+    {
+      "capture": {
+        "token": "/ok/success/sessionToken"
+      },
+      "expect": {
+        "ok": {
+          "success": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "${token}",
+            "user": "admin"
+          }
+        }
+      },
+      "name": "SCRAM-SHA-256-PLUS login of the bootstrap admin",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "binding": "plus",
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "ok": {
+          "success": {
+            "expiresAtUnixMs": "<unix-ms>",
+            "serverFinal": "<scram-server-final>",
+            "sessionToken": "<token>",
+            "user": "admin"
+          }
+        }
+      },
+      "name": "SCRAM-SHA-256 without channel binding",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "binding": "none",
+        "password": "q7Vz!m2Lp#9Rx4Tk",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 4001,
+            "name": "Unauthenticated",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "Unauthenticated",
+          "message": "authentication failed"
+        }
+      },
+      "name": "wrong password is the uniform RGN-4001",
+      "rpc": "rustegon.v1.AuthService/Authenticate",
+      "scram": {
+        "binding": "plus",
+        "password": "not the password",
+        "user": "admin"
+      }
+    },
+    {
+      "expect": {
+        "ok": {
+          "expiresAtUnixMs": "<unix-ms>",
+          "mechanism": "AUTH_MECHANISM_SCRAM_SHA_256",
+          "roles": [
+            {
+              "resource": "cluster",
+              "role": "root"
+            }
+          ],
+          "user": "admin"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "who am i",
+      "rpc": "rustegon.v1.AuthService/WhoAmI"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 4001,
+            "name": "Unauthenticated",
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "Unauthenticated",
+          "message": "authentication failed"
+        }
+      },
+      "name": "who am i without credentials",
+      "rpc": "rustegon.v1.AuthService/WhoAmI"
+    },
+    {
+      "expect": {
+        "ok": {}
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "logout",
+      "rpc": "rustegon.v1.AuthService/Logout"
+    },
+    {
+      "expect": {
+        "error": {
+          "detail": {
+            "code": 4005,
+            "name": "SessionExpired",
+            "retryable": true,
+            "traceId": "<trace-id>"
+          },
+          "grpcCode": "Unauthenticated",
+          "message": "session expired"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "the session is gone",
+      "rpc": "rustegon.v1.AuthService/WhoAmI"
+    }
+  ]
+}

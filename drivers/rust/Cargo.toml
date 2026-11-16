@@ -1,0 +1,78 @@
+# Rust client driver of Rustegon (FR-DRV-005, docs/specifications/rust-driver.md, DEC-014).
+#
+# A workspace of its own (PD-180): a client crate must not depend on server crates, must be
+# publishable on its own and must not drag the server's lints (rustegon-sim-api clock/network
+# rules) or its lock file into applications. Dependency versions follow the root Cargo.lock
+# (the lock file here started as a copy of it), so `cargo deny` with the root deny.toml covers
+# the same crates.
+[package]
+name = "rustegon-driver"
+description = "Official Rust driver of the Rustegon distributed ACID document database."
+version = "0.1.0-alpha.1"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+repository = "https://github.com/rustegon/rustegon"
+readme = "README.md"
+keywords = ["rustegon", "database", "driver", "grpc", "nosql"]
+categories = ["database"]
+# Published with the first driver release (needs the protos inside the package, PD-180).
+publish = false
+
+[workspace]
+
+[lib]
+name = "rustegon"
+
+[dependencies]
+base64 = "0.23"
+hmac = "0.13"
+pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
+prost = "0.14"
+sha2 = "0.11"
+# SASLprep (RFC 4013) of SCRAM passwords: the crate the server uses, so the driver and the
+# server prepare passwords identically (scram/vectors.yaml).
+stringprep = "0.1"
+getrandom = "0.4"
+subtle = "2.6"
+thiserror = "2.0"
+tokio = { version = "1.54", default-features = false, features = ["rt", "sync", "time", "macros"] }
+tokio-stream = { version = "0.1", default-features = false }
+# gRPC client over HTTP/2; TLS through rustls with the ring provider only (ADR-024, PD-046),
+# operating-system roots when no CA file is given (PD-065: no webpki-roots).
+tonic = { version = "0.14", default-features = false, features = ["codegen", "channel", "tls-ring", "tls-native-roots"] }
+tonic-prost = "0.14"
+twox-hash = { version = "2.1", default-features = false, features = ["std", "xxhash3_64"] }
+zeroize = "1.9"
+
+[build-dependencies]
+prost = "0.14"
+protox = "0.10"
+tonic-prost-build = { version = "0.14", default-features = false, features = ["transport"] }
+
+[dev-dependencies]
+bytes = "1"
+# Protobuf JSON of the AST vectors and the fake server's scripted replies (tests only).
+prost-reflect = { version = "0.16", default-features = false, features = ["serde"] }
+serde_json = "1.0"
+tokio = { version = "1.54", default-features = false, features = ["rt-multi-thread", "macros", "process", "io-util", "net"] }
+# The in-process fake gRPC server of retry.yaml (PD-073).
+tonic = { version = "0.14", default-features = false, features = ["codegen", "server", "router"] }
+yaml-rust2 = "0.13"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+rust_2018_idioms = { level = "deny", priority = -1 }
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "warn"
+panic = "deny"
+todo = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+await_holding_lock = "deny"
+# Driver API: errors are documented on the error type and in the spec, not per method.
+missing_errors_doc = "allow"

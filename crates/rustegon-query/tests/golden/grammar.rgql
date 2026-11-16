@@ -1,0 +1,5979 @@
+=== spec_5_read_example: query from_clause from_alias qualified_name where_clause select_clause projection_alias order_clause limit_clause in_op and_op ge_op gt_op param_named call interval_literal sub_op path_dot statement_separator
+FROM shop.orders AS o
+WHERE o.status IN ['paid', 'shipped'] AND o.total >= $min AND o.createdAt > now() - interval '7 days'
+SELECT o._id, o.total, o.customer.name AS customer
+ORDER BY o.createdAt DESC
+LIMIT 50;
+--- canonical
+FROM shop.orders AS o WHERE o.status IN ['paid', 'shipped'] AND o.total >= $min AND o.createdAt > now() - INTERVAL '7 days' SELECT o._id, o.total, o.customer.name AS customer ORDER BY o.createdAt DESC LIMIT 50;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    },
+    "alias": "o"
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "in",
+        "left": {
+          "kind": "path",
+          "path": [
+            "o",
+            "status"
+          ]
+        },
+        "right": {
+          "kind": "array",
+          "elements": [
+            {
+              "kind": "literal",
+              "value": "paid"
+            },
+            {
+              "kind": "literal",
+              "value": "shipped"
+            }
+          ]
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "ge",
+        "left": {
+          "kind": "path",
+          "path": [
+            "o",
+            "total"
+          ]
+        },
+        "right": {
+          "kind": "param",
+          "name": "min"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "path",
+          "path": [
+            "o",
+            "createdAt"
+          ]
+        },
+        "right": {
+          "kind": "binary",
+          "op": "sub",
+          "left": {
+            "kind": "call",
+            "name": "now",
+            "args": []
+          },
+          "right": {
+            "kind": "literal",
+            "type": "interval",
+            "value": "7 days"
+          }
+        }
+      }
+    ]
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "o",
+            "_id"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "o",
+            "total"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "o",
+            "customer",
+            "name"
+          ]
+        },
+        "alias": "customer"
+      }
+    ]
+  },
+  "order_by": [
+    {
+      "expr": {
+        "kind": "path",
+        "path": [
+          "o",
+          "createdAt"
+        ]
+      },
+      "descending": true
+    }
+  ],
+  "limit": {
+    "kind": "literal",
+    "value": 50
+  }
+}
+=== spec_5_contains_all: contains_all_op select_value array_literal string_literal
+FROM shop.products WHERE tags CONTAINS ALL ['red', 'xl'] SELECT VALUE name;
+--- canonical
+FROM shop.products WHERE tags CONTAINS ALL ['red', 'xl'] SELECT VALUE name;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "products"
+    }
+  },
+  "where": {
+    "kind": "binary",
+    "op": "contains_all",
+    "left": {
+      "kind": "path",
+      "path": [
+        "tags"
+      ]
+    },
+    "right": {
+      "kind": "array",
+      "elements": [
+        {
+          "kind": "literal",
+          "value": "red"
+        },
+        {
+          "kind": "literal",
+          "value": "xl"
+        }
+      ]
+    }
+  },
+  "select": {
+    "kind": "value",
+    "expr": {
+      "kind": "path",
+      "path": [
+        "name"
+      ]
+    }
+  }
+}
+=== spec_5_as_of: from_as_of eq_op int_literal comment_line
+FROM shop.orders AS OF SYSTEM TIME '-10s' WHERE _id = 42;   -- historical read
+--- canonical
+FROM shop.orders AS OF SYSTEM TIME '-10s' WHERE _id = 42;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    },
+    "as_of": {
+      "kind": "literal",
+      "value": "-10s"
+    }
+  },
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "_id"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": 42
+    }
+  }
+}
+=== spec_6_insert_value: insert insert_value object_literal decimal_literal
+INSERT INTO shop.orders VALUE {_id: 42, status: 'new', items: [], total: 0m};
+--- canonical
+INSERT INTO shop.orders VALUE {_id: 42, status: 'new', items: [], total: 0m};
+--- json
+{
+  "kind": "insert",
+  "target": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "source": {
+    "kind": "value",
+    "expr": {
+      "kind": "object",
+      "fields": [
+        {
+          "name": "_id",
+          "value": {
+            "kind": "literal",
+            "value": 42
+          }
+        },
+        {
+          "name": "status",
+          "value": {
+            "kind": "literal",
+            "value": "new"
+          }
+        },
+        {
+          "name": "items",
+          "value": {
+            "kind": "array",
+            "elements": []
+          }
+        },
+        {
+          "name": "total",
+          "value": {
+            "kind": "literal",
+            "type": "decimal",
+            "value": "0"
+          }
+        }
+      ]
+    }
+  }
+}
+=== spec_6_insert_values: insert_values on_conflict_do_nothing
+INSERT INTO shop.orders VALUES $docs ON CONFLICT DO NOTHING;
+--- canonical
+INSERT INTO shop.orders VALUES $docs ON CONFLICT DO NOTHING;
+--- json
+{
+  "kind": "insert",
+  "target": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "source": {
+    "kind": "values",
+    "rows": [
+      {
+        "kind": "param",
+        "name": "docs"
+      }
+    ]
+  },
+  "on_conflict": {
+    "kind": "do_nothing"
+  }
+}
+=== spec_6_update_set_inc: update update_set set_item update_inc returning_new
+UPDATE shop.orders SET status = 'paid', paidAt = now() INC version BY 1 WHERE _id = 42 RETURNING NEW;
+--- canonical
+UPDATE shop.orders SET status = 'paid', paidAt = now() INC version BY 1 WHERE _id = 42 RETURNING NEW;
+--- json
+{
+  "kind": "update",
+  "target": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "ops": [
+    {
+      "kind": "set",
+      "items": [
+        {
+          "path": [
+            "status"
+          ],
+          "value": {
+            "kind": "literal",
+            "value": "paid"
+          }
+        },
+        {
+          "path": [
+            "paidAt"
+          ],
+          "value": {
+            "kind": "call",
+            "name": "now",
+            "args": []
+          }
+        }
+      ]
+    },
+    {
+      "kind": "inc",
+      "path": [
+        "version"
+      ],
+      "by": {
+        "kind": "literal",
+        "value": 1
+      }
+    }
+  ],
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "_id"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": 42
+    }
+  },
+  "returning": {
+    "image": "new"
+  }
+}
+=== spec_6_update_push_slice: update_push push_mods update_without_set negative_literal
+UPDATE shop.orders PUSH items VALUE $item SLICE -100 WHERE _id = 42;
+--- canonical
+UPDATE shop.orders PUSH items VALUE $item SLICE -100 WHERE _id = 42;
+--- json
+{
+  "kind": "update",
+  "target": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "ops": [
+    {
+      "kind": "push",
+      "path": [
+        "items"
+      ],
+      "value": {
+        "kind": "param",
+        "name": "item"
+      },
+      "slice": {
+        "kind": "literal",
+        "value": -100
+      }
+    }
+  ],
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "_id"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": 42
+    }
+  }
+}
+=== spec_6_upsert: upsert
+UPSERT INTO shop.carts VALUE {_id: $user, items: []};
+--- canonical
+UPSERT INTO shop.carts VALUE {_id: $user, items: []};
+--- json
+{
+  "kind": "upsert",
+  "target": {
+    "database": "shop",
+    "name": "carts"
+  },
+  "value": {
+    "kind": "object",
+    "fields": [
+      {
+        "name": "_id",
+        "value": {
+          "kind": "param",
+          "name": "user"
+        }
+      },
+      {
+        "name": "items",
+        "value": {
+          "kind": "array",
+          "elements": []
+        }
+      }
+    ]
+  }
+}
+=== spec_6_delete: delete lt_op
+DELETE FROM shop.sessions WHERE lastSeen < now() - interval '30 days' LIMIT 10000;
+--- canonical
+DELETE FROM shop.sessions WHERE lastSeen < now() - INTERVAL '30 days' LIMIT 10000;
+--- json
+{
+  "kind": "delete",
+  "target": {
+    "database": "shop",
+    "name": "sessions"
+  },
+  "where": {
+    "kind": "binary",
+    "op": "lt",
+    "left": {
+      "kind": "path",
+      "path": [
+        "lastSeen"
+      ]
+    },
+    "right": {
+      "kind": "binary",
+      "op": "sub",
+      "left": {
+        "kind": "call",
+        "name": "now",
+        "args": []
+      },
+      "right": {
+        "kind": "literal",
+        "type": "interval",
+        "value": "30 days"
+      }
+    }
+  },
+  "limit": {
+    "kind": "literal",
+    "value": 10000
+  }
+}
+=== spec_6_optimistic: call_no_args
+UPDATE shop.orders SET status = 'x' WHERE _id = 42 AND rev() = $rev;   -- optimistic concurrency
+--- canonical
+UPDATE shop.orders SET status = 'x' WHERE _id = 42 AND rev() = $rev;
+--- json
+{
+  "kind": "update",
+  "target": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "ops": [
+    {
+      "kind": "set",
+      "items": [
+        {
+          "path": [
+            "status"
+          ],
+          "value": {
+            "kind": "literal",
+            "value": "x"
+          }
+        }
+      ]
+    }
+  ],
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "_id"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": 42
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "call",
+          "name": "rev",
+          "args": []
+        },
+        "right": {
+          "kind": "param",
+          "name": "rev"
+        }
+      }
+    ]
+  }
+}
+=== spec_6_full_scan_write: update_options options_clause bool_literal
+UPDATE shop.orders SET archived = true OPTIONS (allow_full_scan_write = true);
+--- canonical
+UPDATE shop.orders SET archived = TRUE OPTIONS (allow_full_scan_write = TRUE);
+--- json
+{
+  "kind": "update",
+  "target": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "ops": [
+    {
+      "kind": "set",
+      "items": [
+        {
+          "path": [
+            "archived"
+          ],
+          "value": {
+            "kind": "literal",
+            "value": true
+          }
+        }
+      ]
+    }
+  ],
+  "options": [
+    {
+      "name": "allow_full_scan_write",
+      "value": {
+        "kind": "literal",
+        "value": true
+      }
+    }
+  ]
+}
+=== spec_7_pipeline: pipe_stage stage_unwind stage_group stage_sort stage_limit agg_item mul_op
+FROM shop.orders WHERE status = 'paid'
+|> UNWIND items AS it
+|> GROUP BY it.sku AGG qty = sum(it.qty), revenue = sum(it.qty * it.price)
+|> SORT revenue DESC |> LIMIT 10;
+--- canonical
+FROM shop.orders WHERE status = 'paid' |> UNWIND items AS it |> GROUP BY it.sku AGG qty = sum(it.qty), revenue = sum(it.qty * it.price) |> SORT revenue DESC |> LIMIT 10;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "status"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": "paid"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "unwind",
+      "path": [
+        "items"
+      ],
+      "alias": "it"
+    },
+    {
+      "kind": "group",
+      "keys": [
+        {
+          "expr": {
+            "kind": "path",
+            "path": [
+              "it",
+              "sku"
+            ]
+          }
+        }
+      ],
+      "aggs": [
+        {
+          "name": "qty",
+          "expr": {
+            "kind": "call",
+            "name": "sum",
+            "args": [
+              {
+                "kind": "path",
+                "path": [
+                  "it",
+                  "qty"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "revenue",
+          "expr": {
+            "kind": "call",
+            "name": "sum",
+            "args": [
+              {
+                "kind": "binary",
+                "op": "mul",
+                "left": {
+                  "kind": "path",
+                  "path": [
+                    "it",
+                    "qty"
+                  ]
+                },
+                "right": {
+                  "kind": "path",
+                  "path": [
+                    "it",
+                    "price"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "sort",
+      "items": [
+        {
+          "expr": {
+            "kind": "path",
+            "path": [
+              "revenue"
+            ]
+          },
+          "descending": true
+        }
+      ]
+    },
+    {
+      "kind": "limit",
+      "count": {
+        "kind": "literal",
+        "value": 10
+      }
+    }
+  ]
+}
+=== stage_match_project: stage_match stage_project projection_exclude
+FROM shop.orders |> MATCH total > 10 |> PROJECT a, b AS c, -d
+--- canonical
+FROM shop.orders |> MATCH total > 10 |> PROJECT a, b AS c, -d;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "match",
+      "predicate": {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "path",
+          "path": [
+            "total"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": 10
+        }
+      }
+    },
+    {
+      "kind": "project",
+      "items": [
+        {
+          "kind": "expr",
+          "expr": {
+            "kind": "path",
+            "path": [
+              "a"
+            ]
+          }
+        },
+        {
+          "kind": "expr",
+          "expr": {
+            "kind": "path",
+            "path": [
+              "b"
+            ]
+          },
+          "alias": "c"
+        },
+        {
+          "kind": "exclude",
+          "path": [
+            "d"
+          ]
+        }
+      ]
+    }
+  ]
+}
+=== stage_set_unset: stage_set stage_unset
+FROM shop.orders |> SET total = price * qty, meta.updated = now() |> UNSET a, b.c
+--- canonical
+FROM shop.orders |> SET total = price * qty, meta.updated = now() |> UNSET a, b.c;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "set",
+      "items": [
+        {
+          "path": [
+            "total"
+          ],
+          "value": {
+            "kind": "binary",
+            "op": "mul",
+            "left": {
+              "kind": "path",
+              "path": [
+                "price"
+              ]
+            },
+            "right": {
+              "kind": "path",
+              "path": [
+                "qty"
+              ]
+            }
+          }
+        },
+        {
+          "path": [
+            "meta",
+            "updated"
+          ],
+          "value": {
+            "kind": "call",
+            "name": "now",
+            "args": []
+          }
+        }
+      ]
+    },
+    {
+      "kind": "unset",
+      "paths": [
+        [
+          "a"
+        ],
+        [
+          "b",
+          "c"
+        ]
+      ]
+    }
+  ]
+}
+=== stage_skip_count_sample: stage_skip stage_count stage_sample
+FROM shop.orders |> SKIP 20 |> SAMPLE 5 |> COUNT AS n
+--- canonical
+FROM shop.orders |> SKIP 20 |> SAMPLE 5 |> COUNT AS n;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "skip",
+      "count": {
+        "kind": "literal",
+        "value": 20
+      }
+    },
+    {
+      "kind": "sample",
+      "size": {
+        "kind": "literal",
+        "value": 5
+      }
+    },
+    {
+      "kind": "count",
+      "name": "n"
+    }
+  ]
+}
+=== stage_unwind_full: stage_unwind
+FROM shop.orders |> UNWIND items AS item WITH INDEX i PRESERVE EMPTY
+--- canonical
+FROM shop.orders |> UNWIND items AS item WITH INDEX i PRESERVE EMPTY;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "unwind",
+      "path": [
+        "items"
+      ],
+      "alias": "item",
+      "index": "i",
+      "preserve_empty": true
+    }
+  ]
+}
+=== stage_lookup_pipeline: stage_lookup lookup_pipeline
+FROM shop.orders |> LOOKUP shop.customers ON customerId = _id INTO customer PIPELINE (MATCH active = true |> PROJECT name)
+--- canonical
+FROM shop.orders |> LOOKUP shop.customers ON customerId = _id INTO customer PIPELINE (MATCH active = TRUE |> PROJECT name);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "lookup",
+      "lookup": {
+        "collection": {
+          "database": "shop",
+          "name": "customers"
+        },
+        "local": {
+          "kind": "path",
+          "path": [
+            "customerId"
+          ]
+        },
+        "foreign": [
+          "_id"
+        ],
+        "into": "customer"
+      },
+      "pipeline": [
+        {
+          "kind": "match",
+          "predicate": {
+            "kind": "binary",
+            "op": "eq",
+            "left": {
+              "kind": "path",
+              "path": [
+                "active"
+              ]
+            },
+            "right": {
+              "kind": "literal",
+              "value": true
+            }
+          }
+        },
+        {
+          "kind": "project",
+          "items": [
+            {
+              "kind": "expr",
+              "expr": {
+                "kind": "path",
+                "path": [
+                  "name"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+=== stage_facet: stage_facet
+FROM shop.products |> FACET by_color (GROUP BY color AGG n = count(*)), top (SORT price DESC |> LIMIT 3)
+--- canonical
+FROM shop.products |> FACET by_color (GROUP BY color AGG n = count(*)), top (SORT price DESC |> LIMIT 3);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "products"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "facet",
+      "facets": [
+        {
+          "name": "by_color",
+          "pipeline": [
+            {
+              "kind": "group",
+              "keys": [
+                {
+                  "expr": {
+                    "kind": "path",
+                    "path": [
+                      "color"
+                    ]
+                  }
+                }
+              ],
+              "aggs": [
+                {
+                  "name": "n",
+                  "expr": {
+                    "kind": "call",
+                    "name": "count",
+                    "args": [
+                      {
+                        "kind": "star"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "top",
+          "pipeline": [
+            {
+              "kind": "sort",
+              "items": [
+                {
+                  "expr": {
+                    "kind": "path",
+                    "path": [
+                      "price"
+                    ]
+                  },
+                  "descending": true
+                }
+              ]
+            },
+            {
+              "kind": "limit",
+              "count": {
+                "kind": "literal",
+                "value": 3
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+=== stage_bucket: stage_bucket
+FROM shop.products |> BUCKET BY price BOUNDARIES [0, 10, 100] DEFAULT 'other' AGG n = count(*), avg_price = avg(price)
+--- canonical
+FROM shop.products |> BUCKET BY price BOUNDARIES [0, 10, 100] DEFAULT 'other' AGG n = count(*), avg_price = avg(price);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "products"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "bucket",
+      "by": {
+        "kind": "path",
+        "path": [
+          "price"
+        ]
+      },
+      "boundaries": {
+        "kind": "array",
+        "elements": [
+          {
+            "kind": "literal",
+            "value": 0
+          },
+          {
+            "kind": "literal",
+            "value": 10
+          },
+          {
+            "kind": "literal",
+            "value": 100
+          }
+        ]
+      },
+      "default": {
+        "kind": "literal",
+        "value": "other"
+      },
+      "aggs": [
+        {
+          "name": "n",
+          "expr": {
+            "kind": "call",
+            "name": "count",
+            "args": [
+              {
+                "kind": "star"
+              }
+            ]
+          }
+        },
+        {
+          "name": "avg_price",
+          "expr": {
+            "kind": "call",
+            "name": "avg",
+            "args": [
+              {
+                "kind": "path",
+                "path": [
+                  "price"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+=== stage_bucket_auto: stage_bucket_auto
+FROM shop.products |> BUCKET AUTO BY price INTO 4 AGG n = count(*)
+--- canonical
+FROM shop.products |> BUCKET AUTO BY price INTO 4 AGG n = count(*);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "products"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "bucket_auto",
+      "by": {
+        "kind": "path",
+        "path": [
+          "price"
+        ]
+      },
+      "buckets": {
+        "kind": "literal",
+        "value": 4
+      },
+      "aggs": [
+        {
+          "name": "n",
+          "expr": {
+            "kind": "call",
+            "name": "count",
+            "args": [
+              {
+                "kind": "star"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+=== stage_replace_root: stage_replace_root
+FROM shop.orders |> REPLACE ROOT WITH customer
+--- canonical
+FROM shop.orders |> REPLACE ROOT WITH customer;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "replace_root",
+      "expr": {
+        "kind": "path",
+        "path": [
+          "customer"
+        ]
+      }
+    }
+  ]
+}
+=== stage_sort_by_count: stage_sort_by_count
+FROM shop.products |> SORT BY COUNT category
+--- canonical
+FROM shop.products |> SORT BY COUNT category;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "products"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "sort_by_count",
+      "expr": {
+        "kind": "path",
+        "path": [
+          "category"
+        ]
+      }
+    }
+  ]
+}
+=== stage_graph_lookup: stage_graph_lookup
+FROM hr.employees |> GRAPH LOOKUP hr.employees START WITH reportsTo CONNECT FROM reportsTo TO name MAX DEPTH 5 WHERE active = true INTO chain
+--- canonical
+FROM hr.employees |> GRAPH LOOKUP hr.employees START WITH reportsTo CONNECT FROM reportsTo TO name MAX DEPTH 5 WHERE active = TRUE INTO chain;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "hr",
+      "name": "employees"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "graph_lookup",
+      "collection": {
+        "database": "hr",
+        "name": "employees"
+      },
+      "start_with": {
+        "kind": "path",
+        "path": [
+          "reportsTo"
+        ]
+      },
+      "connect_from": [
+        "reportsTo"
+      ],
+      "connect_to": [
+        "name"
+      ],
+      "max_depth": {
+        "kind": "literal",
+        "value": 5
+      },
+      "where": {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "active"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": true
+        }
+      },
+      "into": "chain"
+    }
+  ]
+}
+=== stage_union_with: stage_union_with
+FROM shop.orders |> UNION WITH (FROM shop.archived_orders WHERE year = 2025)
+--- canonical
+FROM shop.orders |> UNION WITH (FROM shop.archived_orders WHERE year = 2025);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "union_with",
+      "query": {
+        "from": {
+          "source": {
+            "kind": "collection",
+            "database": "shop",
+            "name": "archived_orders"
+          }
+        },
+        "where": {
+          "kind": "binary",
+          "op": "eq",
+          "left": {
+            "kind": "path",
+            "path": [
+              "year"
+            ]
+          },
+          "right": {
+            "kind": "literal",
+            "value": 2025
+          }
+        }
+      }
+    }
+  ]
+}
+=== stage_window: stage_window
+FROM iot.telemetry |> WINDOW PARTITION BY device ORDER BY ts COMPUTE avg5 = moving_avg(temp, 5), rn = row_number()
+--- canonical
+FROM iot.telemetry |> WINDOW PARTITION BY device ORDER BY ts COMPUTE avg5 = moving_avg(temp, 5), rn = row_number();
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "iot",
+      "name": "telemetry"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "window",
+      "partition_by": [
+        {
+          "kind": "path",
+          "path": [
+            "device"
+          ]
+        }
+      ],
+      "order_by": [
+        {
+          "expr": {
+            "kind": "path",
+            "path": [
+              "ts"
+            ]
+          }
+        }
+      ],
+      "compute": [
+        {
+          "name": "avg5",
+          "expr": {
+            "kind": "call",
+            "name": "moving_avg",
+            "args": [
+              {
+                "kind": "path",
+                "path": [
+                  "temp"
+                ]
+              },
+              {
+                "kind": "literal",
+                "value": 5
+              }
+            ]
+          }
+        },
+        {
+          "name": "rn",
+          "expr": {
+            "kind": "call",
+            "name": "row_number",
+            "args": []
+          }
+        }
+      ]
+    }
+  ]
+}
+=== stage_out: stage_out
+FROM shop.orders |> GROUP BY customerId AGG n = count(*) |> OUT INTO shop.order_counts
+--- canonical
+FROM shop.orders |> GROUP BY customerId AGG n = count(*) |> OUT INTO shop.order_counts;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "group",
+      "keys": [
+        {
+          "expr": {
+            "kind": "path",
+            "path": [
+              "customerId"
+            ]
+          }
+        }
+      ],
+      "aggs": [
+        {
+          "name": "n",
+          "expr": {
+            "kind": "call",
+            "name": "count",
+            "args": [
+              {
+                "kind": "star"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "kind": "out",
+      "collection": {
+        "database": "shop",
+        "name": "order_counts"
+      }
+    }
+  ]
+}
+=== stage_merge: stage_merge
+FROM shop.orders |> MERGE INTO shop.totals ON customerId, day WHEN MATCHED REPLACE WHEN NOT MATCHED INSERT
+--- canonical
+FROM shop.orders |> MERGE INTO shop.totals ON customerId, day WHEN MATCHED REPLACE WHEN NOT MATCHED INSERT;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "merge",
+      "collection": {
+        "database": "shop",
+        "name": "totals"
+      },
+      "on": [
+        [
+          "customerId"
+        ],
+        [
+          "day"
+        ]
+      ],
+      "when_matched": "replace",
+      "when_not_matched": "insert"
+    }
+  ]
+}
+=== stage_merge_partial: stage_merge
+FROM shop.orders |> MERGE INTO totals ON _id WHEN NOT MATCHED DISCARD
+--- canonical
+FROM shop.orders |> MERGE INTO totals ON _id WHEN NOT MATCHED DISCARD;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "pipeline": [
+    {
+      "kind": "merge",
+      "collection": {
+        "name": "totals"
+      },
+      "on": [
+        [
+          "_id"
+        ]
+      ],
+      "when_not_matched": "discard"
+    }
+  ]
+}
+=== spec_8_lookup: lookup_clause lookup_alias access_path
+FROM shop.orders AS o
+LOOKUP shop.customers AS c ON o.customerId = c._id INTO customer
+SELECT o._id, first(customer).name AS name;
+--- canonical
+FROM shop.orders AS o LOOKUP shop.customers AS c ON o.customerId = c._id INTO customer SELECT o._id, first(customer).name AS name;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    },
+    "alias": "o"
+  },
+  "lookups": [
+    {
+      "collection": {
+        "database": "shop",
+        "name": "customers"
+      },
+      "alias": "c",
+      "local": {
+        "kind": "path",
+        "path": [
+          "o",
+          "customerId"
+        ]
+      },
+      "foreign": [
+        "c",
+        "_id"
+      ],
+      "into": "customer"
+    }
+  ],
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "o",
+            "_id"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "access",
+          "base": {
+            "kind": "call",
+            "name": "first",
+            "args": [
+              {
+                "kind": "path",
+                "path": [
+                  "customer"
+                ]
+              }
+            ]
+          },
+          "path": [
+            "name"
+          ]
+        },
+        "alias": "name"
+      }
+    ]
+  }
+}
+=== spec_8_include: include_clause path_each
+FROM shop.orders WHERE status = 'new' INCLUDE customerId, items[].productId;
+--- canonical
+FROM shop.orders WHERE status = 'new' INCLUDE customerId, items[].productId;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "status"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": "new"
+    }
+  },
+  "include": [
+    [
+      "customerId"
+    ],
+    [
+      "items",
+      {
+        "each": true
+      },
+      "productId"
+    ]
+  ]
+}
+=== spec_8_load: access_path
+FROM shop.orders SELECT _id, load(customerId, 'shop.customers').email AS email;
+--- canonical
+FROM shop.orders SELECT _id, load(customerId, 'shop.customers').email AS email;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "_id"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "access",
+          "base": {
+            "kind": "call",
+            "name": "load",
+            "args": [
+              {
+                "kind": "path",
+                "path": [
+                  "customerId"
+                ]
+              },
+              {
+                "kind": "literal",
+                "value": "shop.customers"
+              }
+            ]
+          },
+          "path": [
+            "email"
+          ]
+        },
+        "alias": "email"
+      }
+    ]
+  }
+}
+=== spec_9_fulltext: named_argument_as_eq
+FROM kb.articles WHERE search(body, '"vector database" AND (rust OR tokio) -java title:^2')
+SELECT title, score() AS s, highlight(body) AS snippet ORDER BY s DESC LIMIT 10;
+--- canonical
+FROM kb.articles WHERE search(body, '"vector database" AND (rust OR tokio) -java title:^2') SELECT title, score() AS s, highlight(body) AS snippet ORDER BY s DESC LIMIT 10;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "kb",
+      "name": "articles"
+    }
+  },
+  "where": {
+    "kind": "call",
+    "name": "search",
+    "args": [
+      {
+        "kind": "path",
+        "path": [
+          "body"
+        ]
+      },
+      {
+        "kind": "literal",
+        "value": "\"vector database\" AND (rust OR tokio) -java title:^2"
+      }
+    ]
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "title"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "score",
+          "args": []
+        },
+        "alias": "s"
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "highlight",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "body"
+              ]
+            }
+          ]
+        },
+        "alias": "snippet"
+      }
+    ]
+  },
+  "order_by": [
+    {
+      "expr": {
+        "kind": "path",
+        "path": [
+          "s"
+        ]
+      },
+      "descending": true
+    }
+  ],
+  "limit": {
+    "kind": "literal",
+    "value": 10
+  }
+}
+=== spec_9_vector: named_argument_as_eq
+FROM kb.chunks WHERE vector_near(embedding, $qvec, 10, ef = 128) AND lang = 'it'
+SELECT text, vector_distance(embedding, $qvec) AS d;
+--- canonical
+FROM kb.chunks WHERE vector_near(embedding, $qvec, 10, ef = 128) AND lang = 'it' SELECT text, vector_distance(embedding, $qvec) AS d;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "kb",
+      "name": "chunks"
+    }
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "call",
+        "name": "vector_near",
+        "args": [
+          {
+            "kind": "path",
+            "path": [
+              "embedding"
+            ]
+          },
+          {
+            "kind": "param",
+            "name": "qvec"
+          },
+          {
+            "kind": "literal",
+            "value": 10
+          },
+          {
+            "kind": "binary",
+            "op": "eq",
+            "left": {
+              "kind": "path",
+              "path": [
+                "ef"
+              ]
+            },
+            "right": {
+              "kind": "literal",
+              "value": 128
+            }
+          }
+        ]
+      },
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "lang"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "it"
+        }
+      }
+    ]
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "text"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "vector_distance",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "embedding"
+              ]
+            },
+            {
+              "kind": "param",
+              "name": "qvec"
+            }
+          ]
+        },
+        "alias": "d"
+      }
+    ]
+  }
+}
+=== spec_9_exact_vector: named_argument_as_eq
+FROM kb.chunks WHERE vector_near(embedding, $qvec, 10, exact = true);
+--- canonical
+FROM kb.chunks WHERE vector_near(embedding, $qvec, 10, exact = TRUE);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "kb",
+      "name": "chunks"
+    }
+  },
+  "where": {
+    "kind": "call",
+    "name": "vector_near",
+    "args": [
+      {
+        "kind": "path",
+        "path": [
+          "embedding"
+        ]
+      },
+      {
+        "kind": "param",
+        "name": "qvec"
+      },
+      {
+        "kind": "literal",
+        "value": 10
+      },
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "exact"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": true
+        }
+      }
+    ]
+  }
+}
+=== spec_9_hybrid: or_op
+FROM kb.chunks WHERE search(text, $q) OR vector_near(embedding, $qvec, 50)
+SELECT text, rrf(score(), vector_rank()) AS r ORDER BY r DESC LIMIT 10;
+--- canonical
+FROM kb.chunks WHERE search(text, $q) OR vector_near(embedding, $qvec, 50) SELECT text, rrf(score(), vector_rank()) AS r ORDER BY r DESC LIMIT 10;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "kb",
+      "name": "chunks"
+    }
+  },
+  "where": {
+    "kind": "or",
+    "args": [
+      {
+        "kind": "call",
+        "name": "search",
+        "args": [
+          {
+            "kind": "path",
+            "path": [
+              "text"
+            ]
+          },
+          {
+            "kind": "param",
+            "name": "q"
+          }
+        ]
+      },
+      {
+        "kind": "call",
+        "name": "vector_near",
+        "args": [
+          {
+            "kind": "path",
+            "path": [
+              "embedding"
+            ]
+          },
+          {
+            "kind": "param",
+            "name": "qvec"
+          },
+          {
+            "kind": "literal",
+            "value": 50
+          }
+        ]
+      }
+    ]
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "text"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "rrf",
+          "args": [
+            {
+              "kind": "call",
+              "name": "score",
+              "args": []
+            },
+            {
+              "kind": "call",
+              "name": "vector_rank",
+              "args": []
+            }
+          ]
+        },
+        "alias": "r"
+      }
+    ]
+  },
+  "order_by": [
+    {
+      "expr": {
+        "kind": "path",
+        "path": [
+          "r"
+        ]
+      },
+      "descending": true
+    }
+  ],
+  "limit": {
+    "kind": "literal",
+    "value": 10
+  }
+}
+=== spec_9_geo: float_literal
+FROM geo.places WHERE geo_near(location, {type:'Point', coordinates:[12.4964, 41.9028]}, 5000)
+SELECT name, geo_distance(location, {type:'Point', coordinates:[12.4964, 41.9028]}) AS meters;
+--- canonical
+FROM geo.places WHERE geo_near(location, {type: 'Point', coordinates: [12.4964, 41.9028]}, 5000) SELECT name, geo_distance(location, {type: 'Point', coordinates: [12.4964, 41.9028]}) AS meters;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "geo",
+      "name": "places"
+    }
+  },
+  "where": {
+    "kind": "call",
+    "name": "geo_near",
+    "args": [
+      {
+        "kind": "path",
+        "path": [
+          "location"
+        ]
+      },
+      {
+        "kind": "object",
+        "fields": [
+          {
+            "name": "type",
+            "value": {
+              "kind": "literal",
+              "value": "Point"
+            }
+          },
+          {
+            "name": "coordinates",
+            "value": {
+              "kind": "array",
+              "elements": [
+                {
+                  "kind": "literal",
+                  "value": 12.4964
+                },
+                {
+                  "kind": "literal",
+                  "value": 41.9028
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "kind": "literal",
+        "value": 5000
+      }
+    ]
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "name"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "geo_distance",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "location"
+              ]
+            },
+            {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "type",
+                  "value": {
+                    "kind": "literal",
+                    "value": "Point"
+                  }
+                },
+                {
+                  "name": "coordinates",
+                  "value": {
+                    "kind": "array",
+                    "elements": [
+                      {
+                        "kind": "literal",
+                        "value": 12.4964
+                      },
+                      {
+                        "kind": "literal",
+                        "value": 41.9028
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "alias": "meters"
+      }
+    ]
+  }
+}
+=== spec_9_geo_within: param_named
+FROM geo.places WHERE geo_within(location, $polygon);
+--- canonical
+FROM geo.places WHERE geo_within(location, $polygon);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "geo",
+      "name": "places"
+    }
+  },
+  "where": {
+    "kind": "call",
+    "name": "geo_within",
+    "args": [
+      {
+        "kind": "path",
+        "path": [
+          "location"
+        ]
+      },
+      {
+        "kind": "param",
+        "name": "polygon"
+      }
+    ]
+  }
+}
+=== spec_10_insert_tuples: insert_tuples using_ttl datetime_literal
+INSERT INTO metrics.sensor_readings (sensor_id, day, ts, temp, hum)
+  VALUES ('s1', DATE '2026-11-02', now(), 21.4, 40) USING TTL 86400;
+--- canonical
+INSERT INTO metrics.sensor_readings (sensor_id, day, ts, temp, hum) VALUES ('s1', DATE '2026-11-02T00:00:00.000Z', now(), 21.4, 40) USING TTL 86400;
+--- json
+{
+  "kind": "insert",
+  "target": {
+    "database": "metrics",
+    "name": "sensor_readings"
+  },
+  "source": {
+    "kind": "tuples",
+    "columns": [
+      "sensor_id",
+      "day",
+      "ts",
+      "temp",
+      "hum"
+    ],
+    "rows": [
+      [
+        {
+          "kind": "literal",
+          "value": "s1"
+        },
+        {
+          "kind": "literal",
+          "type": "datetime",
+          "value": "2026-11-02T00:00:00.000Z"
+        },
+        {
+          "kind": "call",
+          "name": "now",
+          "args": []
+        },
+        {
+          "kind": "literal",
+          "value": 21.4
+        },
+        {
+          "kind": "literal",
+          "value": 40
+        }
+      ]
+    ]
+  },
+  "ttl": {
+    "kind": "literal",
+    "value": 86400
+  }
+}
+=== spec_10_read: options_clause
+FROM metrics.sensor_readings WHERE sensor_id = 's1' AND day = DATE '2026-11-02' AND ts > $from
+  SELECT ts, temp, writetime(temp) ORDER BY ts DESC LIMIT 100 OPTIONS (consistency = 'LOCAL_QUORUM');
+--- canonical
+FROM metrics.sensor_readings WHERE sensor_id = 's1' AND day = DATE '2026-11-02T00:00:00.000Z' AND ts > $from SELECT ts, temp, writetime(temp) ORDER BY ts DESC LIMIT 100 OPTIONS (consistency = 'LOCAL_QUORUM');
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "metrics",
+      "name": "sensor_readings"
+    }
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "sensor_id"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "s1"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "day"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "type": "datetime",
+          "value": "2026-11-02T00:00:00.000Z"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "gt",
+        "left": {
+          "kind": "path",
+          "path": [
+            "ts"
+          ]
+        },
+        "right": {
+          "kind": "param",
+          "name": "from"
+        }
+      }
+    ]
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "ts"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "temp"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "writetime",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "temp"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "order_by": [
+    {
+      "expr": {
+        "kind": "path",
+        "path": [
+          "ts"
+        ]
+      },
+      "descending": true
+    }
+  ],
+  "limit": {
+    "kind": "literal",
+    "value": 100
+  },
+  "options": [
+    {
+      "name": "consistency",
+      "value": {
+        "kind": "literal",
+        "value": "LOCAL_QUORUM"
+      }
+    }
+  ]
+}
+=== spec_10_counter: add_op
+UPDATE metrics.page_counters SET views = views + 1 WHERE page = '/home';      -- counter column
+--- canonical
+UPDATE metrics.page_counters SET views = views + 1 WHERE page = '/home';
+--- json
+{
+  "kind": "update",
+  "target": {
+    "database": "metrics",
+    "name": "page_counters"
+  },
+  "ops": [
+    {
+      "kind": "set",
+      "items": [
+        {
+          "path": [
+            "views"
+          ],
+          "value": {
+            "kind": "binary",
+            "op": "add",
+            "left": {
+              "kind": "path",
+              "path": [
+                "views"
+              ]
+            },
+            "right": {
+              "kind": "literal",
+              "value": 1
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "page"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": "/home"
+    }
+  }
+}
+=== spec_10_delete_cell: delete_columns
+DELETE hum FROM metrics.sensor_readings WHERE sensor_id='s1' AND day=DATE '2026-11-02' AND ts = $t;
+--- canonical
+DELETE hum FROM metrics.sensor_readings WHERE sensor_id = 's1' AND day = DATE '2026-11-02T00:00:00.000Z' AND ts = $t;
+--- json
+{
+  "kind": "delete",
+  "columns": [
+    [
+      "hum"
+    ]
+  ],
+  "target": {
+    "database": "metrics",
+    "name": "sensor_readings"
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "sensor_id"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "s1"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "day"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "type": "datetime",
+          "value": "2026-11-02T00:00:00.000Z"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "ts"
+          ]
+        },
+        "right": {
+          "kind": "param",
+          "name": "t"
+        }
+      }
+    ]
+  }
+}
+=== spec_10_allow_scan: options_clause
+FROM metrics.sensor_readings WHERE temp > 30 OPTIONS (allow_scan = true);      -- else RGN-1013
+--- canonical
+FROM metrics.sensor_readings WHERE temp > 30 OPTIONS (allow_scan = TRUE);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "metrics",
+      "name": "sensor_readings"
+    }
+  },
+  "where": {
+    "kind": "binary",
+    "op": "gt",
+    "left": {
+      "kind": "path",
+      "path": [
+        "temp"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": 30
+    }
+  },
+  "options": [
+    {
+      "name": "allow_scan",
+      "value": {
+        "kind": "literal",
+        "value": true
+      }
+    }
+  ]
+}
+=== spec_11_create_database: create_database with_options
+CREATE DATABASE shop WITH (replicas = 3, survival = 'zone', auto_index = 'auto');
+--- canonical
+CREATE DATABASE shop WITH (replicas = 3, survival = 'zone', auto_index = 'auto');
+--- json
+{
+  "kind": "create_database",
+  "name": "shop",
+  "options": [
+    {
+      "name": "replicas",
+      "value": {
+        "kind": "literal",
+        "value": 3
+      }
+    },
+    {
+      "name": "survival",
+      "value": {
+        "kind": "literal",
+        "value": "zone"
+      }
+    },
+    {
+      "name": "auto_index",
+      "value": {
+        "kind": "literal",
+        "value": "auto"
+      }
+    }
+  ]
+}
+=== spec_11_create_collection: create_collection
+CREATE COLLECTION shop.orders WITH (shard_key = hashed(_id), compression = 'zstd(3)',
+       validator = $schema, revisions = {enabled: true, max: 50}, change_stream_pre_post_images = true,
+       ttl = '30 days');
+--- canonical
+CREATE COLLECTION shop.orders WITH (shard_key = hashed(_id), compression = 'zstd(3)', validator = $schema, revisions = {enabled: TRUE, max: 50}, change_stream_pre_post_images = TRUE, ttl = '30 days');
+--- json
+{
+  "kind": "create_collection",
+  "name": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "options": [
+    {
+      "name": "shard_key",
+      "value": {
+        "kind": "call",
+        "name": "hashed",
+        "args": [
+          {
+            "kind": "path",
+            "path": [
+              "_id"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "compression",
+      "value": {
+        "kind": "literal",
+        "value": "zstd(3)"
+      }
+    },
+    {
+      "name": "validator",
+      "value": {
+        "kind": "param",
+        "name": "schema"
+      }
+    },
+    {
+      "name": "revisions",
+      "value": {
+        "kind": "object",
+        "fields": [
+          {
+            "name": "enabled",
+            "value": {
+              "kind": "literal",
+              "value": true
+            }
+          },
+          {
+            "name": "max",
+            "value": {
+              "kind": "literal",
+              "value": 50
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "change_stream_pre_post_images",
+      "value": {
+        "kind": "literal",
+        "value": true
+      }
+    },
+    {
+      "name": "ttl",
+      "value": {
+        "kind": "literal",
+        "value": "30 days"
+      }
+    }
+  ]
+}
+=== data_model_6_create_table: create_table comment_line
+CREATE TABLE metrics.sensor_readings (
+  PARTITION KEY (sensor_id string, day datetime),
+  CLUSTERING KEY (ts datetime DESC),
+  STATIC (location object),
+  DISTRIBUTION hashed,            -- default; or range
+  DEFAULT TTL 2592000
+);
+--- canonical
+CREATE TABLE metrics.sensor_readings (PARTITION KEY (sensor_id string, day datetime), CLUSTERING KEY (ts datetime DESC), STATIC (location object), DISTRIBUTION hashed, DEFAULT TTL 2592000);
+--- json
+{
+  "kind": "create_table",
+  "name": {
+    "database": "metrics",
+    "name": "sensor_readings"
+  },
+  "partition_key": [
+    {
+      "name": "sensor_id",
+      "type": "string"
+    },
+    {
+      "name": "day",
+      "type": "datetime"
+    }
+  ],
+  "clustering_key": [
+    {
+      "name": "ts",
+      "type": "datetime",
+      "descending": true
+    }
+  ],
+  "static_columns": [
+    {
+      "name": "location",
+      "type": "object"
+    }
+  ],
+  "distribution": "hashed",
+  "default_ttl": {
+    "kind": "literal",
+    "value": 2592000
+  }
+}
+=== create_table_counters: create_table
+CREATE TABLE metrics.page_counters (PARTITION KEY (page string), COLUMNS (views counter), CLUSTERING KEY (day datetime ASC))
+--- canonical
+CREATE TABLE metrics.page_counters (PARTITION KEY (page string), CLUSTERING KEY (day datetime), COLUMNS (views counter));
+--- json
+{
+  "kind": "create_table",
+  "name": {
+    "database": "metrics",
+    "name": "page_counters"
+  },
+  "partition_key": [
+    {
+      "name": "page",
+      "type": "string"
+    }
+  ],
+  "clustering_key": [
+    {
+      "name": "day",
+      "type": "datetime"
+    }
+  ],
+  "columns": [
+    {
+      "name": "views",
+      "type": "counter"
+    }
+  ]
+}
+=== data_model_7_create_timeseries: create_timeseries
+CREATE TIMESERIES iot.telemetry (TIME FIELD ts, META FIELD device, GRANULARITY minutes,
+                                 BUCKET MAX POINTS 1000, RETENTION 90 DAYS);
+--- canonical
+CREATE TIMESERIES iot.telemetry (TIME FIELD ts, META FIELD device, GRANULARITY minutes, BUCKET MAX POINTS 1000, RETENTION 90 DAYS);
+--- json
+{
+  "kind": "create_timeseries",
+  "name": {
+    "database": "iot",
+    "name": "telemetry"
+  },
+  "time_field": [
+    "ts"
+  ],
+  "meta_field": [
+    "device"
+  ],
+  "granularity": "minutes",
+  "bucket_max_points": {
+    "kind": "literal",
+    "value": 1000
+  },
+  "retention": {
+    "amount": {
+      "kind": "literal",
+      "value": 90
+    },
+    "unit": "DAYS"
+  }
+}
+=== create_timeseries_span: create_timeseries
+CREATE TIMESERIES iot.raw (RETENTION 7 days, BUCKET SPAN 6 hours, TIME FIELD at)
+--- canonical
+CREATE TIMESERIES iot.raw (TIME FIELD at, BUCKET SPAN 6 hours, RETENTION 7 days);
+--- json
+{
+  "kind": "create_timeseries",
+  "name": {
+    "database": "iot",
+    "name": "raw"
+  },
+  "time_field": [
+    "at"
+  ],
+  "bucket_span": {
+    "amount": {
+      "kind": "literal",
+      "value": 6
+    },
+    "unit": "hours"
+  },
+  "retention": {
+    "amount": {
+      "kind": "literal",
+      "value": 7
+    },
+    "unit": "days"
+  }
+}
+=== spec_11_create_index: create_index index_key_direction with_options
+CREATE INDEX idx_status_created ON shop.orders (status ASC, createdAt DESC) WITH (partial = 'total > 0');
+--- canonical
+CREATE INDEX idx_status_created ON shop.orders (status, createdAt DESC) WITH (partial = 'total > 0');
+--- json
+{
+  "kind": "create_index",
+  "index_type": "standard",
+  "name": "idx_status_created",
+  "on": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "keys": [
+    {
+      "path": [
+        "status"
+      ]
+    },
+    {
+      "path": [
+        "createdAt"
+      ],
+      "descending": true
+    }
+  ],
+  "options": [
+    {
+      "name": "partial",
+      "value": {
+        "kind": "literal",
+        "value": "total > 0"
+      }
+    }
+  ]
+}
+=== spec_11_unique_index: create_unique_index
+CREATE UNIQUE INDEX ux_email ON shop.customers (email);
+--- canonical
+CREATE UNIQUE INDEX ux_email ON shop.customers (email);
+--- json
+{
+  "kind": "create_index",
+  "index_type": "unique",
+  "name": "ux_email",
+  "on": {
+    "database": "shop",
+    "name": "customers"
+  },
+  "keys": [
+    {
+      "path": [
+        "email"
+      ]
+    }
+  ]
+}
+=== spec_11_multikey_index: create_index
+CREATE INDEX ix_tags ON shop.products (tags);                         -- multikey automatically
+--- canonical
+CREATE INDEX ix_tags ON shop.products (tags);
+--- json
+{
+  "kind": "create_index",
+  "index_type": "standard",
+  "name": "ix_tags",
+  "on": {
+    "database": "shop",
+    "name": "products"
+  },
+  "keys": [
+    {
+      "path": [
+        "tags"
+      ]
+    }
+  ]
+}
+=== spec_11_wildcard_index: create_index quoted_identifier
+CREATE INDEX ix_any ON shop.events (`payload.**`);                     -- wildcard
+--- canonical
+CREATE INDEX ix_any ON shop.events (`payload.**`);
+--- json
+{
+  "kind": "create_index",
+  "index_type": "standard",
+  "name": "ix_any",
+  "on": {
+    "database": "shop",
+    "name": "events"
+  },
+  "keys": [
+    {
+      "path": [
+        "payload.**"
+      ]
+    }
+  ]
+}
+=== spec_11_ttl_index: create_ttl_index expire_after
+CREATE TTL INDEX ix_exp ON shop.sessions (lastSeen) EXPIRE AFTER '30 days';
+--- canonical
+CREATE TTL INDEX ix_exp ON shop.sessions (lastSeen) EXPIRE AFTER '30 days';
+--- json
+{
+  "kind": "create_index",
+  "index_type": "ttl",
+  "name": "ix_exp",
+  "on": {
+    "database": "shop",
+    "name": "sessions"
+  },
+  "keys": [
+    {
+      "path": [
+        "lastSeen"
+      ]
+    }
+  ],
+  "expire_after": {
+    "kind": "literal",
+    "value": "30 days"
+  }
+}
+=== spec_11_fulltext_index: create_fulltext_index index_key_analyzer_boost
+CREATE FULLTEXT INDEX ft_body ON kb.articles (title ANALYZER 'en' BOOST 2, body ANALYZER 'en');
+--- canonical
+CREATE FULLTEXT INDEX ft_body ON kb.articles (title ANALYZER 'en' BOOST 2, body ANALYZER 'en');
+--- json
+{
+  "kind": "create_index",
+  "index_type": "fulltext",
+  "name": "ft_body",
+  "on": {
+    "database": "kb",
+    "name": "articles"
+  },
+  "keys": [
+    {
+      "path": [
+        "title"
+      ],
+      "analyzer": {
+        "kind": "literal",
+        "value": "en"
+      },
+      "boost": {
+        "kind": "literal",
+        "value": 2
+      }
+    },
+    {
+      "path": [
+        "body"
+      ],
+      "analyzer": {
+        "kind": "literal",
+        "value": "en"
+      }
+    }
+  ]
+}
+=== spec_11_vector_index: create_vector_index
+CREATE VECTOR INDEX vx_emb ON kb.chunks (embedding) WITH (dimensions = 768, metric = 'cosine', m = 16,
+       ef_construction = 200, quantization = 'int8');
+--- canonical
+CREATE VECTOR INDEX vx_emb ON kb.chunks (embedding) WITH (dimensions = 768, metric = 'cosine', m = 16, ef_construction = 200, quantization = 'int8');
+--- json
+{
+  "kind": "create_index",
+  "index_type": "vector",
+  "name": "vx_emb",
+  "on": {
+    "database": "kb",
+    "name": "chunks"
+  },
+  "keys": [
+    {
+      "path": [
+        "embedding"
+      ]
+    }
+  ],
+  "options": [
+    {
+      "name": "dimensions",
+      "value": {
+        "kind": "literal",
+        "value": 768
+      }
+    },
+    {
+      "name": "metric",
+      "value": {
+        "kind": "literal",
+        "value": "cosine"
+      }
+    },
+    {
+      "name": "m",
+      "value": {
+        "kind": "literal",
+        "value": 16
+      }
+    },
+    {
+      "name": "ef_construction",
+      "value": {
+        "kind": "literal",
+        "value": 200
+      }
+    },
+    {
+      "name": "quantization",
+      "value": {
+        "kind": "literal",
+        "value": "int8"
+      }
+    }
+  ]
+}
+=== spec_11_geo_index: create_geo_index
+CREATE GEO INDEX gx_loc ON geo.places (location);
+--- canonical
+CREATE GEO INDEX gx_loc ON geo.places (location);
+--- json
+{
+  "kind": "create_index",
+  "index_type": "geo",
+  "name": "gx_loc",
+  "on": {
+    "database": "geo",
+    "name": "places"
+  },
+  "keys": [
+    {
+      "path": [
+        "location"
+      ]
+    }
+  ]
+}
+=== data_model_6_local_index: create_local_index
+CREATE LOCAL INDEX lx_temp ON metrics.sensor_readings (temp);
+--- canonical
+CREATE LOCAL INDEX lx_temp ON metrics.sensor_readings (temp);
+--- json
+{
+  "kind": "create_index",
+  "index_type": "local",
+  "name": "lx_temp",
+  "on": {
+    "database": "metrics",
+    "name": "sensor_readings"
+  },
+  "keys": [
+    {
+      "path": [
+        "temp"
+      ]
+    }
+  ]
+}
+=== spec_11_mapreduce_index: create_mapreduce_index
+CREATE MAPREDUCE INDEX sales_by_day ON shop.orders
+  MAP (FROM shop.orders WHERE status='paid' SELECT date_trunc('day', paidAt) AS day, total)
+  REDUCE (GROUP BY day AGG revenue = sum(total), orders = count(*));
+--- canonical
+CREATE MAPREDUCE INDEX sales_by_day ON shop.orders MAP (FROM shop.orders WHERE status = 'paid' SELECT date_trunc('day', paidAt) AS day, total) REDUCE (GROUP BY day AGG revenue = sum(total), orders = count(*));
+--- json
+{
+  "kind": "create_mapreduce_index",
+  "name": "sales_by_day",
+  "on": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "map": {
+    "from": {
+      "source": {
+        "kind": "collection",
+        "database": "shop",
+        "name": "orders"
+      }
+    },
+    "where": {
+      "kind": "binary",
+      "op": "eq",
+      "left": {
+        "kind": "path",
+        "path": [
+          "status"
+        ]
+      },
+      "right": {
+        "kind": "literal",
+        "value": "paid"
+      }
+    },
+    "select": {
+      "kind": "items",
+      "items": [
+        {
+          "kind": "expr",
+          "expr": {
+            "kind": "call",
+            "name": "date_trunc",
+            "args": [
+              {
+                "kind": "literal",
+                "value": "day"
+              },
+              {
+                "kind": "path",
+                "path": [
+                  "paidAt"
+                ]
+              }
+            ]
+          },
+          "alias": "day"
+        },
+        {
+          "kind": "expr",
+          "expr": {
+            "kind": "path",
+            "path": [
+              "total"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "reduce": {
+    "keys": [
+      {
+        "expr": {
+          "kind": "path",
+          "path": [
+            "day"
+          ]
+        }
+      }
+    ],
+    "aggs": [
+      {
+        "name": "revenue",
+        "expr": {
+          "kind": "call",
+          "name": "sum",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "total"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "orders",
+        "expr": {
+          "kind": "call",
+          "name": "count",
+          "args": [
+            {
+              "kind": "star"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+=== spec_11_continuous_aggregate: create_continuous_aggregate group_key_alias
+CREATE CONTINUOUS AGGREGATE iot.telemetry_1h ON iot.telemetry
+  GROUP BY device, time_bucket('1h', ts) AS hour AGG avg_temp = avg(temp), max_temp = max(temp);
+--- canonical
+CREATE CONTINUOUS AGGREGATE iot.telemetry_1h ON iot.telemetry GROUP BY device, time_bucket('1h', ts) AS hour AGG avg_temp = avg(temp), max_temp = max(temp);
+--- json
+{
+  "kind": "create_continuous_aggregate",
+  "name": {
+    "database": "iot",
+    "name": "telemetry_1h"
+  },
+  "on": {
+    "database": "iot",
+    "name": "telemetry"
+  },
+  "group": {
+    "keys": [
+      {
+        "expr": {
+          "kind": "path",
+          "path": [
+            "device"
+          ]
+        }
+      },
+      {
+        "expr": {
+          "kind": "call",
+          "name": "time_bucket",
+          "args": [
+            {
+              "kind": "literal",
+              "value": "1h"
+            },
+            {
+              "kind": "path",
+              "path": [
+                "ts"
+              ]
+            }
+          ]
+        },
+        "alias": "hour"
+      }
+    ],
+    "aggs": [
+      {
+        "name": "avg_temp",
+        "expr": {
+          "kind": "call",
+          "name": "avg",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "temp"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "max_temp",
+        "expr": {
+          "kind": "call",
+          "name": "max",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "temp"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+=== spec_11_alter_collection_set: alter_collection_set
+ALTER COLLECTION shop.orders SET (validation_level = 'moderate');
+--- canonical
+ALTER COLLECTION shop.orders SET (validation_level = 'moderate');
+--- json
+{
+  "kind": "alter_collection",
+  "name": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "action": {
+    "kind": "set_options",
+    "options": [
+      {
+        "name": "validation_level",
+        "value": {
+          "kind": "literal",
+          "value": "moderate"
+        }
+      }
+    ]
+  }
+}
+=== spec_11_alter_index: alter_index index_name
+ALTER INDEX shop.orders.idx_status_created SET HIDDEN;
+--- canonical
+ALTER INDEX shop.orders.idx_status_created SET HIDDEN;
+--- json
+{
+  "kind": "alter_index",
+  "name": {
+    "collection": {
+      "database": "shop",
+      "name": "orders"
+    },
+    "index": "idx_status_created"
+  },
+  "hidden": true
+}
+=== alter_index_visible: alter_index index_name
+ALTER INDEX orders.idx_status_created SET VISIBLE
+--- canonical
+ALTER INDEX orders.idx_status_created SET VISIBLE;
+--- json
+{
+  "kind": "alter_index",
+  "name": {
+    "collection": {
+      "name": "orders"
+    },
+    "index": "idx_status_created"
+  },
+  "hidden": false
+}
+=== spec_11_drop_index: drop_index index_name
+DROP INDEX shop.orders.idx_status_created;
+--- canonical
+DROP INDEX shop.orders.idx_status_created;
+--- json
+{
+  "kind": "drop_index",
+  "name": {
+    "collection": {
+      "database": "shop",
+      "name": "orders"
+    },
+    "index": "idx_status_created"
+  }
+}
+=== spec_11_drop_collection: drop_collection
+DROP COLLECTION shop.tmp;
+--- canonical
+DROP COLLECTION shop.tmp;
+--- json
+{
+  "kind": "drop_collection",
+  "name": {
+    "database": "shop",
+    "name": "tmp"
+  }
+}
+=== spec_11_drop_database: drop_database
+DROP DATABASE test;
+--- canonical
+DROP DATABASE test;
+--- json
+{
+  "kind": "drop_database",
+  "name": "test"
+}
+=== spec_11_split: alter_collection_split
+ALTER COLLECTION shop.orders SPLIT AT ('a'), ('m');
+--- canonical
+ALTER COLLECTION shop.orders SPLIT AT ('a'), ('m');
+--- json
+{
+  "kind": "alter_collection",
+  "name": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "action": {
+    "kind": "split_at",
+    "points": [
+      [
+        {
+          "kind": "literal",
+          "value": "a"
+        }
+      ],
+      [
+        {
+          "kind": "literal",
+          "value": "m"
+        }
+      ]
+    ]
+  }
+}
+=== spec_11_change_subscription: create_change_subscription
+CREATE CHANGE SUBSCRIPTION orders_paid ON shop.orders WHERE op = 'update' AND fullDocument.status = 'paid';
+--- canonical
+CREATE CHANGE SUBSCRIPTION orders_paid ON shop.orders WHERE op = 'update' AND fullDocument.status = 'paid';
+--- json
+{
+  "kind": "create_change_subscription",
+  "name": "orders_paid",
+  "on": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "op"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "update"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "fullDocument",
+            "status"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "paid"
+        }
+      }
+    ]
+  }
+}
+=== spec_11_show_collections: show_collections
+SHOW COLLECTIONS;
+--- canonical
+SHOW COLLECTIONS;
+--- json
+{
+  "kind": "show",
+  "target": {
+    "kind": "collections"
+  }
+}
+=== spec_11_show_indexes: show_indexes
+SHOW INDEXES ON shop.orders;
+--- canonical
+SHOW INDEXES ON shop.orders;
+--- json
+{
+  "kind": "show",
+  "target": {
+    "kind": "indexes",
+    "on": {
+      "database": "shop",
+      "name": "orders"
+    }
+  }
+}
+=== spec_11_show_ranges: show_ranges
+SHOW RANGES FROM COLLECTION shop.orders;
+--- canonical
+SHOW RANGES FROM COLLECTION shop.orders;
+--- json
+{
+  "kind": "show",
+  "target": {
+    "kind": "ranges",
+    "collection": {
+      "database": "shop",
+      "name": "orders"
+    }
+  }
+}
+=== spec_11_show_transactions: show_transactions
+SHOW TRANSACTIONS;
+--- canonical
+SHOW TRANSACTIONS;
+--- json
+{
+  "kind": "show",
+  "target": {
+    "kind": "transactions"
+  }
+}
+=== spec_11_kill_query: kill_query
+KILL QUERY '<id>';
+--- canonical
+KILL QUERY '<id>';
+--- json
+{
+  "kind": "kill",
+  "target": "query",
+  "id": {
+    "kind": "literal",
+    "value": "<id>"
+  }
+}
+=== spec_11_kill_transaction: kill_transaction
+KILL TRANSACTION $txn;
+--- canonical
+KILL TRANSACTION $txn;
+--- json
+{
+  "kind": "kill",
+  "target": "transaction",
+  "id": {
+    "kind": "param",
+    "name": "txn"
+  }
+}
+=== spec_12_begin_full: begin begin_isolation begin_read_only begin_priority begin_as_of
+BEGIN ISOLATION LEVEL SERIALIZABLE READ ONLY PRIORITY HIGH AS OF SYSTEM TIME '-5s';
+--- canonical
+BEGIN ISOLATION LEVEL SERIALIZABLE READ ONLY PRIORITY HIGH AS OF SYSTEM TIME '-5s';
+--- json
+{
+  "kind": "begin",
+  "isolation": "serializable",
+  "read_only": true,
+  "priority": "high",
+  "as_of": {
+    "kind": "literal",
+    "value": "-5s"
+  }
+}
+=== begin_read_committed: begin begin_isolation begin_priority
+BEGIN ISOLATION LEVEL READ COMMITTED PRIORITY LOW
+--- canonical
+BEGIN ISOLATION LEVEL READ COMMITTED PRIORITY LOW;
+--- json
+{
+  "kind": "begin",
+  "isolation": "read_committed",
+  "priority": "low"
+}
+=== begin_snapshot: begin begin_isolation
+begin isolation level snapshot priority normal
+--- canonical
+BEGIN ISOLATION LEVEL SNAPSHOT PRIORITY NORMAL;
+--- json
+{
+  "kind": "begin",
+  "isolation": "snapshot",
+  "priority": "normal"
+}
+=== begin_plain: begin
+BEGIN
+--- canonical
+BEGIN;
+--- json
+{
+  "kind": "begin"
+}
+=== spec_12_savepoint: savepoint
+SAVEPOINT s1;
+--- canonical
+SAVEPOINT s1;
+--- json
+{
+  "kind": "savepoint",
+  "name": "s1"
+}
+=== spec_12_rollback_to: rollback_to_savepoint
+ROLLBACK TO SAVEPOINT s1;
+--- canonical
+ROLLBACK TO SAVEPOINT s1;
+--- json
+{
+  "kind": "rollback_to_savepoint",
+  "name": "s1"
+}
+=== spec_12_release: release_savepoint
+RELEASE SAVEPOINT s1;
+--- canonical
+RELEASE SAVEPOINT s1;
+--- json
+{
+  "kind": "release_savepoint",
+  "name": "s1"
+}
+=== spec_12_commit: commit
+COMMIT;
+--- canonical
+COMMIT;
+--- json
+{
+  "kind": "commit"
+}
+=== spec_12_rollback: rollback
+ROLLBACK;
+--- canonical
+ROLLBACK;
+--- json
+{
+  "kind": "rollback"
+}
+=== explain_query: explain
+EXPLAIN FROM shop.orders WHERE status = 'paid'
+--- canonical
+EXPLAIN FROM shop.orders WHERE status = 'paid';
+--- json
+{
+  "kind": "explain",
+  "statement": {
+    "kind": "query",
+    "from": {
+      "source": {
+        "kind": "collection",
+        "database": "shop",
+        "name": "orders"
+      }
+    },
+    "where": {
+      "kind": "binary",
+      "op": "eq",
+      "left": {
+        "kind": "path",
+        "path": [
+          "status"
+        ]
+      },
+      "right": {
+        "kind": "literal",
+        "value": "paid"
+      }
+    }
+  }
+}
+=== explain_analyze_update: explain explain_analyze
+EXPLAIN ANALYZE UPDATE shop.orders SET status = 'x' WHERE _id = 1
+--- canonical
+EXPLAIN ANALYZE UPDATE shop.orders SET status = 'x' WHERE _id = 1;
+--- json
+{
+  "kind": "explain",
+  "analyze": true,
+  "statement": {
+    "kind": "update",
+    "target": {
+      "database": "shop",
+      "name": "orders"
+    },
+    "ops": [
+      {
+        "kind": "set",
+        "items": [
+          {
+            "path": [
+              "status"
+            ],
+            "value": {
+              "kind": "literal",
+              "value": "x"
+            }
+          }
+        ]
+      }
+    ],
+    "where": {
+      "kind": "binary",
+      "op": "eq",
+      "left": {
+        "kind": "path",
+        "path": [
+          "_id"
+        ]
+      },
+      "right": {
+        "kind": "literal",
+        "value": 1
+      }
+    }
+  }
+}
+=== explain_delete: explain
+EXPLAIN DELETE FROM shop.orders WHERE _id = 1
+--- canonical
+EXPLAIN DELETE FROM shop.orders WHERE _id = 1;
+--- json
+{
+  "kind": "explain",
+  "statement": {
+    "kind": "delete",
+    "target": {
+      "database": "shop",
+      "name": "orders"
+    },
+    "where": {
+      "kind": "binary",
+      "op": "eq",
+      "left": {
+        "kind": "path",
+        "path": [
+          "_id"
+        ]
+      },
+      "right": {
+        "kind": "literal",
+        "value": 1
+      }
+    }
+  }
+}
+=== source_subquery: source_subquery
+FROM (FROM shop.orders WHERE total > 100 |> LIMIT 10) AS big SELECT big._id
+--- canonical
+FROM (FROM shop.orders WHERE total > 100 |> LIMIT 10) AS big SELECT big._id;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "subquery",
+      "query": {
+        "from": {
+          "source": {
+            "kind": "collection",
+            "database": "shop",
+            "name": "orders"
+          }
+        },
+        "where": {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "path",
+            "path": [
+              "total"
+            ]
+          },
+          "right": {
+            "kind": "literal",
+            "value": 100
+          }
+        },
+        "pipeline": [
+          {
+            "kind": "limit",
+            "count": {
+              "kind": "literal",
+              "value": 10
+            }
+          }
+        ]
+      }
+    },
+    "alias": "big"
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "big",
+            "_id"
+          ]
+        }
+      }
+    ]
+  }
+}
+=== source_index: source_index
+FROM INDEX shop.orders.sales_by_day WHERE day > DATE '2026-01-01T00:00:00Z'
+--- canonical
+FROM INDEX shop.orders.sales_by_day WHERE day > DATE '2026-01-01T00:00:00.000Z';
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "index",
+      "collection": {
+        "database": "shop",
+        "name": "orders"
+      },
+      "index": "sales_by_day"
+    }
+  },
+  "where": {
+    "kind": "binary",
+    "op": "gt",
+    "left": {
+      "kind": "path",
+      "path": [
+        "day"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "type": "datetime",
+      "value": "2026-01-01T00:00:00.000Z"
+    }
+  }
+}
+=== source_index_default_db: source_index qualified_name_default_db
+FROM INDEX orders.sales_by_day
+--- canonical
+FROM INDEX orders.sales_by_day;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "index",
+      "collection": {
+        "name": "orders"
+      },
+      "index": "sales_by_day"
+    }
+  }
+}
+=== group_having: group_clause having_clause
+FROM shop.orders GROUP BY customerId AS c, status HAVING count(*) > 5 SELECT c, count(*) AS n
+--- canonical
+FROM shop.orders GROUP BY customerId AS c, status HAVING count(*) > 5 SELECT c, count(*) AS n;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "group_by": [
+    {
+      "expr": {
+        "kind": "path",
+        "path": [
+          "customerId"
+        ]
+      },
+      "alias": "c"
+    },
+    {
+      "expr": {
+        "kind": "path",
+        "path": [
+          "status"
+        ]
+      }
+    }
+  ],
+  "having": {
+    "kind": "binary",
+    "op": "gt",
+    "left": {
+      "kind": "call",
+      "name": "count",
+      "args": [
+        {
+          "kind": "star"
+        }
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": 5
+    }
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "c"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "count",
+          "args": [
+            {
+              "kind": "star"
+            }
+          ]
+        },
+        "alias": "n"
+      }
+    ]
+  }
+}
+=== select_star: select_star
+FROM shop.orders SELECT *
+--- canonical
+FROM shop.orders SELECT *;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "select": {
+    "kind": "star"
+  }
+}
+=== select_wildcard: projection_wildcard
+FROM shop.orders AS o SELECT o.customer.*, o._id
+--- canonical
+FROM shop.orders AS o SELECT o.customer.*, o._id;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    },
+    "alias": "o"
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "wildcard",
+        "path": [
+          "o",
+          "customer"
+        ]
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "o",
+            "_id"
+          ]
+        }
+      }
+    ]
+  }
+}
+=== limit_offset: limit_offset
+FROM shop.orders ORDER BY _id LIMIT 10 OFFSET 20
+--- canonical
+FROM shop.orders ORDER BY _id LIMIT 10 OFFSET 20;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "order_by": [
+    {
+      "expr": {
+        "kind": "path",
+        "path": [
+          "_id"
+        ]
+      }
+    }
+  ],
+  "limit": {
+    "kind": "literal",
+    "value": 10
+  },
+  "offset": {
+    "kind": "literal",
+    "value": 20
+  }
+}
+=== offset_only: offset_only
+FROM shop.orders OFFSET 20
+--- canonical
+FROM shop.orders OFFSET 20;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "offset": {
+    "kind": "literal",
+    "value": 20
+  }
+}
+=== multiple_lookups: lookup_clause
+FROM shop.orders LOOKUP shop.customers ON customerId = _id INTO customer LOOKUP shop.products ON items[0].sku = sku INTO product
+--- canonical
+FROM shop.orders LOOKUP shop.customers ON customerId = _id INTO customer LOOKUP shop.products ON items[0].sku = sku INTO product;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "lookups": [
+    {
+      "collection": {
+        "database": "shop",
+        "name": "customers"
+      },
+      "local": {
+        "kind": "path",
+        "path": [
+          "customerId"
+        ]
+      },
+      "foreign": [
+        "_id"
+      ],
+      "into": "customer"
+    },
+    {
+      "collection": {
+        "database": "shop",
+        "name": "products"
+      },
+      "local": {
+        "kind": "path",
+        "path": [
+          "items",
+          {
+            "index": {
+              "kind": "literal",
+              "value": 0
+            }
+          },
+          "sku"
+        ]
+      },
+      "foreign": [
+        "sku"
+      ],
+      "into": "product"
+    }
+  ]
+}
+=== insert_query: insert_query
+INSERT INTO shop.archive FROM shop.orders WHERE year < 2020 RETURNING NEW _id
+--- canonical
+INSERT INTO shop.archive FROM shop.orders WHERE year < 2020 RETURNING NEW _id;
+--- json
+{
+  "kind": "insert",
+  "target": {
+    "database": "shop",
+    "name": "archive"
+  },
+  "source": {
+    "kind": "query",
+    "query": {
+      "from": {
+        "source": {
+          "kind": "collection",
+          "database": "shop",
+          "name": "orders"
+        }
+      },
+      "where": {
+        "kind": "binary",
+        "op": "lt",
+        "left": {
+          "kind": "path",
+          "path": [
+            "year"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": 2020
+        }
+      }
+    }
+  },
+  "returning": {
+    "image": "new",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "_id"
+          ]
+        }
+      }
+    ]
+  }
+}
+=== insert_on_conflict_update: on_conflict_do_update
+INSERT INTO shop.counters VALUE {_id: 'a', n: 1} ON CONFLICT DO UPDATE INC n BY 1 RETURNING OLD
+--- canonical
+INSERT INTO shop.counters VALUE {_id: 'a', n: 1} ON CONFLICT DO UPDATE INC n BY 1 RETURNING OLD;
+--- json
+{
+  "kind": "insert",
+  "target": {
+    "database": "shop",
+    "name": "counters"
+  },
+  "source": {
+    "kind": "value",
+    "expr": {
+      "kind": "object",
+      "fields": [
+        {
+          "name": "_id",
+          "value": {
+            "kind": "literal",
+            "value": "a"
+          }
+        },
+        {
+          "name": "n",
+          "value": {
+            "kind": "literal",
+            "value": 1
+          }
+        }
+      ]
+    }
+  },
+  "on_conflict": {
+    "kind": "do_update",
+    "ops": [
+      {
+        "kind": "inc",
+        "path": [
+          "n"
+        ],
+        "by": {
+          "kind": "literal",
+          "value": 1
+        }
+      }
+    ]
+  },
+  "returning": {
+    "image": "old"
+  }
+}
+=== update_alias_limit: update_alias update_limit returning_projection
+UPDATE shop.orders AS o SET o.status = 'late' WHERE o.due < now() LIMIT 100 RETURNING OLD o._id, o.status AS was
+--- canonical
+UPDATE shop.orders AS o SET o.status = 'late' WHERE o.due < now() LIMIT 100 RETURNING OLD o._id, o.status AS was;
+--- json
+{
+  "kind": "update",
+  "target": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "alias": "o",
+  "ops": [
+    {
+      "kind": "set",
+      "items": [
+        {
+          "path": [
+            "o",
+            "status"
+          ],
+          "value": {
+            "kind": "literal",
+            "value": "late"
+          }
+        }
+      ]
+    }
+  ],
+  "where": {
+    "kind": "binary",
+    "op": "lt",
+    "left": {
+      "kind": "path",
+      "path": [
+        "o",
+        "due"
+      ]
+    },
+    "right": {
+      "kind": "call",
+      "name": "now",
+      "args": []
+    }
+  },
+  "limit": {
+    "kind": "literal",
+    "value": 100
+  },
+  "returning": {
+    "image": "old",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "o",
+            "_id"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "o",
+            "status"
+          ]
+        },
+        "alias": "was"
+      }
+    ]
+  }
+}
+=== update_replace: update_replace
+UPDATE shop.orders REPLACE WITH {_id: 1, status: 'new'} WHERE _id = 1
+--- canonical
+UPDATE shop.orders REPLACE WITH {_id: 1, status: 'new'} WHERE _id = 1;
+--- json
+{
+  "kind": "update",
+  "target": {
+    "database": "shop",
+    "name": "orders"
+  },
+  "ops": [
+    {
+      "kind": "replace",
+      "value": {
+        "kind": "object",
+        "fields": [
+          {
+            "name": "_id",
+            "value": {
+              "kind": "literal",
+              "value": 1
+            }
+          },
+          {
+            "name": "status",
+            "value": {
+              "kind": "literal",
+              "value": "new"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "_id"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": 1
+    }
+  }
+}
+=== update_all_ops: update_unset update_mul update_pull update_add_to_set update_pop update_rename update_min update_max update_current_date
+UPDATE shop.products UNSET legacy, tmp.x MUL price BY 1.1 PULL tags WHERE tags = 'old' ADD TO SET tags VALUE 'new' POP queue FIRST POP history LAST RENAME colour TO color MIN low WITH 3 MAX high WITH 9 CURRENT DATE updatedAt WHERE _id = 7
+--- canonical
+UPDATE shop.products UNSET legacy, tmp.x MUL price BY 1.1 PULL tags WHERE tags = 'old' ADD TO SET tags VALUE 'new' POP queue FIRST POP history LAST RENAME colour TO color MIN low WITH 3 MAX high WITH 9 CURRENT DATE updatedAt WHERE _id = 7;
+--- json
+{
+  "kind": "update",
+  "target": {
+    "database": "shop",
+    "name": "products"
+  },
+  "ops": [
+    {
+      "kind": "unset",
+      "paths": [
+        [
+          "legacy"
+        ],
+        [
+          "tmp",
+          "x"
+        ]
+      ]
+    },
+    {
+      "kind": "mul",
+      "path": [
+        "price"
+      ],
+      "by": {
+        "kind": "literal",
+        "value": 1.1
+      }
+    },
+    {
+      "kind": "pull",
+      "path": [
+        "tags"
+      ],
+      "where": {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "tags"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "old"
+        }
+      }
+    },
+    {
+      "kind": "add_to_set",
+      "path": [
+        "tags"
+      ],
+      "value": {
+        "kind": "literal",
+        "value": "new"
+      }
+    },
+    {
+      "kind": "pop",
+      "path": [
+        "queue"
+      ],
+      "end": "first"
+    },
+    {
+      "kind": "pop",
+      "path": [
+        "history"
+      ],
+      "end": "last"
+    },
+    {
+      "kind": "rename",
+      "from": [
+        "colour"
+      ],
+      "to": [
+        "color"
+      ]
+    },
+    {
+      "kind": "min",
+      "path": [
+        "low"
+      ],
+      "value": {
+        "kind": "literal",
+        "value": 3
+      }
+    },
+    {
+      "kind": "max",
+      "path": [
+        "high"
+      ],
+      "value": {
+        "kind": "literal",
+        "value": 9
+      }
+    },
+    {
+      "kind": "current_date",
+      "path": [
+        "updatedAt"
+      ]
+    }
+  ],
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "_id"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": 7
+    }
+  }
+}
+=== update_push_all_mods: update_push push_mods
+UPDATE shop.players PUSH scores VALUE $s POSITION 0 SLICE 10 SORT score DESC WHERE _id = $p
+--- canonical
+UPDATE shop.players PUSH scores VALUE $s POSITION 0 SLICE 10 SORT score DESC WHERE _id = $p;
+--- json
+{
+  "kind": "update",
+  "target": {
+    "database": "shop",
+    "name": "players"
+  },
+  "ops": [
+    {
+      "kind": "push",
+      "path": [
+        "scores"
+      ],
+      "value": {
+        "kind": "param",
+        "name": "s"
+      },
+      "position": {
+        "kind": "literal",
+        "value": 0
+      },
+      "slice": {
+        "kind": "literal",
+        "value": 10
+      },
+      "sort": [
+        {
+          "expr": {
+            "kind": "path",
+            "path": [
+              "score"
+            ]
+          },
+          "descending": true
+        }
+      ]
+    }
+  ],
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "_id"
+      ]
+    },
+    "right": {
+      "kind": "param",
+      "name": "p"
+    }
+  }
+}
+=== upsert_on: upsert_on returning_new
+UPSERT INTO shop.users VALUE $u ON email, tenant RETURNING NEW
+--- canonical
+UPSERT INTO shop.users VALUE $u ON email, tenant RETURNING NEW;
+--- json
+{
+  "kind": "upsert",
+  "target": {
+    "database": "shop",
+    "name": "users"
+  },
+  "value": {
+    "kind": "param",
+    "name": "u"
+  },
+  "on": [
+    [
+      "email"
+    ],
+    [
+      "tenant"
+    ]
+  ],
+  "returning": {
+    "image": "new"
+  }
+}
+=== delete_limit_options: delete_limit delete_options returning_old
+DELETE FROM shop.sessions LIMIT 10 OPTIONS (allow_full_scan_write = true) RETURNING OLD
+--- canonical
+DELETE FROM shop.sessions LIMIT 10 OPTIONS (allow_full_scan_write = TRUE) RETURNING OLD;
+--- json
+{
+  "kind": "delete",
+  "target": {
+    "database": "shop",
+    "name": "sessions"
+  },
+  "limit": {
+    "kind": "literal",
+    "value": 10
+  },
+  "options": [
+    {
+      "name": "allow_full_scan_write",
+      "value": {
+        "kind": "literal",
+        "value": true
+      }
+    }
+  ],
+  "returning": {
+    "image": "old"
+  }
+}
+=== expr_precedence: mul_op div_op mod_op add_op sub_op paren_expr unary_neg
+FROM t SELECT VALUE -(a + b) * c / d % 2 - (e - f)
+--- canonical
+FROM t SELECT VALUE -(a + b) * c / d % 2 - (e - f);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "select": {
+    "kind": "value",
+    "expr": {
+      "kind": "binary",
+      "op": "sub",
+      "left": {
+        "kind": "binary",
+        "op": "mod",
+        "left": {
+          "kind": "binary",
+          "op": "div",
+          "left": {
+            "kind": "binary",
+            "op": "mul",
+            "left": {
+              "kind": "neg",
+              "expr": {
+                "kind": "binary",
+                "op": "add",
+                "left": {
+                  "kind": "path",
+                  "path": [
+                    "a"
+                  ]
+                },
+                "right": {
+                  "kind": "path",
+                  "path": [
+                    "b"
+                  ]
+                }
+              }
+            },
+            "right": {
+              "kind": "path",
+              "path": [
+                "c"
+              ]
+            }
+          },
+          "right": {
+            "kind": "path",
+            "path": [
+              "d"
+            ]
+          }
+        },
+        "right": {
+          "kind": "literal",
+          "value": 2
+        }
+      },
+      "right": {
+        "kind": "binary",
+        "op": "sub",
+        "left": {
+          "kind": "path",
+          "path": [
+            "e"
+          ]
+        },
+        "right": {
+          "kind": "path",
+          "path": [
+            "f"
+          ]
+        }
+      }
+    }
+  }
+}
+=== expr_concat: concat_op
+FROM t SELECT VALUE first || ' ' ‖ last
+--- canonical
+FROM t SELECT VALUE first || ' ' || last;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "select": {
+    "kind": "value",
+    "expr": {
+      "kind": "binary",
+      "op": "concat",
+      "left": {
+        "kind": "binary",
+        "op": "concat",
+        "left": {
+          "kind": "path",
+          "path": [
+            "first"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": " "
+        }
+      },
+      "right": {
+        "kind": "path",
+        "path": [
+          "last"
+        ]
+      }
+    }
+  }
+}
+=== expr_comparisons: eq_whole_op ne_op le_op
+FROM t WHERE a == [1, 2] AND b != 3 AND c <= 4
+--- canonical
+FROM t WHERE a == [1, 2] AND b != 3 AND c <= 4;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "eq_whole",
+        "left": {
+          "kind": "path",
+          "path": [
+            "a"
+          ]
+        },
+        "right": {
+          "kind": "array",
+          "elements": [
+            {
+              "kind": "literal",
+              "value": 1
+            },
+            {
+              "kind": "literal",
+              "value": 2
+            }
+          ]
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "ne",
+        "left": {
+          "kind": "path",
+          "path": [
+            "b"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": 3
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "le",
+        "left": {
+          "kind": "path",
+          "path": [
+            "c"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": 4
+        }
+      }
+    ]
+  }
+}
+=== expr_not_in_like: not_in_op like_op ilike_op matches_op
+FROM t WHERE a NOT IN $list AND b LIKE 'x%' AND c ILIKE '%y' AND d MATCHES '^z'
+--- canonical
+FROM t WHERE a NOT IN $list AND b LIKE 'x%' AND c ILIKE '%y' AND d MATCHES '^z';
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "not_in",
+        "left": {
+          "kind": "path",
+          "path": [
+            "a"
+          ]
+        },
+        "right": {
+          "kind": "param",
+          "name": "list"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "like",
+        "left": {
+          "kind": "path",
+          "path": [
+            "b"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "x%"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "ilike",
+        "left": {
+          "kind": "path",
+          "path": [
+            "c"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "%y"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "matches",
+        "left": {
+          "kind": "path",
+          "path": [
+            "d"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "^z"
+        }
+      }
+    ]
+  }
+}
+=== expr_between_is: between_op is_null is_not_null is_missing is_not_missing
+FROM t WHERE a BETWEEN 1 AND 10 AND b IS NULL AND c IS NOT NULL AND d IS MISSING AND e IS NOT MISSING
+--- canonical
+FROM t WHERE a BETWEEN 1 AND 10 AND b IS NULL AND c IS NOT NULL AND d IS MISSING AND e IS NOT MISSING;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "between",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "a"
+          ]
+        },
+        "low": {
+          "kind": "literal",
+          "value": 1
+        },
+        "high": {
+          "kind": "literal",
+          "value": 10
+        }
+      },
+      {
+        "kind": "is",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "b"
+          ]
+        },
+        "test": "null"
+      },
+      {
+        "kind": "is",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "c"
+          ]
+        },
+        "negated": true,
+        "test": "null"
+      },
+      {
+        "kind": "is",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "d"
+          ]
+        },
+        "test": "missing"
+      },
+      {
+        "kind": "is",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "e"
+          ]
+        },
+        "negated": true,
+        "test": "missing"
+      }
+    ]
+  }
+}
+=== expr_contains: contains_op contains_any_op
+FROM t WHERE tags CONTAINS 'x' OR tags CONTAINS ANY ['a', 'b']
+--- canonical
+FROM t WHERE tags CONTAINS 'x' OR tags CONTAINS ANY ['a', 'b'];
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "or",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "contains",
+        "left": {
+          "kind": "path",
+          "path": [
+            "tags"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "x"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "contains_any",
+        "left": {
+          "kind": "path",
+          "path": [
+            "tags"
+          ]
+        },
+        "right": {
+          "kind": "array",
+          "elements": [
+            {
+              "kind": "literal",
+              "value": "a"
+            },
+            {
+              "kind": "literal",
+              "value": "b"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+=== expr_not_precedence: unary_not
+FROM t WHERE NOT a AND NOT (b = 1)
+--- canonical
+FROM t WHERE NOT a AND NOT b = 1;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "not",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "a"
+          ]
+        }
+      },
+      {
+        "kind": "not",
+        "expr": {
+          "kind": "binary",
+          "op": "eq",
+          "left": {
+            "kind": "path",
+            "path": [
+              "b"
+            ]
+          },
+          "right": {
+            "kind": "literal",
+            "value": 1
+          }
+        }
+      }
+    ]
+  }
+}
+=== expr_not_sql_precedence: unary_not
+FROM t WHERE NOT a IN [1, 2] AND NOT b IS NULL OR NOT NOT c BETWEEN 1 AND 2
+--- canonical
+FROM t WHERE NOT a IN [1, 2] AND NOT b IS NULL OR NOT NOT c BETWEEN 1 AND 2;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "or",
+    "args": [
+      {
+        "kind": "and",
+        "args": [
+          {
+            "kind": "not",
+            "expr": {
+              "kind": "binary",
+              "op": "in",
+              "left": {
+                "kind": "path",
+                "path": [
+                  "a"
+                ]
+              },
+              "right": {
+                "kind": "array",
+                "elements": [
+                  {
+                    "kind": "literal",
+                    "value": 1
+                  },
+                  {
+                    "kind": "literal",
+                    "value": 2
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "kind": "not",
+            "expr": {
+              "kind": "is",
+              "expr": {
+                "kind": "path",
+                "path": [
+                  "b"
+                ]
+              },
+              "test": "null"
+            }
+          }
+        ]
+      },
+      {
+        "kind": "not",
+        "expr": {
+          "kind": "not",
+          "expr": {
+            "kind": "between",
+            "expr": {
+              "kind": "path",
+              "path": [
+                "c"
+              ]
+            },
+            "low": {
+              "kind": "literal",
+              "value": 1
+            },
+            "high": {
+              "kind": "literal",
+              "value": 2
+            }
+          }
+        }
+      }
+    ]
+  }
+}
+=== expr_or_and_nesting: or_op and_op paren_expr
+FROM t WHERE (a OR b) AND c OR d AND (e OR f)
+--- canonical
+FROM t WHERE (a OR b) AND c OR d AND (e OR f);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "or",
+    "args": [
+      {
+        "kind": "and",
+        "args": [
+          {
+            "kind": "or",
+            "args": [
+              {
+                "kind": "path",
+                "path": [
+                  "a"
+                ]
+              },
+              {
+                "kind": "path",
+                "path": [
+                  "b"
+                ]
+              }
+            ]
+          },
+          {
+            "kind": "path",
+            "path": [
+              "c"
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "and",
+        "args": [
+          {
+            "kind": "path",
+            "path": [
+              "d"
+            ]
+          },
+          {
+            "kind": "or",
+            "args": [
+              {
+                "kind": "path",
+                "path": [
+                  "e"
+                ]
+              },
+              {
+                "kind": "path",
+                "path": [
+                  "f"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+=== expr_literals: null_literal bool_literal float_literal decimal_literal oid_literal uuid_literal datetime_literal
+FROM t SELECT VALUE [NULL, TRUE, false, 1.5e3, -0.25, 12.50m, OID '507f1f77bcf86cd799439011', UUID '123E4567-E89B-12D3-A456-426614174000', DATE '2026-01-01T12:30:00.5Z']
+--- canonical
+FROM t SELECT VALUE [NULL, TRUE, FALSE, 1500.0, -0.25, 12.50m, OID '507f1f77bcf86cd799439011', UUID '123e4567-e89b-12d3-a456-426614174000', DATE '2026-01-01T12:30:00.500Z'];
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "select": {
+    "kind": "value",
+    "expr": {
+      "kind": "array",
+      "elements": [
+        {
+          "kind": "literal",
+          "value": null
+        },
+        {
+          "kind": "literal",
+          "value": true
+        },
+        {
+          "kind": "literal",
+          "value": false
+        },
+        {
+          "kind": "literal",
+          "value": 1500.0
+        },
+        {
+          "kind": "literal",
+          "value": -0.25
+        },
+        {
+          "kind": "literal",
+          "type": "decimal",
+          "value": "12.50"
+        },
+        {
+          "kind": "literal",
+          "type": "object_id",
+          "value": "507f1f77bcf86cd799439011"
+        },
+        {
+          "kind": "literal",
+          "type": "uuid",
+          "value": "123e4567-e89b-12d3-a456-426614174000"
+        },
+        {
+          "kind": "literal",
+          "type": "datetime",
+          "value": "2026-01-01T12:30:00.500Z"
+        }
+      ]
+    }
+  }
+}
+=== expr_int_extremes: negative_literal int_literal
+FROM t SELECT VALUE [-9223372036854775808, 9223372036854775807, - 5, -(5), --comment
+ 1]
+--- canonical
+FROM t SELECT VALUE [-9223372036854775808, 9223372036854775807, -5, -(5), 1];
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "select": {
+    "kind": "value",
+    "expr": {
+      "kind": "array",
+      "elements": [
+        {
+          "kind": "literal",
+          "value": -9223372036854775808
+        },
+        {
+          "kind": "literal",
+          "value": 9223372036854775807
+        },
+        {
+          "kind": "literal",
+          "value": -5
+        },
+        {
+          "kind": "neg",
+          "expr": {
+            "kind": "literal",
+            "value": 5
+          }
+        },
+        {
+          "kind": "literal",
+          "value": 1
+        }
+      ]
+    }
+  }
+}
+=== expr_params_positional: param_positional
+FROM t WHERE a = $1 AND b = $2 LIMIT $3
+--- canonical
+FROM t WHERE a = $1 AND b = $2 LIMIT $3;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "a"
+          ]
+        },
+        "right": {
+          "kind": "param",
+          "name": "1"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "b"
+          ]
+        },
+        "right": {
+          "kind": "param",
+          "name": "2"
+        }
+      }
+    ]
+  },
+  "limit": {
+    "kind": "param",
+    "name": "3"
+  }
+}
+=== expr_path_forms: path_dot path_position path_index
+FROM t SELECT VALUE a.b.0.c[1][$i]['k']
+--- canonical
+FROM t SELECT VALUE a.b.0.c[1][$i]['k'];
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "select": {
+    "kind": "value",
+    "expr": {
+      "kind": "path",
+      "path": [
+        "a",
+        "b",
+        0,
+        "c",
+        {
+          "index": {
+            "kind": "literal",
+            "value": 1
+          }
+        },
+        {
+          "index": {
+            "kind": "param",
+            "name": "i"
+          }
+        },
+        {
+          "index": {
+            "kind": "literal",
+            "value": "k"
+          }
+        }
+      ]
+    }
+  }
+}
+=== expr_case: case_searched case_simple
+FROM t SELECT CASE WHEN a > 1 THEN 'big' WHEN a > 0 THEN 'small' ELSE 'none' END AS size, CASE status WHEN 'a' THEN 1 END
+--- canonical
+FROM t SELECT CASE WHEN a > 1 THEN 'big' WHEN a > 0 THEN 'small' ELSE 'none' END AS size, CASE status WHEN 'a' THEN 1 END;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "case",
+          "whens": [
+            {
+              "when": {
+                "kind": "binary",
+                "op": "gt",
+                "left": {
+                  "kind": "path",
+                  "path": [
+                    "a"
+                  ]
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": 1
+                }
+              },
+              "then": {
+                "kind": "literal",
+                "value": "big"
+              }
+            },
+            {
+              "when": {
+                "kind": "binary",
+                "op": "gt",
+                "left": {
+                  "kind": "path",
+                  "path": [
+                    "a"
+                  ]
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": 0
+                }
+              },
+              "then": {
+                "kind": "literal",
+                "value": "small"
+              }
+            }
+          ],
+          "else": {
+            "kind": "literal",
+            "value": "none"
+          }
+        },
+        "alias": "size"
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "case",
+          "operand": {
+            "kind": "path",
+            "path": [
+              "status"
+            ]
+          },
+          "whens": [
+            {
+              "when": {
+                "kind": "literal",
+                "value": "a"
+              },
+              "then": {
+                "kind": "literal",
+                "value": 1
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+=== expr_quantifiers: quantifier_any quantifier_every
+FROM t WHERE ANY x IN items SATISFIES x.qty > 1 AND (EVERY y IN tags SATISFIES y != '')
+--- canonical
+FROM t WHERE ANY x IN items SATISFIES x.qty > 1 AND EVERY y IN tags SATISFIES y != '';
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "quantified",
+    "quantifier": "any",
+    "var": "x",
+    "source": {
+      "kind": "path",
+      "path": [
+        "items"
+      ]
+    },
+    "predicate": {
+      "kind": "and",
+      "args": [
+        {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "path",
+            "path": [
+              "x",
+              "qty"
+            ]
+          },
+          "right": {
+            "kind": "literal",
+            "value": 1
+          }
+        },
+        {
+          "kind": "quantified",
+          "quantifier": "every",
+          "var": "y",
+          "source": {
+            "kind": "path",
+            "path": [
+              "tags"
+            ]
+          },
+          "predicate": {
+            "kind": "binary",
+            "op": "ne",
+            "left": {
+              "kind": "path",
+              "path": [
+                "y"
+              ]
+            },
+            "right": {
+              "kind": "literal",
+              "value": ""
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+=== expr_elem_match: elem_match
+FROM t WHERE ELEM MATCH (items, qty > 2 AND price < 10)
+--- canonical
+FROM t WHERE ELEM MATCH (items, qty > 2 AND price < 10);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "elem_match",
+    "path": [
+      "items"
+    ],
+    "predicate": {
+      "kind": "and",
+      "args": [
+        {
+          "kind": "binary",
+          "op": "gt",
+          "left": {
+            "kind": "path",
+            "path": [
+              "qty"
+            ]
+          },
+          "right": {
+            "kind": "literal",
+            "value": 2
+          }
+        },
+        {
+          "kind": "binary",
+          "op": "lt",
+          "left": {
+            "kind": "path",
+            "path": [
+              "price"
+            ]
+          },
+          "right": {
+            "kind": "literal",
+            "value": 10
+          }
+        }
+      ]
+    }
+  }
+}
+=== expr_lambdas: lambda lambda_multi
+FROM t SELECT filter(items, x -> x.qty > 0) AS f, reduce(nums, 0, (acc, n) -> acc + n) AS total, map(a, () -> 1)
+--- canonical
+FROM t SELECT filter(items, x -> x.qty > 0) AS f, reduce(nums, 0, (acc, n) -> acc + n) AS total, map(a, () -> 1);
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "filter",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "items"
+              ]
+            },
+            {
+              "kind": "lambda",
+              "params": [
+                "x"
+              ],
+              "body": {
+                "kind": "binary",
+                "op": "gt",
+                "left": {
+                  "kind": "path",
+                  "path": [
+                    "x",
+                    "qty"
+                  ]
+                },
+                "right": {
+                  "kind": "literal",
+                  "value": 0
+                }
+              }
+            }
+          ]
+        },
+        "alias": "f"
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "reduce",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "nums"
+              ]
+            },
+            {
+              "kind": "literal",
+              "value": 0
+            },
+            {
+              "kind": "lambda",
+              "params": [
+                "acc",
+                "n"
+              ],
+              "body": {
+                "kind": "binary",
+                "op": "add",
+                "left": {
+                  "kind": "path",
+                  "path": [
+                    "acc"
+                  ]
+                },
+                "right": {
+                  "kind": "path",
+                  "path": [
+                    "n"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "alias": "total"
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "map",
+          "args": [
+            {
+              "kind": "path",
+              "path": [
+                "a"
+              ]
+            },
+            {
+              "kind": "lambda",
+              "params": [],
+              "body": {
+                "kind": "literal",
+                "value": 1
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+=== expr_extract: extract
+FROM t SELECT extract(day FROM createdAt) AS d, extract('day', createdAt) AS e
+--- canonical
+FROM t SELECT extract(day FROM createdAt) AS d, extract('day', createdAt) AS e;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "extract",
+          "unit": "day",
+          "expr": {
+            "kind": "path",
+            "path": [
+              "createdAt"
+            ]
+          }
+        },
+        "alias": "d"
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "extract",
+          "args": [
+            {
+              "kind": "literal",
+              "value": "day"
+            },
+            {
+              "kind": "path",
+              "path": [
+                "createdAt"
+              ]
+            }
+          ]
+        },
+        "alias": "e"
+      }
+    ]
+  }
+}
+=== expr_count_star: call_star
+FROM t GROUP BY a SELECT a, count(*) AS n
+--- canonical
+FROM t GROUP BY a SELECT a, count(*) AS n;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "group_by": [
+    {
+      "expr": {
+        "kind": "path",
+        "path": [
+          "a"
+        ]
+      }
+    }
+  ],
+  "select": {
+    "kind": "items",
+    "items": [
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "path",
+          "path": [
+            "a"
+          ]
+        }
+      },
+      {
+        "kind": "expr",
+        "expr": {
+          "kind": "call",
+          "name": "count",
+          "args": [
+            {
+              "kind": "star"
+            }
+          ]
+        },
+        "alias": "n"
+      }
+    ]
+  }
+}
+=== expr_object_keys: object_literal quoted_identifier
+FROM t SELECT VALUE {a: 1, 'b c': 2, `d`: 3, select: 4, '': 5}
+--- canonical
+FROM t SELECT VALUE {a: 1, 'b c': 2, d: 3, select: 4, '': 5};
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "select": {
+    "kind": "value",
+    "expr": {
+      "kind": "object",
+      "fields": [
+        {
+          "name": "a",
+          "value": {
+            "kind": "literal",
+            "value": 1
+          }
+        },
+        {
+          "name": "b c",
+          "value": {
+            "kind": "literal",
+            "value": 2
+          }
+        },
+        {
+          "name": "d",
+          "value": {
+            "kind": "literal",
+            "value": 3
+          }
+        },
+        {
+          "name": "select",
+          "value": {
+            "kind": "literal",
+            "value": 4
+          }
+        },
+        {
+          "name": "",
+          "value": {
+            "kind": "literal",
+            "value": 5
+          }
+        }
+      ]
+    }
+  }
+}
+=== expr_quoted_identifiers: quoted_identifier
+FROM `my-db`.`orders.v2` AS `value` WHERE `value`.`a b` = 'it''s' AND `x``y` = 'tab\there\n'
+--- canonical
+FROM `my-db`.`orders.v2` AS `value` WHERE `value`.`a b` = 'it''s' AND `x``y` = 'tab\there\n';
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "my-db",
+      "name": "orders.v2"
+    },
+    "alias": "value"
+  },
+  "where": {
+    "kind": "and",
+    "args": [
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "value",
+            "a b"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "it's"
+        }
+      },
+      {
+        "kind": "binary",
+        "op": "eq",
+        "left": {
+          "kind": "path",
+          "path": [
+            "x`y"
+          ]
+        },
+        "right": {
+          "kind": "literal",
+          "value": "tab\there\n"
+        }
+      }
+    ]
+  }
+}
+=== expr_keyword_case: keyword_case_insensitive
+from shop.orders where status = 'x' select value _id
+--- canonical
+FROM shop.orders WHERE status = 'x' SELECT VALUE _id;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "database": "shop",
+      "name": "orders"
+    }
+  },
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "status"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": "x"
+    }
+  },
+  "select": {
+    "kind": "value",
+    "expr": {
+      "kind": "path",
+      "path": [
+        "_id"
+      ]
+    }
+  }
+}
+=== comments_block: comment_block comment_line
+/* leading */ FROM t -- trailing
+WHERE /* inline */ a = 1
+--- canonical
+FROM t WHERE a = 1;
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "a"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": 1
+    }
+  }
+}
+=== expr_unicode_escape: string_escape
+FROM t WHERE name = 'caf\u{e9} \\ ''q'''
+--- canonical
+FROM t WHERE name = 'café \\ ''q''';
+--- json
+{
+  "kind": "query",
+  "from": {
+    "source": {
+      "kind": "collection",
+      "name": "t"
+    }
+  },
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "name"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": "café \\ 'q'"
+    }
+  }
+}
+=== script_txn: script
+BEGIN; INSERT INTO t VALUE {_id: 1}; UPDATE t SET n = 2 WHERE _id = 1; COMMIT;
+--- canonical
+BEGIN;
+INSERT INTO t VALUE {_id: 1};
+UPDATE t SET n = 2 WHERE _id = 1;
+COMMIT;
+--- json
+{
+  "kind": "begin"
+}
+{
+  "kind": "insert",
+  "target": {
+    "name": "t"
+  },
+  "source": {
+    "kind": "value",
+    "expr": {
+      "kind": "object",
+      "fields": [
+        {
+          "name": "_id",
+          "value": {
+            "kind": "literal",
+            "value": 1
+          }
+        }
+      ]
+    }
+  }
+}
+{
+  "kind": "update",
+  "target": {
+    "name": "t"
+  },
+  "ops": [
+    {
+      "kind": "set",
+      "items": [
+        {
+          "path": [
+            "n"
+          ],
+          "value": {
+            "kind": "literal",
+            "value": 2
+          }
+        }
+      ]
+    }
+  ],
+  "where": {
+    "kind": "binary",
+    "op": "eq",
+    "left": {
+      "kind": "path",
+      "path": [
+        "_id"
+      ]
+    },
+    "right": {
+      "kind": "literal",
+      "value": 1
+    }
+  }
+}
+{
+  "kind": "commit"
+}

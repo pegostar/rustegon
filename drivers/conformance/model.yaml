@@ -1,0 +1,548 @@
+# Driver Conceptual Model (dotnet-driver.md §1, §3-§10; java-driver.md §2-§7) as a list of
+# operations with stable ids, shared by the .NET and Java drivers (FR-DRV-003, AC-DRV-003).
+#
+# status:
+#   r1                  part of the R1 drivers (served by the M4 server); AC-DRV-003 coverage
+#                       counts these: every r1 operation is covered by at least one test
+#                       (checked by crates/rustegon-common/tests/driver_conformance.rs).
+#   deferred(<ms>)      not exposed in R1 (PD-069); added back additively with milestone <ms>,
+#                       gated on a GetServerInfo.features flag (`feature`). `M11-R2` = later M11
+#                       work that has no server dependency (Java async API, extra packages).
+# kind:
+#   operation           an I/O call on a handle (client, database, collection, cursor, ...)
+#   builder             a pure builder (filters, updates, sorts, projections, bulk models)
+#   codec               RDoc / extended-JSON codec entry points (checked by the codec vectors)
+#   behavior            a cross-cutting rule (connection strings, retries, error mapping, ...)
+# dotnet / java:        the public member each driver exposes (language naming conventions,
+#                       java-driver.md §11). .NET I/O methods take a CancellationToken last.
+# rpc:                  the gRPC methods behind the operation (protocol.md §2).
+# Arguments and results of `operation` entries are named as the conformance tests use them
+# (README.md, "Operations"); drivers map them onto their own parameter/property names.
+version: 1
+operations:
+  # ------------------------------------------------------------------ client and settings
+  - id: Client.Create
+    kind: operation
+    status: r1
+    dotnet: "new RustegonClient(RustegonClientSettings)"
+    java: "RustegonClient.create(RustegonClientSettings)"
+    rpc: [SessionService.GetServerInfo, AuthService.Authenticate]
+  - id: Client.CreateFromConnectionString
+    kind: operation
+    status: r1
+    dotnet: "new RustegonClient(string connectionString)"
+    java: "RustegonClient.create(String connectionString)"
+    rpc: [SessionService.GetServerInfo, AuthService.Authenticate]
+  - id: Settings.FromConnectionString
+    kind: behavior
+    status: r1
+    dotnet: "RustegonClientSettings.FromConnectionString(string)"
+    java: "RustegonClientSettings.fromConnectionString(String)"
+    notes: "Grammar and expected settings: connstring.yaml (DEC-014)."
+  - id: Client.GetServerInfo
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.GetServerInfoAsync()"
+    java: "RustegonClient.serverInfo()"
+    rpc: [SessionService.GetServerInfo]
+    result: "{serverVersion, protocolVersion, features: [string]}"
+  - id: Client.GetDatabase
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.GetDatabase(string)"
+    java: "RustegonClient.database(String)"
+    notes: "No I/O; the default database of the settings when the name is omitted."
+  - id: Client.ListDatabaseNames
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.ListDatabaseNamesAsync()"
+    java: "RustegonClient.listDatabaseNames()"
+    rpc: [SchemaService.ListDatabases]
+    result: "[string] sorted by name"
+  - id: Client.CreateDatabase
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.CreateDatabaseAsync(string, CreateDatabaseOptions?)"
+    java: "RustegonClient.createDatabase(String, CreateDatabaseOptions)"
+    rpc: [SchemaService.CreateDatabase]
+    result: "{created: bool}"
+  - id: Client.DropDatabase
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.DropDatabaseAsync(string, DropOptions?)"
+    java: "RustegonClient.dropDatabase(String, DropOptions)"
+    rpc: [SchemaService.DropDatabase]
+    result: "{dropped: bool}"
+  - id: Client.StartSession
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.StartSessionAsync(SessionOptions?)"
+    java: "RustegonClient.startSession(SessionOptions)"
+    notes: "R1: pass-through of rgn-causality-token (PD-069); no server call."
+  - id: Client.BeginTransaction
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.BeginTransactionAsync(TransactionOptions?)"
+    java: "RustegonClient.beginTransaction(TransactionOptions)"
+    rpc: [TransactionService.Begin]
+  - id: Client.WithTransaction
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.WithTransactionAsync(Func<ITransaction, CancellationToken, Task<T>>, TransactionOptions?)"
+    java: "RustegonClient.withTransaction(TransactionOptions, TransactionCallback<T>)"
+    rpc: [TransactionService.Begin, TransactionService.Commit, TransactionService.Rollback, TransactionService.Status]
+    notes: "transactions.md §5 (normative retry loop)."
+  - id: Client.ChangePassword
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.ChangePasswordAsync(string currentPassword, string newPassword)"
+    java: "RustegonClient.changePassword(char[] currentPassword, char[] newPassword)"
+    rpc: [AdminService.ChangePassword]
+    notes: "PD-076."
+  - id: Client.Close
+    kind: operation
+    status: r1
+    dotnet: "RustegonClient.DisposeAsync()"
+    java: "RustegonClient.close()"
+    rpc: [AuthService.Logout]
+  - id: Client.Async
+    kind: operation
+    status: deferred(M11-R2)
+    dotnet: "(n/a: the .NET API is asynchronous only)"
+    java: "RustegonClient.async()"
+    notes: "Java CompletableFuture / Flow.Publisher API (java-driver.md §3); DIVERGENCES.md."
+  # ------------------------------------------------------------------ credentials
+  - id: Credential.Scram
+    kind: behavior
+    status: r1
+    dotnet: "RustegonCredential.Scram(string user, string password)"
+    java: "RustegonCredential.scram(String user, char[] password)"
+    rpc: [AuthService.Authenticate]
+    notes: "SCRAM-SHA-256 without channel binding, gs2 header `n,,` (PD-074)."
+  - id: Credential.ApiKey
+    kind: behavior
+    status: r1
+    dotnet: "RustegonCredential.ApiKey(string)"
+    java: "RustegonCredential.apiKey(String)"
+    notes: "`authorization: ApiKey rgn_…` on every call, no handshake."
+  - id: Credential.X509
+    kind: behavior
+    status: r1
+    dotnet: "RustegonCredential.X509(X509Certificate2)"
+    java: "RustegonCredential.x509(KeyManager)"
+    rpc: [AuthService.Authenticate]
+    feature: x509-client-cert
+  # ------------------------------------------------------------------ database
+  - id: Database.GetCollection
+    kind: operation
+    status: r1
+    dotnet: "IRustegonDatabase.GetCollection<T>(string)"
+    java: "RustegonDatabase.collection(String, Class<T>)"
+    notes: "No I/O."
+  - id: Database.Query
+    kind: operation
+    status: r1
+    dotnet: "IRustegonDatabase.QueryAsync<T>(string rgql, object? parameters)"
+    java: "RustegonDatabase.query(String rgql, Params params, Class<T>)"
+    rpc: [QueryService.Execute, QueryService.GetMore, QueryService.KillCursor]
+    result: "cursor of rows (documents, or {value: x} rows of SELECT VALUE)"
+  - id: Database.CreateCollection
+    kind: operation
+    status: r1
+    dotnet: "IRustegonDatabase.CreateCollectionAsync(string, CreateCollectionOptions?)"
+    java: "RustegonDatabase.createCollection(String, CreateCollectionOptions)"
+    rpc: [SchemaService.CreateCollection]
+    result: "{created: bool}"
+  - id: Database.DropCollection
+    kind: operation
+    status: r1
+    dotnet: "IRustegonDatabase.DropCollectionAsync(string, DropOptions?)"
+    java: "RustegonDatabase.dropCollection(String, DropOptions)"
+    rpc: [SchemaService.DropCollection]
+    result: "{dropped: bool}"
+  - id: Database.ListCollectionNames
+    kind: operation
+    status: r1
+    dotnet: "IRustegonDatabase.ListCollectionNamesAsync()"
+    java: "RustegonDatabase.listCollectionNames()"
+    rpc: [SchemaService.ListCollections]
+    result: "[string] sorted by name"
+  - id: Database.GetTable
+    kind: operation
+    status: deferred(M8b)
+    dotnet: "IRustegonDatabase.GetTable<TRow>(string)"
+    java: "RustegonDatabase.table(String, Class<R>)"
+    feature: tables
+  - id: Database.GetTimeSeries
+    kind: operation
+    status: deferred(M8b)
+    dotnet: "IRustegonDatabase.GetTimeSeries<T>(string)"
+    java: "RustegonDatabase.timeSeries(String, Class<T>)"
+    feature: timeseries
+  - id: Database.Subscriptions
+    kind: operation
+    status: deferred(M8a)
+    dotnet: "IRustegonDatabase.Subscriptions.OpenWorker<T>(...)"
+    java: "RustegonDatabase.subscriptions().worker(...)"
+    feature: cdc
+  # ------------------------------------------------------------------ collection
+  - id: Collection.InsertOne
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.InsertOneAsync(T, InsertOptions?)"
+    java: "RustegonCollection<T>.insertOne(T, InsertOptions)"
+    rpc: [DocumentService.Insert]
+    result: "{insertedId}"
+  - id: Collection.InsertMany
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.InsertManyAsync(IEnumerable<T>, InsertOptions?)"
+    java: "RustegonCollection<T>.insertMany(List<T>, InsertOptions)"
+    rpc: [DocumentService.Insert]
+    result: "{insertedIds: [id]} in input order"
+  - id: Collection.FindById
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.FindByIdAsync(object id, FindOptions?)"
+    java: "RustegonCollection<T>.findById(Object id, FindOptions)"
+    rpc: [DocumentService.Get]
+    result: "document or null (Optional.empty())"
+  - id: Collection.Find
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.Find(Filter)"
+    java: "RustegonCollection<T>.find(Filter)"
+    rpc: [QueryService.Execute, QueryService.GetMore, QueryService.KillCursor]
+    notes: "Returns a fluent find (Find.*); executes on enumeration."
+  - id: Find.Sort
+    kind: builder
+    status: r1
+    dotnet: "IFindFluent<T>.Sort(Sort)"
+    java: "FindIterable<T>.sort(Sort)"
+  - id: Find.Limit
+    kind: builder
+    status: r1
+    dotnet: "IFindFluent<T>.Limit(int)"
+    java: "FindIterable<T>.limit(int)"
+  - id: Find.Skip
+    kind: builder
+    status: r1
+    dotnet: "IFindFluent<T>.Skip(int)"
+    java: "FindIterable<T>.skip(int)"
+  - id: Find.Project
+    kind: builder
+    status: r1
+    dotnet: "IFindFluent<T>.Project(Projection)"
+    java: "FindIterable<T>.projection(Projection)"
+  - id: Find.BatchSize
+    kind: builder
+    status: r1
+    dotnet: "IFindFluent<T>.BatchSize(int)"
+    java: "FindIterable<T>.batchSize(int)"
+  - id: Find.ToList
+    kind: operation
+    status: r1
+    dotnet: "IFindFluent<T>.ToListAsync()"
+    java: "FindIterable<T>.toList()"
+    rpc: [QueryService.Execute, QueryService.GetMore]
+    result: "[document]"
+  - id: Find.First
+    kind: operation
+    status: r1
+    dotnet: "IFindFluent<T>.FirstOrDefaultAsync()"
+    java: "FindIterable<T>.first()"
+    rpc: [QueryService.Execute]
+    result: "document or null (Optional.empty())"
+  - id: Find.Cursor
+    kind: operation
+    status: r1
+    dotnet: "IFindFluent<T>.ToCursorAsync() / ToAsyncEnumerable()"
+    java: "FindIterable<T>.cursor()"
+    rpc: [QueryService.Execute, QueryService.GetMore, QueryService.KillCursor]
+  - id: Collection.UpdateOne
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.UpdateOneAsync(Filter, Update, UpdateOptions?)"
+    java: "RustegonCollection<T>.updateOne(Filter, Update, UpdateOptions)"
+    rpc: [DocumentService.Update, QueryService.Execute]
+    result: "{matchedCount, modifiedCount}"
+    notes: "Filter.Id(..) alone -> DocumentService.Update; any other filter -> UPDATE ... LIMIT 1 (PD-070)."
+  - id: Collection.UpdateMany
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.UpdateManyAsync(Filter, Update, UpdateOptions?)"
+    java: "RustegonCollection<T>.updateMany(Filter, Update, UpdateOptions)"
+    rpc: [QueryService.Execute]
+    result: "{matchedCount, modifiedCount}"
+  - id: Collection.ReplaceOne
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.ReplaceOneAsync(Filter, T, ReplaceOptions?)"
+    java: "RustegonCollection<T>.replaceOne(Filter, T, ReplaceOptions)"
+    rpc: [DocumentService.Replace, DocumentService.Upsert, QueryService.Execute]
+    result: "{matchedCount, modifiedCount, upsertedId?}"
+    notes: "ReplaceOptions.IsUpsert / upsert(true) needs Filter.Id and uses DocumentService.Upsert."
+  - id: Collection.DeleteOne
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.DeleteOneAsync(Filter, DeleteOptions?)"
+    java: "RustegonCollection<T>.deleteOne(Filter, DeleteOptions)"
+    rpc: [DocumentService.Delete, QueryService.Execute]
+    result: "{deletedCount}"
+  - id: Collection.DeleteMany
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.DeleteManyAsync(Filter, DeleteOptions?)"
+    java: "RustegonCollection<T>.deleteMany(Filter, DeleteOptions)"
+    rpc: [QueryService.Execute]
+    result: "{deletedCount}"
+  - id: Collection.BulkWrite
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.BulkWriteAsync(IEnumerable<BulkOperation<T>>, BulkWriteOptions?)"
+    java: "RustegonCollection<T>.bulkWrite(List<BulkOperation<T>>, BulkWriteOptions)"
+    rpc: [DocumentService.BulkWrite]
+    result: "{insertedCount, matchedCount, modifiedCount, deletedCount, errors: [{index, code}]}"
+    notes: "No AtomicMode option in R1 (PD-071, DIVERGENCES.md)."
+  - id: Collection.CreateIndex
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.CreateIndexAsync(string name, IndexKeys, CreateIndexOptions?)"
+    java: "RustegonCollection<T>.createIndex(String name, IndexKeys, CreateIndexOptions)"
+    rpc: [SchemaService.CreateIndex, SchemaService.IndexBuildProgress]
+    result: "{name, state}"
+  - id: Collection.DropIndex
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.DropIndexAsync(string name, DropOptions?)"
+    java: "RustegonCollection<T>.dropIndex(String name, DropOptions)"
+    rpc: [SchemaService.DropIndex]
+    result: "{dropped: bool}"
+  - id: Collection.ListIndexes
+    kind: operation
+    status: r1
+    dotnet: "IRustegonCollection<T>.ListIndexesAsync()"
+    java: "RustegonCollection<T>.listIndexes()"
+    rpc: [SchemaService.ListIndexes]
+    result: "[{name, keys: [{path, descending}], unique, state}] sorted by name"
+  - id: Collection.Counters
+    kind: operation
+    status: deferred(M8a)
+    dotnet: "IRustegonCollection<T>.Counters(object id).IncrementAsync(string, long)"
+    java: "RustegonCollection<T>.counters(Object id).increment(String, long)"
+    feature: counters
+  - id: Collection.VectorSearch
+    kind: operation
+    status: deferred(M9)
+    dotnet: "IRustegonCollection<T>.VectorSearch(...)"
+    java: "RustegonCollection<T>.vectorSearch(...)"
+    feature: vector
+  - id: Collection.Watch
+    kind: operation
+    status: deferred(M8a)
+    dotnet: "IRustegonCollection<T>.WatchAsync(ChangeStreamFilter, ChangeStreamOptions?)"
+    java: "RustegonCollection<T>.watch(ChangeStreamOptions)"
+    feature: cdc
+  - id: Collection.Query
+    kind: builder
+    status: deferred(M7a)
+    dotnet: "IRustegonCollection<T>.Query() / Rgql.Query(...)"
+    java: "RustegonCollection<T>.query() / Rgql.query(...)"
+    notes: "Typed pipeline builder; RGQL text pipelines work through Database.Query in R1."
+  - id: Collection.AsQueryable
+    kind: builder
+    status: deferred(M15)
+    dotnet: "Rustegon.Driver.Linq"
+    java: "(none)"
+    notes: "LINQ provider is .NET only (SHOULD, dotnet-driver.md §2)."
+  # ------------------------------------------------------------------ filters (PD-070)
+  - {id: Filter.Empty, kind: builder, status: r1, dotnet: "Filter.Empty", java: "Filters.empty()"}
+  - {id: Filter.Id, kind: builder, status: r1, dotnet: "Filter.Id(object)", java: "Filters.id(Object)"}
+  - {id: Filter.Eq, kind: builder, status: r1, dotnet: "Filter.Eq(x => x.F, v) / Filter.Eq(\"f\", v)", java: "Filters.eq(\"f\", v)"}
+  - {id: Filter.Ne, kind: builder, status: r1, dotnet: "Filter.Ne", java: "Filters.ne"}
+  - {id: Filter.Gt, kind: builder, status: r1, dotnet: "Filter.Gt", java: "Filters.gt"}
+  - {id: Filter.Gte, kind: builder, status: r1, dotnet: "Filter.Gte", java: "Filters.gte"}
+  - {id: Filter.Lt, kind: builder, status: r1, dotnet: "Filter.Lt", java: "Filters.lt"}
+  - {id: Filter.Lte, kind: builder, status: r1, dotnet: "Filter.Lte", java: "Filters.lte"}
+  - {id: Filter.In, kind: builder, status: r1, dotnet: "Filter.In", java: "Filters.in"}
+  - {id: Filter.Nin, kind: builder, status: r1, dotnet: "Filter.Nin", java: "Filters.nin"}
+  - {id: Filter.Exists, kind: builder, status: r1, dotnet: "Filter.Exists", java: "Filters.exists"}
+  - {id: Filter.IsNull, kind: builder, status: r1, dotnet: "Filter.IsNull", java: "Filters.isNull"}
+  - {id: Filter.Contains, kind: builder, status: r1, dotnet: "Filter.Contains", java: "Filters.contains"}
+  - {id: Filter.ContainsAny, kind: builder, status: r1, dotnet: "Filter.ContainsAny", java: "Filters.containsAny"}
+  - {id: Filter.ContainsAll, kind: builder, status: r1, dotnet: "Filter.ContainsAll", java: "Filters.containsAll"}
+  - {id: Filter.ElemMatch, kind: builder, status: r1, dotnet: "Filter.ElemMatch", java: "Filters.elemMatch"}
+  - {id: Filter.Like, kind: builder, status: r1, dotnet: "Filter.Like", java: "Filters.like"}
+  - {id: Filter.Regex, kind: builder, status: r1, dotnet: "Filter.Regex", java: "Filters.regex"}
+  - {id: Filter.And, kind: builder, status: r1, dotnet: "Filter.And / operator &", java: "Filters.and / Filter.and"}
+  - {id: Filter.Or, kind: builder, status: r1, dotnet: "Filter.Or / operator |", java: "Filters.or / Filter.or"}
+  - {id: Filter.Not, kind: builder, status: r1, dotnet: "Filter.Not / operator !", java: "Filters.not"}
+  # ------------------------------------------------------------------ updates (PD-070)
+  - {id: Update.Set, kind: builder, status: r1, dotnet: "Update.Set", java: "Updates.set"}
+  - {id: Update.Unset, kind: builder, status: r1, dotnet: "Update.Unset", java: "Updates.unset"}
+  - {id: Update.Inc, kind: builder, status: r1, dotnet: "Update.Inc", java: "Updates.inc"}
+  - {id: Update.Mul, kind: builder, status: r1, dotnet: "Update.Mul", java: "Updates.mul"}
+  - {id: Update.Min, kind: builder, status: r1, dotnet: "Update.Min", java: "Updates.min"}
+  - {id: Update.Max, kind: builder, status: r1, dotnet: "Update.Max", java: "Updates.max"}
+  - {id: Update.Push, kind: builder, status: r1, dotnet: "Update.Push", java: "Updates.push"}
+  - {id: Update.AddToSet, kind: builder, status: r1, dotnet: "Update.AddToSet", java: "Updates.addToSet"}
+  - {id: Update.Pull, kind: builder, status: r1, dotnet: "Update.Pull", java: "Updates.pull"}
+  - {id: Update.Pop, kind: builder, status: r1, dotnet: "Update.PopFirst / Update.PopLast", java: "Updates.popFirst / Updates.popLast"}
+  - {id: Update.Rename, kind: builder, status: r1, dotnet: "Update.Rename", java: "Updates.rename"}
+  - {id: Update.CurrentDate, kind: builder, status: r1, dotnet: "Update.CurrentDate", java: "Updates.currentDate"}
+  # ------------------------------------------------------------------ sort / projection
+  - {id: Sort.Ascending, kind: builder, status: r1, dotnet: "Sort.Ascending", java: "Sorts.asc"}
+  - {id: Sort.Descending, kind: builder, status: r1, dotnet: "Sort.Descending", java: "Sorts.desc"}
+  - {id: Projection.Include, kind: builder, status: r1, dotnet: "Projection.Include", java: "Projections.include"}
+  - {id: Projection.Exclude, kind: builder, status: r1, dotnet: "Projection.Exclude", java: "Projections.exclude"}
+  # ------------------------------------------------------------------ bulk models (by id only)
+  - {id: BulkOperation.Insert, kind: builder, status: r1, dotnet: "BulkOperation.Insert(T)", java: "BulkOperation.insert(T)"}
+  - {id: BulkOperation.Replace, kind: builder, status: r1, dotnet: "BulkOperation.Replace(id, T, ifRev?)", java: "BulkOperation.replace(id, T)"}
+  - {id: BulkOperation.Update, kind: builder, status: r1, dotnet: "BulkOperation.Update(id, Update, ifRev?)", java: "BulkOperation.update(id, Update)"}
+  - {id: BulkOperation.Upsert, kind: builder, status: r1, dotnet: "BulkOperation.Upsert(T)", java: "BulkOperation.upsert(T)"}
+  - {id: BulkOperation.Delete, kind: builder, status: r1, dotnet: "BulkOperation.Delete(id, ifRev?)", java: "BulkOperation.delete(id)"}
+  # ------------------------------------------------------------------ cursor
+  - id: Cursor.Next
+    kind: operation
+    status: r1
+    dotnet: "IAsyncCursor<T>.MoveNextAsync() / await foreach"
+    java: "Cursor<T>.hasNext() / next() / for-each"
+    rpc: [QueryService.GetMore]
+  - id: Cursor.Close
+    kind: operation
+    status: r1
+    dotnet: "IAsyncCursor<T>.DisposeAsync()"
+    java: "Cursor<T>.close()"
+    rpc: [QueryService.KillCursor]
+  - id: Cursor.Publisher
+    kind: operation
+    status: deferred(M11-R2)
+    dotnet: "(n/a: IAsyncEnumerable<T>)"
+    java: "Cursor<T> as Flow.Publisher"
+  # ------------------------------------------------------------------ session
+  - id: Session.Close
+    kind: operation
+    status: r1
+    dotnet: "IClientSession.DisposeAsync()"
+    java: "ClientSession.close()"
+  - id: Session.CausalityToken
+    kind: behavior
+    status: r1
+    dotnet: "IClientSession.CausalityToken"
+    java: "ClientSession.causalityToken()"
+    notes: "Echoes the last rgn-causality-token trailer and sends it on later calls (PD-069)."
+  # ------------------------------------------------------------------ transaction
+  - id: Transaction.GetCollection
+    kind: operation
+    status: r1
+    dotnet: "ITransaction.Collection<T>(string \"db.coll\" | \"coll\")"
+    java: "Transaction.collection(String, Class<T>)"
+    notes: "Collection handle whose operations carry the txn_id."
+  - id: Transaction.Query
+    kind: operation
+    status: r1
+    dotnet: "ITransaction.QueryAsync<T>(string rgql, object? parameters)"
+    java: "Transaction.query(String rgql, Params params, Class<T>)"
+    rpc: [QueryService.Execute]
+  - id: Transaction.Commit
+    kind: operation
+    status: r1
+    dotnet: "ITransaction.CommitAsync()"
+    java: "Transaction.commit()"
+    rpc: [TransactionService.Commit]
+  - id: Transaction.Rollback
+    kind: operation
+    status: r1
+    dotnet: "ITransaction.RollbackAsync()"
+    java: "Transaction.rollback()"
+    rpc: [TransactionService.Rollback]
+  - id: Transaction.Close
+    kind: operation
+    status: r1
+    dotnet: "ITransaction.DisposeAsync()"
+    java: "Transaction.close()"
+    rpc: [TransactionService.Rollback]
+    notes: "Rolls back when not committed."
+  - id: Transaction.Resolve
+    kind: operation
+    status: r1
+    dotnet: "CommitOutcomeUnknownException.ResolveAsync() / ITransaction.ResolveAsync()"
+    java: "Transaction.resolve()"
+    rpc: [TransactionService.Status]
+    result: "committed | aborted | unknown"
+  # ------------------------------------------------------------------ codec
+  - {id: Codec.EncodeDocument, kind: codec, status: r1, dotnet: "RDocWriter / IRDocCodec<RDocument>", java: "RDocWriter / RDocCodec<RDocument>"}
+  - {id: Codec.DecodeDocument, kind: codec, status: r1, dotnet: "RDocReader / IRDocCodec<RDocument>", java: "RDocReader / RDocCodec<RDocument>"}
+  - {id: Codec.EncodeValue, kind: codec, status: r1, dotnet: "RDocWriter.WriteValue", java: "RDocWriter.writeValue"}
+  - {id: Codec.DecodeValue, kind: codec, status: r1, dotnet: "RDocReader.ReadValue", java: "RDocReader.readValue"}
+  - {id: Codec.FromJson, kind: codec, status: r1, dotnet: "RDocument.FromJson", java: "RDocument.parse"}
+  - {id: Codec.ToJson, kind: codec, status: r1, dotnet: "RDocument.ToJson", java: "RDocument.toJson"}
+  # ------------------------------------------------------------------ behaviours
+  - id: Behavior.ErrorMapping
+    kind: behavior
+    status: r1
+    dotnet: "RustegonException hierarchy"
+    java: "RustegonException hierarchy"
+    notes: "errors-map.yaml, generated/ErrorCodes.*"
+  - id: Behavior.RetryReads
+    kind: behavior
+    status: r1
+    dotnet: "RustegonClientSettings.RetryReads / MaxRetries"
+    java: "RustegonClientSettings.retryReads / maxRetries"
+    notes: "retry.yaml"
+  - id: Behavior.RetryWrites
+    kind: behavior
+    status: r1
+    dotnet: "RustegonClientSettings.RetryWrites"
+    java: "RustegonClientSettings.retryWrites"
+    notes: "retry.yaml; only with an rgn-request-id and outside transactions."
+  - id: Behavior.TransactionRetry
+    kind: behavior
+    status: r1
+    dotnet: "WithTransactionAsync retry loop"
+    java: "withTransaction retry loop"
+    notes: "retry.yaml, transactions.md §5."
+  - id: Behavior.CommitOutcomeResolution
+    kind: behavior
+    status: r1
+    dotnet: "RGN-2006 -> TxnStatus"
+    java: "RGN-2006 -> TxnStatus"
+  - id: Behavior.SessionReauthentication
+    kind: behavior
+    status: r1
+    dotnet: "RGN-4005 -> re-authenticate once"
+    java: "RGN-4005 -> re-authenticate once"
+  - id: Behavior.OperationTimeout
+    kind: behavior
+    status: r1
+    dotnet: "DefaultOperationTimeout / per-operation Timeout -> grpc-timeout"
+    java: "defaultOperationTimeout / per-operation timeout -> grpc-timeout"
+  - id: Behavior.TransactionHeartbeat
+    kind: behavior
+    status: r1
+    dotnet: "automatic Heartbeat while a transaction is idle"
+    java: "automatic Heartbeat while a transaction is idle"
+    rpc: [TransactionService.Heartbeat]
+  - id: Behavior.PasswordChangeRequired
+    kind: behavior
+    status: r1
+    dotnet: "PasswordChangeRequiredException / AllowPasswordChangeOnly"
+    java: "PasswordChangeRequiredException / allowPasswordChangeOnly"
+    notes: "PD-076."
+  - id: Behavior.MultiEndpoint
+    kind: behavior
+    status: deferred(M5)
+    dotnet: "power-of-two-choices over Endpoints, ejection with backoff"
+    java: "power-of-two-choices over endpoints, ejection with backoff"
+    notes: "R1 servers are single nodes; several seeds are parsed but only the first reachable one is used."
+  - id: Behavior.TopologyDiscovery
+    kind: behavior
+    status: deferred(M5)
+    dotnet: "DiscoverTopology = true"
+    java: "discoverTopology(true)"
+  - id: Behavior.SrvSeed
+    kind: behavior
+    status: deferred(M5)
+    dotnet: "rustegon+srv://"
+    java: "rustegon+srv://"
+    notes: "connstring.yaml lists rustegon+srv:// as not supported in R1."

@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright The Rustegon Authors
+
+syntax = "proto3";
+
+package rustegon.v1;
+
+// Session-level calls available before and after authentication (protocol.md §2).
+service SessionService {
+  // Liveness round trip.
+  rpc Ping(PingRequest) returns (PingResponse);
+  // Server and protocol versions plus capability flags, used by drivers for negotiation
+  // (protocol.md §9).
+  rpc GetServerInfo(GetServerInfoRequest) returns (GetServerInfoResponse);
+}
+
+// Request of SessionService.Ping.
+message PingRequest {}
+
+// Response of SessionService.Ping.
+message PingResponse {}
+
+// Request of SessionService.GetServerInfo.
+message GetServerInfoRequest {}
+
+// Response of SessionService.GetServerInfo.
+message GetServerInfoResponse {
+  // Server version (semver).
+  string server_version = 1;
+  // Wire protocol version "1.<minor>".
+  string protocol_version = 2;
+  // Capability flags, e.g. "vector", "xdc". Drivers gate features on these, not on versions.
+  repeated string features = 3;
+  // Client endpoints of cluster nodes, for optional topology-aware routing (protocol.md §5.3).
+  repeated string node_addresses = 4;
+}
