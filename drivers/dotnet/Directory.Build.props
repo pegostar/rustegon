@@ -12,8 +12,8 @@
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <Deterministic>true</Deterministic>
     <InvariantGlobalization>false</InvariantGlobalization>
-    <Authors>The Rustegon Authors</Authors>
-    <Copyright>Copyright The Rustegon Authors</Copyright>
+    <Authors>Davide Pegoraro</Authors>
+    <Copyright>Copyright Davide Pegoraro</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <!-- SourceLink is part of the .NET SDK (8+); these make the package debuggable from source. -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -24,11 +24,11 @@
          are previews of protocol 1. AssemblyVersion changes only with a breaking release
          (major.0.0.0; 0.minor.0.0 before 1.0) so strong-named consumers bind across compatible
          updates; FileVersion and the package version carry the full version. -->
-    <Version>0.1.0-alpha.1</Version>
+    <Version>0.1.0</Version>
     <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <RepositoryUrl>https://github.com/rustegon/rustegon</RepositoryUrl>
+    <RepositoryUrl>https://github.com/pegostar/rustegon</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageProjectUrl>https://github.com/rustegon/rustegon/tree/main/drivers/dotnet</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/pegostar/rustegon/tree/main/drivers/dotnet</PackageProjectUrl>
     <!-- Symbols ship as a separate .snupkg (portable PDB) next to the .nupkg. -->
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>

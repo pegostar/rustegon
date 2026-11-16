@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	pb "github.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1"
-	"github.com/rustegon/rustegon/drivers/go/internal/scram"
+	pb "github.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1"
+	"github.com/pegostar/rustegon/drivers/go/internal/scram"
 )
 
 // refreshMargin renews a session token this long before it expires.

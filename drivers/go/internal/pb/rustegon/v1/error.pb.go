@@ -145,7 +145,7 @@ const file_rustegon_v1_error_proto_rawDesc = "" +
 	"_committedB\x11\n" +
 	"\x0f_retry_after_msB\xb6\x01\n" +
 	"\x0fcom.rustegon.v1B\n" +
-	"ErrorProtoP\x01ZJgithub.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
+	"ErrorProtoP\x01ZJgithub.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
 
 var (
 	file_rustegon_v1_error_proto_rawDescOnce sync.Once

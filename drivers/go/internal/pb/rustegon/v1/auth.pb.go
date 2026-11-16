@@ -617,7 +617,7 @@ const file_rustegon_v1_auth_proto_rawDesc = "" +
 	"\fAuthenticate\x12 .rustegon.v1.AuthenticateRequest\x1a!.rustegon.v1.AuthenticateResponse(\x010\x01\x12A\n" +
 	"\x06Logout\x12\x1a.rustegon.v1.LogoutRequest\x1a\x1b.rustegon.v1.LogoutResponse\x12A\n" +
 	"\x06WhoAmI\x12\x1a.rustegon.v1.WhoAmIRequest\x1a\x1b.rustegon.v1.WhoAmIResponseB\xb5\x01\n" +
-	"\x0fcom.rustegon.v1B\tAuthProtoP\x01ZJgithub.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
+	"\x0fcom.rustegon.v1B\tAuthProtoP\x01ZJgithub.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
 
 var (
 	file_rustegon_v1_auth_proto_rawDescOnce sync.Once

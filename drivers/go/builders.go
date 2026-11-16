@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	pb "github.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1"
-	"github.com/rustegon/rustegon/drivers/go/rdoc"
+	pb "github.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1"
+	"github.com/pegostar/rustegon/drivers/go/rdoc"
 )
 
 // The builders produce the structured AST of query_ast.proto, never RGQL text (PD-070); the

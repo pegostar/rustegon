@@ -8,7 +8,7 @@
 [package]
 name = "rustegon-driver"
 description = "Official Rust driver of the Rustegon distributed ACID document database."
-version = "0.1.0-alpha.1"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.99"
 license = "Apache-2.0"
@@ -16,8 +16,9 @@ repository = "https://github.com/rustegon/rustegon"
 readme = "README.md"
 keywords = ["rustegon", "database", "driver", "grpc", "nosql"]
 categories = ["database"]
-# Published with the first driver release (needs the protos inside the package, PD-180).
-publish = false
+# The package carries a copy of `proto/rustegon/v1` (PD-180), copied into
+# `drivers/rust/proto/` (git-ignored) right before `cargo publish`; build.rs prefers it.
+include = ["src/**", "proto/**/*.proto", "build.rs", "README.md", "Cargo.toml", "Cargo.lock"]
 
 [workspace]
 

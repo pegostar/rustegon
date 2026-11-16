@@ -99,6 +99,14 @@ inner() {
   for f in README.md LICENSE NOTICE THIRD-PARTY-LICENSES.txt rustegon.toml.sample; do
     mode "/usr/share/doc/rustegon/$f" "644 root:root"
   done
+  # The brand mark, menu entry and AppStream entry (icon `rustegon`).
+  for f in /usr/share/icons/hicolor/scalable/apps/rustegon.svg \
+      /usr/share/applications/com.rustegon.Rustegon.desktop \
+      /usr/share/metainfo/com.rustegon.Rustegon.metainfo.xml; do
+    mode "$f" "644 root:root"
+  done
+  grep -q '<svg' /usr/share/icons/hicolor/scalable/apps/rustegon.svg || fail "icon is not an SVG"
+  grep -qx 'Icon=rustegon' /usr/share/applications/com.rustegon.Rustegon.desktop || fail "menu entry icon"
   grep -q 'ExecStart=/usr/bin/rustegond --config /etc/rustegon/rustegon.toml' \
     /usr/lib/systemd/system/rustegon.service || fail "unit ExecStart"
   local account
@@ -223,16 +231,28 @@ if [[ "${1:-}" == --msi ]]; then
       '--log-dir &quot;[DATAROOT]logs&quot;'; do
     [[ "$init" == *"$attr"* ]] || fail "TurnkeyInit lacks $attr: $init"
   done
-  grep -q '<CustomAction Id="TurnkeyInitRollback".*Execute="rollback"' "$wxs" || fail "no init rollback"
-  for ca in TurnkeyInit TurnkeyInitRollback; do
-    grep -q "<Custom Action=\"$ca\" Condition=\"NOT Installed AND NOT RUSTEGON_CONFIG_FOUND AND NOT REMOVE\"" "$wxs" \
-      || fail "$ca is not first-install only"
+  # PD-224: the existing-configuration test runs as LocalSystem inside the action (AppSearch runs
+  # as the installing user, who cannot read the protected ProgramData), and the rollback deletes
+  # only a configuration this installation wrote (the msi-init marker).
+  [[ "$init" == *'Directory="DATAROOT"'* && "$init" == *'if exist rustegon.toml ('*') else (type nul&gt;msi-init&amp;&amp;'* ]] \
+    || fail "TurnkeyInit does not skip an existing configuration: $init"
+  ! grep -q 'RUSTEGON_CONFIG_FOUND\|<FileSearch' "$wxs" || fail "configuration searched as the installing user"
+  rollback="$(grep -A2 '<CustomAction Id="TurnkeyInitRollback"' "$wxs" | tr -d '\n')"
+  [[ "$rollback" == *'Execute="rollback"'* && "$rollback" == *'Directory="DATAROOT"'* && "$rollback" == *'if exist msi-init (del /q rustegon.toml msi-init)'* ]] \
+    || fail "the init rollback is not limited to the configuration it wrote: $rollback"
+  grep -A2 '<CustomAction Id="TurnkeyInitCommit"' "$wxs" | grep -q 'Execute="commit"' || fail "no marker cleanup on commit"
+  for ca in TurnkeyInit TurnkeyInitRollback TurnkeyInitCommit; do
+    grep -q "<Custom Action=\"$ca\" .*Condition=\"NOT Installed AND NOT REMOVE\"" "$wxs" \
+      || fail "$ca is not install-only"
   done
-  grep -q '<FileSearch .*Name="rustegon.toml"' "$wxs" || fail "no search for an existing configuration"
   shortcut="$(grep '<IniFile Id="ConsoleUrl"' "$wxs" || true)"
   [[ "$shortcut" == *'Name="Rustegon Console.url"'* && "$shortcut" == *'Value="http://localhost:7780/ui/"'* ]] \
     || fail "no Rustegon Console shortcut: $shortcut"
   grep -q 'sign in as admin / admin' "$wxs" || fail "no exit text"
+  # The brand mark in Settings > Apps and on the console shortcut.
+  grep -q 'Id="ARPPRODUCTICON" Value="RustegonIcon"' "$wxs" || fail "no product icon"
+  grep -q '<Icon Id="RustegonIcon"' "$wxs" || fail "no Icon table entry"
+  grep -q 'Key="IconFile"' "$wxs" || fail "the console shortcut has no icon"
   # The decompiler drops MsiLockPermissionsEx rows; the SDDL is in the string pool.
   grep -aqF 'D:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;0x1301bf;;;S-1-5-80-2543126537-3050816147-2030542042-337991617-3549228777)' "$msi" \
     || fail "no protected ProgramData ACL for the service account"
@@ -245,7 +265,7 @@ if [[ "${1:-}" == --msi ]]; then
     || { cat "$work/admin.log" >&2 || true; fail "msiexec /a failed"; }
   dir="$(find "$work/image" -type d -name Rustegon | head -n1)"
   [[ -n "$dir" ]] || fail "no Rustegon folder in the administrative image"
-  for f in bin/rustegond.exe bin/rustegon.exe README.md LICENSE NOTICE THIRD-PARTY-LICENSES.txt rustegon.toml.sample; do
+  for f in bin/rustegond.exe bin/rustegon.exe README.md LICENSE NOTICE THIRD-PARTY-LICENSES.txt rustegon.toml.sample rustegon.ico; do
     [[ -s "$dir/$f" ]] || fail "administrative image lacks $f"
   done
   "$dir/bin/rustegond.exe" --version | grep -qF "$version" || fail "rustegond.exe --version"

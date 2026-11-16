@@ -10067,7 +10067,7 @@ const file_rustegon_v1_query_ast_proto_rawDesc = "" +
 	"\x11AST_PRIORITY_HIGH\x10\x01\x12\x17\n" +
 	"\x13AST_PRIORITY_NORMAL\x10\x02\x12\x14\n" +
 	"\x10AST_PRIORITY_LOW\x10\x03B\xb9\x01\n" +
-	"\x0fcom.rustegon.v1B\rQueryAstProtoP\x01ZJgithub.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
+	"\x0fcom.rustegon.v1B\rQueryAstProtoP\x01ZJgithub.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
 
 var (
 	file_rustegon_v1_query_ast_proto_rawDescOnce sync.Once

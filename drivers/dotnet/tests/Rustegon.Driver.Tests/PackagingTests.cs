@@ -126,7 +126,7 @@ public sealed class PackagingTests
             Assert.Equal("expression", meta.Element(ns + "license")?.Attribute("type")?.Value);
             Assert.Equal("README.md", meta.Element(ns + "readme")?.Value);
             XElement repo = meta.Element(ns + "repository")!;
-            Assert.Equal("https://github.com/rustegon/rustegon", repo.Attribute("url")?.Value);
+            Assert.Equal("https://github.com/pegostar/rustegon", repo.Attribute("url")?.Value);
             Assert.Matches("^[0-9a-f]{40}$", repo.Attribute("commit")?.Value ?? string.Empty);
             XElement group = Assert.Single(meta.Element(ns + "dependencies")!.Elements(ns + "group"));
             Assert.Equal("net10.0", group.Attribute("targetFramework")?.Value);

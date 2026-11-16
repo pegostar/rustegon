@@ -9,8 +9,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	pb "github.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1"
-	"github.com/rustegon/rustegon/drivers/go/rdoc"
+	pb "github.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1"
+	"github.com/pegostar/rustegon/drivers/go/rdoc"
 )
 
 // dataContext is what a database or collection handle needs: the executor, the database and,

@@ -1,4 +1,4 @@
-module github.com/rustegon/rustegon/drivers/go
+module github.com/pegostar/rustegon/drivers/go
 
 go 1.27.4
 

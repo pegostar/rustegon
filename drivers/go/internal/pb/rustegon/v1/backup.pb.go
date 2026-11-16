@@ -1867,7 +1867,7 @@ const file_rustegon_v1_backup_proto_rawDesc = "" +
 	"\x0eDeleteSnapshot\x12\".rustegon.v1.DeleteSnapshotRequest\x1a#.rustegon.v1.DeleteSnapshotResponse\x12=\n" +
 	"\x04Dump\x12\x18.rustegon.v1.DumpRequest\x1a\x19.rustegon.v1.DumpResponse0\x01\x12[\n" +
 	"\x0eLogicalRestore\x12\".rustegon.v1.LogicalRestoreRequest\x1a#.rustegon.v1.LogicalRestoreResponse(\x01B\xb7\x01\n" +
-	"\x0fcom.rustegon.v1B\vBackupProtoP\x01ZJgithub.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
+	"\x0fcom.rustegon.v1B\vBackupProtoP\x01ZJgithub.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
 
 var (
 	file_rustegon_v1_backup_proto_rawDescOnce sync.Once

@@ -449,7 +449,7 @@ const file_rustegon_v1_common_proto_rawDesc = "" +
 	"\x1fWRITE_CONCERN_LOCAL_DC_MAJORITY\x10\x03\x12\x1f\n" +
 	"\x1bWRITE_CONCERN_SYNC_CROSS_DC\x10\x04\x12 \n" +
 	"\x1cWRITE_CONCERN_ASYNC_CROSS_DC\x10\x05B\xb7\x01\n" +
-	"\x0fcom.rustegon.v1B\vCommonProtoP\x01ZJgithub.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
+	"\x0fcom.rustegon.v1B\vCommonProtoP\x01ZJgithub.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
 
 var (
 	file_rustegon_v1_common_proto_rawDescOnce sync.Once

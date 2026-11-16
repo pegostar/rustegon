@@ -1,4 +1,4 @@
-# Rustegon Java driver (`io.rustegon:rustegon-driver`)
+# Rustegon Java driver (`com.rustegon:rustegon-driver`)
 
 Official Java driver of Rustegon (spec: [`docs/specifications/java-driver.md`](../../docs/specifications/java-driver.md)).
 Baseline **Java 21**, tested on 21 and 25 (DEC-020); JPMS module `io.rustegon.driver`; synchronous API,
@@ -9,9 +9,9 @@ differences from the specification and from the .NET driver: [`../DIVERGENCES.md
 
 | Coordinates | Content |
 |---|---|
-| `io.rustegon:rustegon-driver` | the driver (exports `io.rustegon.driver`, `.errors`, `.rdoc`, `.mapping`) |
-| `io.rustegon:rustegon-processor` | `@RustegonDocument` annotation processor: generated codecs and the `Order_` metamodel (compile time only, PD-113) |
-| `io.rustegon:rustegon-bom` | BOM aligning the two |
+| `com.rustegon:rustegon-driver` | the driver (exports `io.rustegon.driver`, `.errors`, `.rdoc`, `.mapping`) |
+| `com.rustegon:rustegon-processor` | `@RustegonDocument` annotation processor: generated codecs and the `Order_` metamodel (compile time only, PD-113) |
+| `com.rustegon:rustegon-bom` | BOM aligning the two |
 
 Runtime dependencies: `grpc-api`, `grpc-stub`, `grpc-protobuf`, `grpc-netty-shaded` (Netty is relocated
 inside it), `protobuf-java`, `guava` (needed by gRPC), `slf4j-api`. No gRPC or protobuf type is part of
@@ -19,9 +19,9 @@ the public API. There is no additional shaded (`-all`) artifact in R1 (PD-120).
 
 ```kotlin
 dependencies {
-    implementation(platform("io.rustegon:rustegon-bom:0.1.0"))
-    implementation("io.rustegon:rustegon-driver")
-    annotationProcessor("io.rustegon:rustegon-processor")   // optional: generated codecs
+    implementation(platform("com.rustegon:rustegon-bom:0.1.0"))
+    implementation("com.rustegon:rustegon-driver")
+    annotationProcessor("com.rustegon:rustegon-processor")   // optional: generated codecs
 }
 ```
 

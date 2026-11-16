@@ -2,7 +2,7 @@
 
 The official Python driver of the Rustegon document database: an asyncio API and a blocking
 facade over the same core. Specification: [`docs/specifications/python-driver.md`](../../docs/specifications/python-driver.md).
-Requires Python 3.11 or later (tested on CPython 3.14). Not yet published to PyPI.
+Requires Python 3.11 or later (tested on CPython 3.14). Published on PyPI: `pip install rustegon`.
 
 ## Quick start
 

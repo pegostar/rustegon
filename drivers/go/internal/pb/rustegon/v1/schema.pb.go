@@ -2228,7 +2228,7 @@ const file_rustegon_v1_schema_proto_rawDesc = "" +
 	"\fGetValidator\x12 .rustegon.v1.GetValidatorRequest\x1a!.rustegon.v1.GetValidatorResponse\x12S\n" +
 	"\fSetValidator\x12 .rustegon.v1.SetValidatorRequest\x1a!.rustegon.v1.SetValidatorResponse\x12\\\n" +
 	"\x0fRemoveValidator\x12#.rustegon.v1.RemoveValidatorRequest\x1a$.rustegon.v1.RemoveValidatorResponseB\xb7\x01\n" +
-	"\x0fcom.rustegon.v1B\vSchemaProtoP\x01ZJgithub.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
+	"\x0fcom.rustegon.v1B\vSchemaProtoP\x01ZJgithub.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
 
 var (
 	file_rustegon_v1_schema_proto_rawDescOnce sync.Once

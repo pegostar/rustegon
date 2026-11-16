@@ -2173,7 +2173,7 @@ const file_rustegon_v1_admin_proto_rawDesc = "" +
 	"\vGetSettings\x12\x1f.rustegon.v1.GetSettingsRequest\x1a .rustegon.v1.GetSettingsResponse\x12Y\n" +
 	"\x0eUpdateSettings\x12\".rustegon.v1.UpdateSettingsRequest\x1a#.rustegon.v1.UpdateSettingsResponseB\xb6\x01\n" +
 	"\x0fcom.rustegon.v1B\n" +
-	"AdminProtoP\x01ZJgithub.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
+	"AdminProtoP\x01ZJgithub.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
 
 var (
 	file_rustegon_v1_admin_proto_rawDescOnce sync.Once

@@ -55,7 +55,7 @@ tasks.register("validateCentralBundle") {
             else notes += "not signed: no signing key configured (required with -Prustegon.release)"
         }
         for ((artifact, packaging) in modules) {
-            val dir = repo.get().dir("io/rustegon/$artifact/$version").asFile
+            val dir = repo.get().dir("com/rustegon/$artifact/$version").asFile
             val poms = dir.listFiles { f -> f.name.endsWith(".pom") }.orEmpty()
             if (poms.size != 1) {
                 problems += "$artifact: expected one POM in $dir, found ${poms.size}"
@@ -73,7 +73,7 @@ tasks.register("validateCentralBundle") {
                     .filterIsInstance<Element>().firstOrNull { it.tagName == tag } }
             }
             // Coordinates and the metadata Central requires.
-            if (text(pom, "groupId") != "io.rustegon") problems += "$artifact: groupId is not io.rustegon"
+            if (text(pom, "groupId") != "com.rustegon") problems += "$artifact: groupId is not com.rustegon"
             if (text(pom, "artifactId") != artifact) problems += "$artifact: artifactId is ${text(pom, "artifactId")}"
             if (text(pom, "version") != version) problems += "$artifact: version is ${text(pom, "version")}"
             if ((text(pom, "packaging") ?: "jar") != packaging) problems += "$artifact: packaging is not $packaging"
@@ -101,7 +101,7 @@ tasks.register("validateCentralBundle") {
                 val v = text(d, "version")
                 if (v == null || v.contains("\${")) problems += "$artifact: dependency $coords has no concrete version"
                 if (text(d, "scope") == "system") problems += "$artifact: dependency $coords has system scope"
-                if (v != null && v.endsWith("-SNAPSHOT") && !coords.startsWith("io.rustegon:")) {
+                if (v != null && v.endsWith("-SNAPSHOT") && !coords.startsWith("com.rustegon:")) {
                     problems += "$artifact: dependency $coords is a SNAPSHOT"
                 }
                 // Direct dependencies (not dependencyManagement): what a consumer resolves.

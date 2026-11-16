@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
-	pb "github.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1"
-	"github.com/rustegon/rustegon/drivers/go/rdoc"
+	pb "github.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1"
+	"github.com/pegostar/rustegon/drivers/go/rdoc"
 )
 
 // Collection is a handle on a collection; documents are rdoc.Document values.

@@ -13,7 +13,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/rustegon/rustegon/drivers/go/rdoc"
+	"github.com/pegostar/rustegon/drivers/go/rdoc"
 )
 
 // ymap is an ordered YAML/JSON mapping: field order matters for documents.

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rustegon/rustegon/drivers/go/rdoc"
+	"github.com/pegostar/rustegon/drivers/go/rdoc"
 )
 
 // Conformance runner (drivers/conformance/README.md §5–§7), a port of the .NET ConformanceRun so

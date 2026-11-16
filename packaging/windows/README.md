@@ -8,6 +8,7 @@ A distributed ACID document database. The installer puts into `C:\Program Files\
 | `bin\rustegon.exe` | the command-line tool (`init`, `shell`, users, backups, certificates) |
 | `rustegon.toml.sample` | every setting at its default, commented out |
 | `LICENSE`, `NOTICE`, `THIRD-PARTY-LICENSES.txt` | Apache-2.0 and bundled licenses |
+| `rustegon.ico` | the Rustegon icon, shown in Settings > Apps and on the Start-menu shortcut |
 
 `bin` is added to the system `PATH` (open a new terminal). It also installs the Windows service
 **Rustegon** (account `NT SERVICE\Rustegon`, automatic start) and, on the first install,

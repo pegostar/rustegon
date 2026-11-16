@@ -20,9 +20,9 @@ import (
 
 	"google.golang.org/grpc"
 
-	pb "github.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1"
-	"github.com/rustegon/rustegon/drivers/go/internal/testserver"
-	"github.com/rustegon/rustegon/drivers/go/rdoc"
+	pb "github.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1"
+	"github.com/pegostar/rustegon/drivers/go/internal/testserver"
+	"github.com/pegostar/rustegon/drivers/go/rdoc"
 )
 
 // TC-DRV-GO-020: the shared conformance suite (FR-DRV-007, FR-DRV-003, AC-DRV-007). Every test

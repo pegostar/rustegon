@@ -19,9 +19,9 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1"
-	"github.com/rustegon/rustegon/drivers/go/internal/scram"
-	"github.com/rustegon/rustegon/drivers/go/rdoc"
+	pb "github.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1"
+	"github.com/pegostar/rustegon/drivers/go/internal/scram"
+	"github.com/pegostar/rustegon/drivers/go/rdoc"
 )
 
 // runnerChecks implements the runner operations of README §7 that need no server.

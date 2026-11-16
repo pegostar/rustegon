@@ -12,7 +12,14 @@ use prost::Message as _;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-    let proto_root = manifest.join("../../proto");
+    // The published package carries its own copy of the protos (PD-180); in the repository the
+    // single source of truth is the root `proto/` directory.
+    let packaged = manifest.join("proto");
+    let proto_root = if packaged.join("rustegon/v1").is_dir() {
+        packaged
+    } else {
+        manifest.join("../../proto")
+    };
     let v1_dir = proto_root.join("rustegon/v1");
     println!("cargo:rerun-if-changed={}", v1_dir.display());
     let mut files = Vec::new();

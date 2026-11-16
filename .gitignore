@@ -13,3 +13,6 @@
 .vscode/
 .claude/worktrees/
 /packaging/windows/.wix/
+
+# Locally packed driver packages (dotnet pack -o out)
+drivers/dotnet/out/

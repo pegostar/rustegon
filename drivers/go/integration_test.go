@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rustegon/rustegon/drivers/go/internal/testserver"
-	"github.com/rustegon/rustegon/drivers/go/rdoc"
+	"github.com/pegostar/rustegon/drivers/go/internal/testserver"
+	"github.com/pegostar/rustegon/drivers/go/rdoc"
 )
 
 // Driver-specific integration tests against a real node (the conformance suite covers the

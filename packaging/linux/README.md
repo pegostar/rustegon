@@ -11,6 +11,7 @@ A distributed ACID document database. This package installs:
 | `/var/lib/rustegon/` | data directory |
 | `/var/log/rustegon/` | log files |
 | `/usr/share/doc/rustegon/` | this file, licenses, `rustegon.toml.sample` (every default, commented out) |
+| `/usr/share/icons/hicolor/scalable/apps/rustegon.svg`, `/usr/share/applications/com.rustegon.Rustegon.desktop`, `/usr/share/metainfo/com.rustegon.Rustegon.metainfo.xml` | the Rustegon icon, a **Rustegon Console** menu entry (opens http://localhost:7780/ui/) and the software-centre entry |
 
 The package creates the system account `rustegon` (no shell, no password). This is an
 **unsigned development build**: check the package against `SHA256SUMS` before installing it.

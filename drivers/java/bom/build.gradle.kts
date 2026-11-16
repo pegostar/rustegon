@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright The Rustegon Authors
 
-// io.rustegon:rustegon-bom (java-driver.md §1). Placeholder until the optional modules
+// com.rustegon:rustegon-bom (java-driver.md §1). Placeholder until the optional modules
 // (Jackson, reactive, OpenTelemetry) exist; it already pins the core driver.
 plugins {
     `java-platform`

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright The Rustegon Authors
 
-// io.rustegon:rustegon-processor: the @RustegonDocument annotation processor (java-driver.md §5,
+// com.rustegon:rustegon-processor: the @RustegonDocument annotation processor (java-driver.md §5,
 // TC-DRV-JAVA-021). Used through `annotationProcessor`, never at run time: it depends on the JDK
 // only and leaves the driver's runtime dependencies unchanged. Its tests live in the driver
 // (driver/src/test, TC-DRV-JAVA-021…025), which compiles its test model with this processor.

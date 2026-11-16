@@ -5,8 +5,8 @@ Same Driver Conceptual Model, error mapping, retry policy and conformance result
 
 ```go
 import (
-    rustegon "github.com/rustegon/rustegon/drivers/go"
-    "github.com/rustegon/rustegon/drivers/go/rdoc"
+    rustegon "github.com/pegostar/rustegon/drivers/go"
+    "github.com/pegostar/rustegon/drivers/go/rdoc"
 )
 
 client, err := rustegon.New(rustegon.WithConnectionString("rustegon://app_user:pwd@localhost:7700/shop"))

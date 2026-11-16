@@ -2,7 +2,7 @@
 
 The Node.js driver for Rustegon (FR-DRV-004, DEC-014). Specification: [`docs/specifications/node-driver.md`](../../docs/specifications/node-driver.md);
 differences from the .NET and Java drivers: [`drivers/DIVERGENCES.md`](../DIVERGENCES.md) §7.
-Not published to npm yet (`private: true`).
+Published on npm: `npm install @rustegon/driver`.
 
 ```ts
 import { RustegonClient, Filter, Update } from '@rustegon/driver';

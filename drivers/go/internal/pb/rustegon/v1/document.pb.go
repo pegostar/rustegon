@@ -2147,7 +2147,7 @@ const file_rustegon_v1_document_proto_rawDesc = "" +
 	"\x06Upsert\x12\x1a.rustegon.v1.UpsertRequest\x1a\x1b.rustegon.v1.UpsertResponse\x12A\n" +
 	"\x06Delete\x12\x1a.rustegon.v1.DeleteRequest\x1a\x1b.rustegon.v1.DeleteResponse\x12J\n" +
 	"\tBulkWrite\x12\x1d.rustegon.v1.BulkWriteRequest\x1a\x1e.rustegon.v1.BulkWriteResponseB\xb9\x01\n" +
-	"\x0fcom.rustegon.v1B\rDocumentProtoP\x01ZJgithub.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
+	"\x0fcom.rustegon.v1B\rDocumentProtoP\x01ZJgithub.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
 
 var (
 	file_rustegon_v1_document_proto_rawDescOnce sync.Once

@@ -3,8 +3,8 @@
 
 // Shared coordinates; the projects configure themselves (driver/, processor/, bom/, samples/).
 allprojects {
-    group = "io.rustegon"
-    version = "0.1.0-SNAPSHOT"
+    group = "com.rustegon"
+    version = "0.1.0"
 }
 
 // --- Publishing (java-driver.md §1, AC-DRV-002) ---------------------------------------------
@@ -37,7 +37,7 @@ subprojects {
             }
             publications.withType<MavenPublication>().configureEach {
                 pom {
-                    url = "https://github.com/rustegon/rustegon"
+                    url = "https://github.com/pegostar/rustegon"
                     inceptionYear = "2026"
                     licenses {
                         license {
@@ -48,15 +48,15 @@ subprojects {
                     }
                     developers {
                         developer {
-                            id = "rustegon"
-                            name = "The Rustegon Authors"
-                            url = "https://github.com/rustegon"
+                            id = "pegostar"
+                            name = "Davide Pegoraro"
+                            url = "https://github.com/pegostar"
                         }
                     }
                     scm {
-                        url = "https://github.com/rustegon/rustegon"
-                        connection = "scm:git:https://github.com/rustegon/rustegon.git"
-                        developerConnection = "scm:git:ssh://git@github.com/rustegon/rustegon.git"
+                        url = "https://github.com/pegostar/rustegon"
+                        connection = "scm:git:https://github.com/pegostar/rustegon.git"
+                        developerConnection = "scm:git:ssh://git@github.com/pegostar/rustegon.git"
                     }
                 }
             }

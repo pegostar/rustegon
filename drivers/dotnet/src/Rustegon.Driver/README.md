@@ -1,6 +1,6 @@
 # Rustegon.Driver
 
-Official .NET driver of [Rustegon](https://github.com/rustegon/rustegon), a distributed ACID document
+Official .NET driver of [Rustegon](https://github.com/pegostar/rustegon), a distributed ACID document
 database. Target framework `net10.0`; trimming and Native AOT compatible (source-generated codecs).
 
 ```csharp
@@ -29,5 +29,5 @@ await client.WithTransactionAsync(async (txn, ct) =>
 ```
 
 Versioning: semantic versioning; the driver's major version is the wire protocol's major version.
-Documentation, specification and sources: <https://github.com/rustegon/rustegon/tree/main/drivers/dotnet>.
+Documentation, specification and sources: <https://github.com/pegostar/rustegon/tree/main/drivers/dotnet>.
 Licensed under Apache-2.0.

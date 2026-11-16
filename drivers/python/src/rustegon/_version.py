@@ -2,4 +2,4 @@
 # Copyright The Rustegon Authors
 """The driver version (driver major = protocol major, python-driver.md §2)."""
 
-__version__ = "0.1.0a1"
+__version__ = "0.1.0"

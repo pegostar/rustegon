@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	pb "github.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1"
+	pb "github.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1"
 )
 
 // ErrArgument is matched (errors.Is) by every error caused by invalid arguments or settings,

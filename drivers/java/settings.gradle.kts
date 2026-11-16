@@ -15,7 +15,7 @@ dependencyResolutionManagement {
     }
 }
 
-// Artifacts: `driver` = io.rustegon:rustegon-driver, `processor` = io.rustegon:rustegon-processor
-// (annotation processor, java-driver.md §5), `bom` = io.rustegon:rustegon-bom; `samples`
+// Artifacts: `driver` = com.rustegon:rustegon-driver, `processor` = com.rustegon:rustegon-processor
+// (annotation processor, java-driver.md §5), `bom` = com.rustegon:rustegon-bom; `samples`
 // (README samples and the JPMS smoke test, not published).
 include("driver", "processor", "bom", "samples")

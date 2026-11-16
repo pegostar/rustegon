@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright The Rustegon Authors
 
-// io.rustegon:rustegon-driver (java-driver.md, FR-DRV-002, AC-DRV-002).
+// com.rustegon:rustegon-driver (java-driver.md, FR-DRV-002, AC-DRV-002).
 plugins {
     `java-library`
     `java-test-fixtures`

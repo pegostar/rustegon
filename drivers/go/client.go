@@ -14,7 +14,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	pb "github.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1"
+	pb "github.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1"
 )
 
 // Client is a long-lived, goroutine-safe handle on a Rustegon deployment. Create one per

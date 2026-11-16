@@ -635,7 +635,7 @@ const file_rustegon_v1_transaction_proto_rawDesc = "" +
 	"\bRollback\x12\x1c.rustegon.v1.RollbackRequest\x1a\x1d.rustegon.v1.RollbackResponse\x12A\n" +
 	"\x06Status\x12\x1a.rustegon.v1.StatusRequest\x1a\x1b.rustegon.v1.StatusResponse\x12J\n" +
 	"\tHeartbeat\x12\x1d.rustegon.v1.HeartbeatRequest\x1a\x1e.rustegon.v1.HeartbeatResponseB\xbc\x01\n" +
-	"\x0fcom.rustegon.v1B\x10TransactionProtoP\x01ZJgithub.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
+	"\x0fcom.rustegon.v1B\x10TransactionProtoP\x01ZJgithub.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1;rustegonv1\xa2\x02\x03RXX\xaa\x02\vRustegon.V1\xca\x02\vRustegon\\V1\xe2\x02\x17Rustegon\\V1\\GPBMetadata\xea\x02\fRustegon::V1b\x06proto3"
 
 var (
 	file_rustegon_v1_transaction_proto_rawDescOnce sync.Once

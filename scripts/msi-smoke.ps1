@@ -12,7 +12,8 @@
 # Users → login admin/admin says mustChangePassword and other calls are refused → change the
 # password → login with the new one works and admin/admin does not → reinstall over itself
 # (upgrade path: init not run again, configuration unchanged, new password still works) →
-# uninstall → service gone, program files gone, C:\ProgramData\Rustegon kept.
+# uninstall → service gone, program files gone, C:\ProgramData\Rustegon kept → install again
+# over the kept node (PD-224: init skipped, configuration unchanged, new password works) → uninstall.
 # Leaves C:\ProgramData\Rustegon behind (data-loss rule): delete it by hand afterwards.
 param(
     [string]$Msi = '',
@@ -131,4 +132,13 @@ if (Get-Service Rustegon -ErrorAction SilentlyContinue) { Fail 'the service is s
 if (Test-Path (Join-Path $env:ProgramFiles 'Rustegon\bin\rustegond.exe')) { Fail 'program files left' }
 if ((Get-FileHash $config).Hash -ne $configHash) { Fail 'uninstall changed the configuration' }
 if (-not (Test-Path (Join-Path $programData 'data\store'))) { Fail 'uninstall removed the data' }
+
+Step 'install again over the kept C:\ProgramData\Rustegon (PD-224: no init, configuration kept)'
+Msiexec @('/i', "`"$Msi`"") (Join-Path $logDir 'install-again.log')
+Wait-Ready
+if ((Get-FileHash $config).Hash -ne $configHash) { Fail 'the second install changed the configuration' }
+if (Test-Path (Join-Path $programData 'msi-init')) { Fail 'the msi-init marker was left behind' }
+if ((Login $newPassword).Status -ne 200) { Fail 'the new password does not work after the second install' }
+Msiexec @('/x', "`"$Msi`"") (Join-Path $logDir 'uninstall-again.log')
+if ((Get-FileHash $config).Hash -ne $configHash) { Fail 'the second uninstall changed the configuration' }
 Write-Host "`nMSI smoke passed. Logs: $logDir. $programData was kept: delete it by hand when done."

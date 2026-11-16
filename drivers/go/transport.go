@@ -23,7 +23,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
-	pb "github.com/rustegon/rustegon/drivers/go/internal/pb/rustegon/v1"
+	pb "github.com/pegostar/rustegon/drivers/go/internal/pb/rustegon/v1"
 )
 
 const (

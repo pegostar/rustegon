@@ -11,6 +11,7 @@ readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.11"
 authors = [{ name = "The Rustegon Authors" }]
+keywords = ["rustegon", "database", "driver", "nosql", "acid", "grpc"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: AsyncIO",
@@ -25,6 +26,11 @@ dependencies = [
     "protobuf>=7.36.2,<8",
     "xxhash>=3.4,<5",
 ]
+
+[project.urls]
+Homepage = "https://github.com/pegostar/rustegon/tree/main/drivers/python#readme"
+Repository = "https://github.com/pegostar/rustegon"
+Documentation = "https://github.com/pegostar/rustegon/blob/main/docs/specifications/python-driver.md"
 
 # Development tools (PD-175): exact pins; `pip install -e . --group dev` (scripts/ci-local.sh).
 [dependency-groups]
