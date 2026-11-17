@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0
+     AppStream entry so that software centres (GNOME Software, KDE Discover) list the installed
+     package with its name and the brand mark (icon `rustegon`, FR-INS-002). -->
+<component type="desktop-application">
+  <id>com.rustegon.Rustegon</id>
+  <name>Rustegon</name>
+  <summary>Distributed ACID document database</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <developer id="com.rustegon">
+    <name>The Rustegon Authors</name>
+  </developer>
+  <description>
+    <p>Rustegon server (rustegond, web console under /ui) and command-line tool (rustegon).
+      The first install initializes a node on 127.0.0.1 and starts the rustegon service.</p>
+  </description>
+  <launchable type="desktop-id">com.rustegon.Rustegon.desktop</launchable>
+  <icon type="stock">rustegon</icon>
+  <categories>
+    <category>Development</category>
+    <category>Database</category>
+  </categories>
+</component>

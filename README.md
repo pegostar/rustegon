@@ -15,9 +15,9 @@ and backup and restore is one command.
 ![Isolation: SERIALIZABLE](https://img.shields.io/badge/isolation-SERIALIZABLE-7c2d12)
 ![Status: R1 preview](https://img.shields.io/badge/status-R1%20preview-f59e0b)
 
-[Why Rustegon](#why-rustegon) · [Features](#features) · [Compare](#how-it-compares) · [Quick start](#quick-start) · [Drivers](#drivers) · [Roadmap](#roadmap) · [Build](#building-from-source)
+[Why Rustegon](#why-rustegon) · [Features](#features) · [Compare](#how-it-compares) · [Quick start](#quick-start) · [Drivers](#drivers) · [Roadmap](#roadmap) · [Build](#building-from-source) · [Contact](#contact)
 
-🌐 **[www.rustegon.com](https://www.rustegon.com)**: documentation and more details (coming soon)
+🌐 **[www.rustegon.com](https://www.rustegon.com)**: downloads, drivers and more details
 
 </div>
 
@@ -192,12 +192,19 @@ A database is worth only as much as the evidence behind its guarantees. Rustegon
 
 A single node listens on **7700** (gRPC, drivers) and **7780** (REST and the web console at `http://localhost:7780/ui/`).
 
-**Docker Compose**
+**Docker** ([`pegostar/rustegon`](https://hub.docker.com/r/pegostar/rustegon), `linux/amd64` and `linux/arm64`)
 
 ```bash
-cd packaging/docker
-printf '%s' 'choose-a-strong-password' > admin_password.txt
-docker compose up -d
+openssl rand -base64 24 > admin_password.txt   # the admin password, at least 12 characters
+chmod 644 admin_password.txt                    # the server runs as uid 10001 and must read it
+
+docker run -d --name rustegon \
+  -p 7700:7700 -p 7780:7780 \
+  -v rustegon-data:/var/lib/rustegon \
+  -v "$PWD/admin_password.txt:/run/secrets/admin_password:ro" \
+  -e RUSTEGON_INITIAL_ADMIN_PASSWORD_FILE=/run/secrets/admin_password \
+  --stop-timeout 90 \
+  pegostar/rustegon:0.1.0
 # open http://localhost:7780/ui/ and sign in as admin
 ```
 
@@ -216,14 +223,14 @@ Drivers connect with `rustegon://<user>:<password>@localhost:7700/<database>`.
 
 Official drivers share one wire contract and one conformance suite ([`drivers/conformance/`](drivers/conformance/README.md)).
 
-| Language | Directory | Status |
-|---|---|---|
-| .NET 10 (trimming / Native AOT) | [`drivers/dotnet`](drivers/dotnet/README.md) | R1 |
-| Java 21+ | [`drivers/java`](drivers/java/README.md) | R1 |
-| Node.js | [`drivers/node`](drivers/node/README.md) | Implemented, not yet published |
-| Python | [`drivers/python`](drivers/python/README.md) | Implemented, not yet published |
-| Go | [`drivers/go`](drivers/go/README.md) | Implemented, not yet published |
-| Rust | [`drivers/rust`](drivers/rust/README.md) | Implemented, not yet published |
+| Language | Install (0.1.0) | Registry | Directory |
+|---|---|---|---|
+| .NET 10 (trimming / Native AOT) | `dotnet add package Rustegon.Driver --version 0.1.0` | [nuget.org](https://www.nuget.org/packages/Rustegon.Driver) | [`drivers/dotnet`](drivers/dotnet/README.md) |
+| Java 21+ | `com.rustegon:rustegon-driver:0.1.0` | [Maven Central](https://central.sonatype.com/artifact/com.rustegon/rustegon-driver) | [`drivers/java`](drivers/java/README.md) |
+| Node.js 20+ | `npm install @rustegon/driver@0.1.0` | [npm](https://www.npmjs.com/package/@rustegon/driver) | [`drivers/node`](drivers/node/README.md) |
+| Python | `pip install rustegon==0.1.0` | [PyPI](https://pypi.org/project/rustegon/) | [`drivers/python`](drivers/python/README.md) |
+| Go | `go get github.com/pegostar/rustegon/drivers/go@v0.1.0` | [pkg.go.dev](https://pkg.go.dev/github.com/pegostar/rustegon/drivers/go) | [`drivers/go`](drivers/go/README.md) |
+| Rust | `cargo add rustegon-driver@0.1.0` | [crates.io](https://crates.io/crates/rustegon-driver) | [`drivers/rust`](drivers/rust/README.md) |
 
 ## Roadmap
 
@@ -233,7 +240,7 @@ Official drivers share one wire contract and one conformance suite ([`drivers/co
 | **R2** | Three-node **Raft replication** with automatic failover, linearizable reads by default, mandatory mutual TLS between nodes, aggregation pipeline | 🛠️ Specified |
 | **R3** | **Automatic sharding** and distributed transactions across shards, cluster-wide and incremental backups, OIDC sign-in, key management services | 🗺️ Specified |
 
-> **Project status:** R1 is a feature-complete **preview**, not a released product. Packages are unsigned development builds, and nothing is published to a registry yet. Replication (R2) and sharding (R3) are designed but not implemented. Until R2, the defence against losing a disk is the built-in backup.
+> **Project status:** R1 is a feature-complete **preview**, not a released product. The six drivers and the Docker image are published as 0.1.0; the archives and installers are unsigned development builds. Replication (R2) and sharding (R3) are designed but not implemented. Until R2, the defence against losing a disk is the built-in backup.
 
 ## Building from source
 
@@ -270,7 +277,11 @@ cargo xtask dist --packages
 
 ## Learn more
 
-Full documentation, guides and project news will be published at **[www.rustegon.com](https://www.rustegon.com)**. The site is coming soon. Until then, this repository is the reference.
+Downloads, driver guides and project news are at **[www.rustegon.com](https://www.rustegon.com)**. For the details, this repository is the reference.
+
+## Contact
+
+For information or questions, write to [info@rustegon.com](mailto:info@rustegon.com).
 
 ## Contributing
 
@@ -286,6 +297,12 @@ You are free to use it for any purpose, commercial or not, and to do whatever yo
 Only if you feel like it: if Rustegon is useful to you, you can buy me a coffee.
 
 <a href="https://www.buymeacoffee.com/davidepegoraro"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" height="50"></a>
+
+## Sponsors
+
+Thanks to those who support the project.
+
+<a href="https://utechitalia.com/"><img src=".github/assets/sponsors/utech.png" alt="Utech Italia" width="240"></a>
 
 <div align="center">
 <sub>Built in Rust 🦀, with correctness as the default.</sub>

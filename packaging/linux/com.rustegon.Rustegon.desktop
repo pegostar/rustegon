@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Rustegon Console
+GenericName=Database console
+Comment=Open the Rustegon web console (http://localhost:7780/ui/)
+Exec=xdg-open http://localhost:7780/ui/
+Icon=rustegon
+Terminal=false
+Categories=Development;Database;
