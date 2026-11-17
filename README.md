@@ -302,7 +302,7 @@ Only if you feel like it: if Rustegon is useful to you, you can buy me a coffee.
 
 Thanks to those who support the project.
 
-<a href="https://utechitalia.com/"><img src=".github/assets/sponsors/utech.png" alt="Utech Italia" width="240"></a>
+<a href="https://utechitalia.com/"><picture><source media="(prefers-color-scheme: dark)" srcset=".github/assets/sponsors/utech.png"><img src=".github/assets/sponsors/utech-light.png" alt="Utech Italia" width="240"></picture></a>
 
 <div align="center">
 <sub>Built in Rust 🦀, with correctness as the default.</sub>
