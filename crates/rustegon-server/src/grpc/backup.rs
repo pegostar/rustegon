@@ -20,10 +20,11 @@ use rustegon_proto::v1::{
     self as pb, BackupConsistency, BackupEncryptionMode, BackupFile, BackupInfo,
     CreateBackupRequest, CreateBackupResponse, CreateSnapshotRequest, CreateSnapshotResponse,
     DeleteSnapshotRequest, DeleteSnapshotResponse, DumpRequest, DumpResponse, GetBackupRequest,
-    GetBackupResponse, ListBackupsRequest, ListBackupsResponse, ListSnapshotsRequest,
-    ListSnapshotsResponse, LogicalRestoreRequest, LogicalRestoreResponse, RestoredCollection,
-    UnreadableBackup, VerifyBackupRequest, VerifyBackupResponse, backup_service_server,
-    dump_response, logical_restore_request,
+    GetBackupResponse, GetRestoreStatusRequest, GetRestoreStatusResponse, ListBackupsRequest,
+    ListBackupsResponse, ListSnapshotsRequest, ListSnapshotsResponse, LogicalRestoreRequest,
+    LogicalRestoreResponse, RestoreBackupRequest, RestoreBackupResponse, RestoreState,
+    RestoredCollection, UnreadableBackup, VerifyBackupRequest, VerifyBackupResponse,
+    backup_service_server, dump_response, logical_restore_request,
 };
 use tonic::{Request, Response, Status, Streaming, codegen::tokio_stream::Stream};
 
@@ -35,8 +36,8 @@ use super::{
 use crate::services::{
     RequestContext, Services,
     backup::{
-        DumpChunk, DumpItem, DumpScope, DumpStream, LogicalRestoreOptions, SnapshotInfo,
-        restore_channel, rfc3339_unix_ms,
+        DumpChunk, DumpItem, DumpScope, DumpStream, LogicalRestoreOptions, RestoreOutcome,
+        SnapshotInfo, restore_channel, rfc3339_unix_ms,
     },
 };
 
@@ -258,6 +259,65 @@ impl backup_service_server::BackupService for BackupGrpc {
                 files_checked: v.files_checked as u64,
                 bytes_hashed: v.bytes_hashed,
             });
+        reply(&ctx, result)
+    }
+
+    async fn restore_backup(
+        &self,
+        request: Request<RestoreBackupRequest>,
+    ) -> Result<Response<RestoreBackupResponse>, Status> {
+        let ctx = self.ctx(&request)?;
+        let r = request.into_inner();
+        let result = self
+            .services
+            .backup()
+            .restore_backup(&ctx, &r.destination, &r.backup_id)
+            .await
+            .map(|m| RestoreBackupResponse {
+                backup: Some(backup_info(&m)),
+            });
+        reply(&ctx, result)
+    }
+
+    async fn get_restore_status(
+        &self,
+        request: Request<GetRestoreStatusRequest>,
+    ) -> Result<Response<GetRestoreStatusResponse>, Status> {
+        let ctx = self.ctx(&request)?;
+        let trace = ctx.trace_id_hex();
+        let result =
+            self.services
+                .backup()
+                .restore_status(&ctx)
+                .await
+                .map(|outcome| match outcome {
+                    RestoreOutcome::None => GetRestoreStatusResponse {
+                        state: RestoreState::None as i32,
+                        ..GetRestoreStatusResponse::default()
+                    },
+                    RestoreOutcome::Completed {
+                        backup_id,
+                        finished_at_unix_ms,
+                        previous_store,
+                    } => GetRestoreStatusResponse {
+                        state: RestoreState::Completed as i32,
+                        backup_id,
+                        finished_at_unix_ms,
+                        error: None,
+                        previous_store,
+                    },
+                    RestoreOutcome::Failed {
+                        backup_id,
+                        finished_at_unix_ms,
+                        error,
+                    } => GetRestoreStatusResponse {
+                        state: RestoreState::Failed as i32,
+                        backup_id,
+                        finished_at_unix_ms,
+                        error: Some(rustegon_proto::status::error_detail(&error, &trace)),
+                        previous_store: String::new(),
+                    },
+                });
         reply(&ctx, result)
     }
 

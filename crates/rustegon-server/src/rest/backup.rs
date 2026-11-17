@@ -5,9 +5,10 @@
 //! 004/006, PD-062, PD-077): backups at a destination and local snapshots.
 //!
 //! The streaming RPCs `Dump` and `LogicalRestore` have no REST form in M13a: a dump is a set of
-//! files of any size, which the CLI writes to disk over gRPC (PD-077). Physical and snapshot
-//! restores are offline CLI operations and have no endpoint (PD-062); `POST /restores` of
-//! protocol.md §4 is the M13b cluster restore.
+//! files of any size, which the CLI writes to disk over gRPC (PD-077). The whole-node restore
+//! from a backup is online (`POST /backups/{id}/restore`, `GET /restore-status`, ADR-037);
+//! snapshot, point-in-time and new-data-directory restores are offline CLI operations and have
+//! no endpoint (PD-062); `POST /restores` of protocol.md §4 is the M13b cluster restore.
 //!
 //! HLC wall times are nanoseconds since the epoch, beyond the integers a JavaScript number holds
 //! exactly, so they travel as decimal strings (`wallNs`).
@@ -23,7 +24,7 @@ use super::{
     extract::{PathParams, QueryParams},
     wire::{WarningJson, unix_ms, warnings_out},
 };
-use crate::services::backup::{SnapshotInfo, rfc3339_unix_ms};
+use crate::services::backup::{RestoreOutcome, SnapshotInfo, rfc3339_unix_ms};
 
 /// Routes of this module.
 pub(super) fn routes() -> OpenApiRouter<RestState> {
@@ -31,6 +32,8 @@ pub(super) fn routes() -> OpenApiRouter<RestState> {
         .routes(routes!(list_backups, create_backup))
         .routes(routes!(get_backup))
         .routes(routes!(verify_backup))
+        .routes(routes!(restore_backup))
+        .routes(routes!(restore_status))
         .routes(routes!(list_snapshots, create_snapshot))
         .routes(routes!(delete_snapshot))
 }
@@ -224,6 +227,56 @@ pub struct VerifyBackupResponse {
     pub files_checked: u64,
     /// Bytes read and hashed (0 for a shallow verification).
     pub bytes_hashed: u64,
+}
+
+/// `POST /backups/{backup_id}/restore` body.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RestoreBackupRequest {
+    /// Destination of the backup.
+    pub destination: String,
+}
+
+/// `POST /backups/{backup_id}/restore` response: the restore is scheduled and the node stops
+/// serving right after it.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreBackupResponse {
+    /// The verified backup that will be restored.
+    pub backup: BackupJson,
+}
+
+/// How the last online restore ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RestoreStateJson {
+    /// This node never ran an online restore.
+    None,
+    /// Restored; the node serves the backup.
+    Completed,
+    /// Failed before its swap; the node serves its previous store, unchanged.
+    Failed,
+}
+
+/// `GET /restore-status` response.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreStatusResponse {
+    /// Outcome of the last online restore.
+    pub state: RestoreStateJson,
+    /// The restored (or failed) backup; absent for `none`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backup_id: Option<String>,
+    /// When the restore ended (Unix ms); absent for `none`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finished_at: Option<i64>,
+    /// Why it failed (`failed` only; the error body of protocol.md §7).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<ErrorInfo>,
+    /// Directory name, in the data directory, of the store the restore replaced (`completed`
+    /// only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub previous_store: Option<String>,
 }
 
 /// A local snapshot.
@@ -424,6 +477,96 @@ async fn verify_backup(
         },
         &ctx,
     ))
+}
+
+/// Restores the whole node from a backup, online (`BackupService.RestoreBackup`; `restore`;
+/// ADR-037). The backup is deep-verified first; then the node stops serving, replaces its store
+/// with the backup's image (keeping the replaced one) and serves again. Every database, user and
+/// role comes from the backup, so sessions end. The response arrives before the node stops;
+/// `GET /api/v1/restore-status` reports how the restore ended.
+#[utoipa::path(
+    post,
+    path = "/api/v1/backups/{backup_id}/restore",
+    tag = "backup",
+    operation_id = "restoreBackup",
+    params(("backup_id" = String, Path, description = "Backup id.")),
+    request_body = RestoreBackupRequest,
+    security(("bearer" = []), ("apiKey" = []), ("sessionCookie" = [])),
+    responses((status = 200, description = "The restore is scheduled.", body = RestoreBackupResponse))
+)]
+async fn restore_backup(
+    State(state): State<RestState>,
+    Ctx(ctx): Ctx,
+    PathParams(backup_id): PathParams<String>,
+    JsonBody(body): JsonBody<RestoreBackupRequest>,
+) -> Result<Reply<RestoreBackupResponse>, ApiError> {
+    let manifest = state
+        .services
+        .backup()
+        .restore_backup(&ctx, &body.destination, &backup_id)
+        .await
+        .map_err(ApiError::on(&ctx))?;
+    Ok(Reply::passthrough(
+        RestoreBackupResponse {
+            backup: backup_out(&manifest),
+        },
+        &ctx,
+    ))
+}
+
+/// The outcome of the last online restore of this node (`BackupService.GetRestoreStatus`;
+/// `backup`; ADR-037).
+#[utoipa::path(
+    get,
+    path = "/api/v1/restore-status",
+    tag = "backup",
+    operation_id = "getRestoreStatus",
+    security(("bearer" = []), ("apiKey" = []), ("sessionCookie" = [])),
+    responses((status = 200, description = "The last online restore.", body = RestoreStatusResponse))
+)]
+async fn restore_status(
+    State(state): State<RestState>,
+    Ctx(ctx): Ctx,
+) -> Result<Reply<RestoreStatusResponse>, ApiError> {
+    let outcome = state
+        .services
+        .backup()
+        .restore_status(&ctx)
+        .await
+        .map_err(ApiError::on(&ctx))?;
+    let trace = ctx.trace_id_hex();
+    let response = match outcome {
+        RestoreOutcome::None => RestoreStatusResponse {
+            state: RestoreStateJson::None,
+            backup_id: None,
+            finished_at: None,
+            error: None,
+            previous_store: None,
+        },
+        RestoreOutcome::Completed {
+            backup_id,
+            finished_at_unix_ms,
+            previous_store,
+        } => RestoreStatusResponse {
+            state: RestoreStateJson::Completed,
+            backup_id: Some(backup_id),
+            finished_at: Some(finished_at_unix_ms),
+            error: None,
+            previous_store: Some(previous_store),
+        },
+        RestoreOutcome::Failed {
+            backup_id,
+            finished_at_unix_ms,
+            error,
+        } => RestoreStatusResponse {
+            state: RestoreStateJson::Failed,
+            backup_id: Some(backup_id),
+            finished_at: Some(finished_at_unix_ms),
+            error: Some(ErrorBody::of(&error, &trace).error),
+            previous_store: None,
+        },
+    };
+    Ok(Reply::passthrough(response, &ctx))
 }
 
 // ---------------------------------------------------------------------------------------------

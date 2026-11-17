@@ -77,6 +77,10 @@ pub enum RestoreKind {
     Backup,
     /// A local snapshot over the current store, which is kept (`rustegon snapshot restore`).
     Snapshot,
+    /// A backup over the current store, which is kept: the online restore of `rustegond`
+    /// (ADR-037), which stops serving, restores and serves again in the same process. The rest
+    /// of the data directory (configuration, certificates, backups, logs) stays as it is.
+    Replace,
 }
 
 /// A restore request.
@@ -139,6 +143,7 @@ fn kind_text(kind: RestoreKind) -> &'static str {
     match kind {
         RestoreKind::Backup => "backup",
         RestoreKind::Snapshot => "snapshot",
+        RestoreKind::Replace => "replace",
     }
 }
 
@@ -229,6 +234,39 @@ pub fn restore_data_dir(
     request: &RestoreRequest<'_>,
 ) -> Result<RestoreReport, Error> {
     restore_inner(fs, clock, rng, request, None)
+}
+
+/// Abandons an unfinished restore of `data_dir` that has not swapped anything yet (journal
+/// phase `download`): removes the partial download and the journal, so the data directory is
+/// exactly as before the restore and a node can start on its current store again. Returns
+/// whether there was such a restore. Used by `rustegond` when an online restore fails before
+/// its swap (ADR-037).
+///
+/// # Errors
+/// `RGN-1031` when the restore has swapped already (it must be finished by a rerun, never
+/// abandoned: the current store may be the restored one); journal and I/O errors.
+pub fn abandon_unswapped_restore(fs: &dyn FileSystem, data_dir: &Path) -> Result<bool, Error> {
+    let Some(journal) = read_journal(fs, data_dir)? else {
+        return Ok(false);
+    };
+    if journal.phase != Phase::Download {
+        return Err(Error::new(
+            ErrorCode::AlreadyExists,
+            format!(
+                "the restore of {} in {} has swapped its store already; rerun it to finish it",
+                journal.backup_id,
+                data_dir.display()
+            ),
+        ));
+    }
+    remove_tree(fs, &data_dir.join(RESTORING_DIR))?;
+    remove_tree(fs, &data_dir.join(pitr::REPLAY_DIR))?;
+    let path = data_dir.join(JOURNAL_FILE);
+    fs.remove_file(&path)
+        .map_err(|e| io_err("remove", &path, &e))?;
+    sync_dir(fs, data_dir)?;
+    tracing::info!(backup_id = %journal.backup_id, data_dir = %data_dir.display(), "unfinished restore abandoned before its swap");
+    Ok(true)
 }
 
 /// A point-in-time target (FR-BKP-002): roll the backup forward to `ts` with the log archive
@@ -399,11 +437,15 @@ fn start_journal(
             }
             None
         }
-        RestoreKind::Snapshot if dir_exists(fs, &data_dir.join(STORE_DIR))? => Some(format!(
-            "{PRE_RESTORE_PREFIX}{}",
-            compact_utc(clock.wall())?
-        )),
-        RestoreKind::Snapshot => None,
+        RestoreKind::Snapshot | RestoreKind::Replace
+            if dir_exists(fs, &data_dir.join(STORE_DIR))? =>
+        {
+            Some(format!(
+                "{PRE_RESTORE_PREFIX}{}",
+                compact_utc(clock.wall())?
+            ))
+        }
+        RestoreKind::Snapshot | RestoreKind::Replace => None,
     };
     if let Some(name) = &previous_store
         && dir_exists(fs, &data_dir.join(name))?

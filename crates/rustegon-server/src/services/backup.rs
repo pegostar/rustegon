@@ -386,6 +386,62 @@ pub struct NoBackupBackend;
 
 impl BackupBackend for NoBackupBackend {}
 
+/// An online restore accepted by [`BackupService::restore_backup`] (ADR-037): the backup was
+/// found complete and deep-verified while the node served.
+#[derive(Debug, Clone)]
+pub struct ScheduledRestore {
+    /// Where the backup is (already checked against the allowlist).
+    pub destination: DestinationUrl,
+    /// The backup.
+    pub backup_id: BackupId,
+    /// Its verified manifest.
+    pub manifest: Manifest,
+}
+
+/// How the last online restore ended (`GetRestoreStatus`).
+#[derive(Debug)]
+pub enum RestoreOutcome {
+    /// This node never ran an online restore.
+    None,
+    /// Restored; the node serves the backup.
+    Completed {
+        /// The restored backup.
+        backup_id: String,
+        /// When it ended (ms since the Unix epoch).
+        finished_at_unix_ms: i64,
+        /// Directory name of the replaced store in the data directory.
+        previous_store: String,
+    },
+    /// Failed before its swap; the node serves its previous store.
+    Failed {
+        /// The backup that was not restored.
+        backup_id: String,
+        /// When it ended (ms since the Unix epoch).
+        finished_at_unix_ms: i64,
+        /// Why.
+        error: Error,
+    },
+}
+
+/// The process side of an online restore (ADR-037), installed by `rustegond`
+/// ([`crate::services::Services::with_restore_scheduler`]): stopping the node, swapping its
+/// store and serving again cannot happen inside a request, so the service hands the verified
+/// restore over and returns.
+pub trait RestoreScheduler: Send + Sync + 'static {
+    /// Accepts `restore`: the node stops serving after the current requests and restores.
+    ///
+    /// # Errors
+    /// RGN-1031 when a restore is already scheduled; RGN-4006 when the backup is encrypted
+    /// under another KEK than the node's (the node could not open it).
+    fn schedule(&self, restore: ScheduledRestore) -> Result<(), Error>;
+
+    /// The outcome of the last online restore.
+    ///
+    /// # Errors
+    /// I/O errors reading the recorded outcome.
+    fn status(&self) -> Result<RestoreOutcome, Error>;
+}
+
 /// Result of [`BackupService::list_backups`].
 #[derive(Debug)]
 pub struct BackupListing {
@@ -407,6 +463,8 @@ pub struct BackupService {
     backend: Arc<dyn BackupBackend>,
     policy: Arc<DestinationPolicy>,
     s3: Arc<S3Settings>,
+    /// The online restore of `rustegond` (ADR-037); `None`: `RestoreBackup` is not served.
+    scheduler: Option<Arc<dyn RestoreScheduler>>,
 }
 
 impl std::fmt::Debug for BackupService {
@@ -427,6 +485,7 @@ mod op {
     pub const DELETE_SNAPSHOT: &str = "delete_snapshot";
     pub const DUMP: &str = "dump";
     pub const LOGICAL_RESTORE: &str = "logical_restore";
+    pub const RESTORE_BACKUP: &str = "restore_backup";
 }
 
 /// Start and end records of one audited operation.
@@ -509,7 +568,15 @@ impl BackupService {
             backend: Arc::new(NoBackupBackend),
             policy: Arc::new(DestinationPolicy::deny_all()),
             s3: Arc::new(S3Settings::default()),
+            scheduler: None,
         }
+    }
+
+    /// The same service with the online restore of the process installed (ADR-037).
+    #[must_use]
+    pub(crate) fn with_scheduler(mut self, scheduler: Arc<dyn RestoreScheduler>) -> Self {
+        self.scheduler = Some(scheduler);
+        self
     }
 
     /// The same service opening `s3://` destinations with `s3` (`[backup.s3]`).
@@ -763,6 +830,85 @@ impl BackupService {
             })
             .await;
         result
+    }
+
+    /// Schedules an online restore of the whole node from backup `id` at `destination`
+    /// (`restore` on `cluster`; ADR-037). The backup is located (`<id>.bak` or a backup
+    /// directory) and deep-verified first, so a missing, incomplete or corrupt backup is refused
+    /// while the node keeps serving its data; only then is it handed to the process, which stops
+    /// serving right after this call returns. Audited as a `restore` event (start, then the end
+    /// with `scheduled=true`); the outcome after the restart is in [`Self::restore_status`] and
+    /// the node log.
+    ///
+    /// # Errors
+    /// RGN-4001/4002/4003, RGN-1001 (destination, id), RGN-1030 (no such backup), RGN-5002
+    /// (corrupt), RGN-5007 (newer format, or no scheduler in this process), RGN-4006 (another
+    /// KEK), RGN-1031 (a restore is already scheduled), RGN-3002 (destination unavailable).
+    pub async fn restore_backup(
+        &self,
+        ctx: &RequestContext,
+        destination: &str,
+        id: &str,
+    ) -> Result<Manifest, Error> {
+        let sec = self.guard(ctx, "RestoreBackup").await?;
+        Self::admin_op(sec, ctx)?;
+        let scheduler = self
+            .scheduler
+            .clone()
+            .ok_or_else(|| not_implemented("RestoreBackup"))?;
+        let url = self
+            .destination(sec, ctx, "RestoreBackup", destination)
+            .await?;
+        let id = parse_backup_id(id)?;
+        let audited = Audited::start(
+            sec,
+            ctx,
+            AuditEventKind::Restore,
+            op::RESTORE_BACKUP,
+            format!("{url} {id}"),
+        )
+        .await?;
+        let fs = Self::fs(sec);
+        let s3 = Arc::clone(&self.s3);
+        let result = self
+            .deps
+            .executor
+            .run(ctx, Completion::Await, move |_| {
+                let dest = open_existing(&url, fs, &s3)?;
+                let report = rustegon_backup::verify(dest.as_ref(), &id, VerifyMode::Deep)?;
+                scheduler.schedule(ScheduledRestore {
+                    destination: url,
+                    backup_id: id,
+                    manifest: report.manifest.clone(),
+                })?;
+                Ok(report.manifest)
+            })
+            .await;
+        audited
+            .end(ctx, &result, |m| {
+                vec![
+                    ("backup_id", m.backup_id.clone()),
+                    ("scheduled", "true".to_owned()),
+                ]
+            })
+            .await;
+        result
+    }
+
+    /// The outcome of the last online restore of this node (`backup` on `cluster`).
+    ///
+    /// # Errors
+    /// RGN-4001/4002, RGN-5007 without a scheduler, I/O errors.
+    pub async fn restore_status(&self, ctx: &RequestContext) -> Result<RestoreOutcome, Error> {
+        self.guard(ctx, "GetRestoreStatus").await?;
+        let scheduler = self
+            .scheduler
+            .clone()
+            .ok_or_else(|| not_implemented("GetRestoreStatus"))?;
+        self.deps
+            .executor
+            .run(ctx, Completion::Abandon, move |_| scheduler.status())
+            .await
     }
 
     /// Creates a local snapshot (backend operation).

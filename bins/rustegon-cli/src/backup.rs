@@ -48,9 +48,10 @@ use rustegon_backup::{
 };
 use rustegon_proto::v1::{
     BackupEncryptionMode, BackupInfo, CreateBackupRequest, CreateSnapshotRequest,
-    DeleteSnapshotRequest, DumpRequest, GetBackupRequest, ListBackupsRequest, ListSnapshotsRequest,
-    LogicalRestoreOptions, LogicalRestoreRequest, SnapshotInfo,
-    backup_service_client::BackupServiceClient, dump_response, logical_restore_request,
+    DeleteSnapshotRequest, DumpRequest, GetBackupRequest, GetRestoreStatusRequest,
+    ListBackupsRequest, ListSnapshotsRequest, LogicalRestoreOptions, LogicalRestoreRequest,
+    RestoreBackupRequest, RestoreState, SnapshotInfo, backup_service_client::BackupServiceClient,
+    dump_response, logical_restore_request,
 };
 use rustegon_sim_api::{FileSystem, OpenMode, OsRng, StdFileSystem, SystemClock};
 use rustegon_storage::encryption::{FileKekProvider, KekProvider};
@@ -117,21 +118,25 @@ enum BackupCommand {
         #[command(flatten)]
         s3: S3Args,
     },
-    /// Restore a backup into an empty data directory (offline), optionally rolled forward to a
-    /// point in time with the PITR log archive.
+    /// Restore a backup. Without `--into`: online, the whole running node is replaced by the
+    /// backup (ADR-037; through the node, the destination as seen by the server). With
+    /// `--into`: offline, into an empty data directory, optionally rolled forward to a point in
+    /// time with the PITR log archive.
     Restore {
+        #[command(flatten)]
+        conn: ConnArgs,
         /// Destination holding the backup.
         #[arg(long, value_name = "DEST")]
         from: String,
         /// Backup id (with `--to-time`: default the newest PITR backup taken at or before T).
         #[arg(long, required_unless_present = "to_time")]
         id: Option<String>,
-        /// Data directory to create (must be empty or absent).
+        /// Data directory to create (must be empty or absent): an offline restore.
         #[arg(long, value_name = "PATH")]
-        into: PathBuf,
+        into: Option<PathBuf>,
         /// Point in time to restore to: RFC 3339 (`2026-11-10T09:30:00Z`) or an HLC timestamp
-        /// `<wall ns>[.<logical>]`.
-        #[arg(long, value_name = "T")]
+        /// `<wall ns>[.<logical>]` (offline, with `--into`).
+        #[arg(long, value_name = "T", requires = "into")]
         to_time: Option<String>,
         /// Destination holding the PITR log archive (`backup.pitr.destination`; default: the
         /// `--from` destination).
@@ -141,6 +146,11 @@ enum BackupCommand {
         kek: KekArgs,
         #[command(flatten)]
         s3: S3Args,
+    },
+    /// Show how the last online restore of the node ended (through the node).
+    RestoreStatus {
+        #[command(flatten)]
+        conn: ConnArgs,
     },
 }
 
@@ -483,14 +493,23 @@ pub fn run_backup(args: BackupArgs) -> CliResult<()> {
         BackupCommand::Verify { dest, id, deep, s3 } => {
             verify_offline(&dest, &id, deep, &s3.settings())
         }
+        // ADR-037: without `--into` the running node replaces its data with the backup.
+        BackupCommand::Restore {
+            conn,
+            from,
+            id,
+            into: None,
+            ..
+        } => restore_online(&conn, from, id.unwrap_or_default()),
         BackupCommand::Restore {
             from,
             id,
-            into,
+            into: Some(into),
             to_time,
             archive,
             kek,
             s3,
+            ..
         } => restore_backup(
             &from,
             id.as_deref(),
@@ -500,7 +519,57 @@ pub fn run_backup(args: BackupArgs) -> CliResult<()> {
             &kek,
             &s3.settings(),
         ),
+        BackupCommand::RestoreStatus { conn } => restore_status(&conn),
     }
+}
+
+/// `backup restore` without `--into`: the online restore of the whole node (ADR-037).
+fn restore_online(conn: &ConnArgs, from: String, id: String) -> CliResult<()> {
+    with_client(conn, |client| {
+        let mut svc = BackupServiceClient::new(client.channel());
+        let r = client
+            .call(svc.restore_backup(client.request(RestoreBackupRequest {
+                destination: from,
+                backup_id: id,
+            })))?
+            .into_inner();
+        let b = r
+            .backup
+            .ok_or_else(|| CliError("the server returned no backup".into()))?;
+        out(&format!("restore scheduled {}", backup_line(&b)))?;
+        out(
+            "the node stops serving, restores the backup and serves again; sessions end \
+                 (users and roles come from the backup). Check the outcome with \
+                 `rustegon backup restore-status`.",
+        )
+    })
+}
+
+/// `backup restore-status`: how the last online restore of the node ended (ADR-037).
+fn restore_status(conn: &ConnArgs) -> CliResult<()> {
+    with_client(conn, |client| {
+        let mut svc = BackupServiceClient::new(client.channel());
+        let r = client
+            .call(svc.get_restore_status(client.request(GetRestoreStatusRequest {})))?
+            .into_inner();
+        match RestoreState::try_from(r.state) {
+            Ok(RestoreState::Completed) => out(&format!(
+                "completed\t{}\tfinished_at_unix_ms={}\tprevious_store={}",
+                r.backup_id, r.finished_at_unix_ms, r.previous_store
+            )),
+            Ok(RestoreState::Failed) => {
+                let why = r
+                    .error
+                    .as_ref()
+                    .map_or_else(String::new, |e| format!("RGN-{} {}", e.code, e.name));
+                out(&format!(
+                    "failed\t{}\tfinished_at_unix_ms={}\t{why}",
+                    r.backup_id, r.finished_at_unix_ms
+                ))
+            }
+            _ => out("none"),
+        }
+    })
 }
 
 fn with_client(conn: &ConnArgs, f: impl FnOnce(&Client) -> CliResult<()>) -> CliResult<()> {

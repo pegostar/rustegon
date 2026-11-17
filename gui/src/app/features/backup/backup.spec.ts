@@ -1,13 +1,13 @@
 import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { render, screen } from '@testing-library/angular';
+import { render, screen, within } from '@testing-library/angular';
 import userEvent from '@testing-library/user-event';
 import { ApiClient } from '../../api/api-client';
 import { ApiError } from '../../api/api-error';
 import { BackupsPage } from './backups.page';
 import { tomlStrings } from './common';
-import { quote, RestorePage, restoreCommand, RestoreSpec } from './restore.page';
+import { quote, RESTORE_POLL_WAIT, RestorePage, restoreCommand, RestoreSpec } from './restore.page';
 
 const unavailable = () => new ApiError(503, 3002, 'Unavailable', 'down', true, {}, 'tr-1');
 const never = () => new Promise<never>(() => undefined);
@@ -45,9 +45,14 @@ const renderWith = (
   component: typeof BackupsPage | typeof RestorePage,
   api: ReturnType<typeof mockApi>,
   inputs = {},
+  wait: () => Promise<void> = () => Promise.resolve(),
 ) =>
   render(component as typeof BackupsPage, {
-    providers: [provideRouter([]), { provide: ApiClient, useValue: api }],
+    providers: [
+      provideRouter([]),
+      { provide: ApiClient, useValue: api },
+      { provide: RESTORE_POLL_WAIT, useValue: wait },
+    ],
     inputs,
   });
 
@@ -242,12 +247,14 @@ describe('S23 restore page', () => {
   it('tc_gui_007_restore_page_prefills_and_generates_the_command', async () => {
     const api = mockApi({ '/api/v1/backups': () => Promise.resolve({ backups: [backup] }) });
     await renderWith(RestorePage, api, { from: '/srv/backups', id: 'b-1' });
+    await userEvent.selectOptions(screen.getByLabelText('Restore from'), 'backup');
     expect(screen.queryByRole('heading', { name: 'Restore command' })).toBeNull();
     await userEvent.type(screen.getByLabelText('New data directory'), '/srv/new');
     await userEvent.click(screen.getByRole('button', { name: 'Generate command' }));
     const code = await screen.findByText(/rustegon backup restore/);
     expect(code.textContent).toContain('--from /srv/backups --id b-1 --into /srv/new');
-    expect(api.get).not.toHaveBeenCalled();
+    // Offline: nothing is sent to the server to restore.
+    expect(api.request).not.toHaveBeenCalled();
   });
 
   it('tc_gui_007_restore_page_lists_backups_and_shows_errors', async () => {
@@ -255,7 +262,159 @@ describe('S23 restore page', () => {
     await renderWith(RestorePage, api, { from: '/srv/backups' });
     await userEvent.click(screen.getByRole('button', { name: 'List backups at this destination' }));
     expect(await screen.findByText('RGN-3002')).toBeTruthy();
+    await userEvent.selectOptions(screen.getByLabelText('Restore from'), 'backup');
     await userEvent.click(screen.getByRole('button', { name: 'Generate command' }));
     expect(screen.getByText('Enter a backup id or a point in time.')).toBeTruthy();
+  });
+
+  it('tc_gui_007_restore_online_is_the_default_and_hides_offline_fields', async () => {
+    const api = mockApi({
+      '/api/v1/settings': settings,
+      '/api/v1/backups': () => Promise.resolve({ backups: [backup], unreadable: [] }),
+    });
+    await renderWith(RestorePage, api);
+    expect((screen.getByLabelText('Restore from') as HTMLSelectElement).value).toBe('online');
+    const dest = screen.getByLabelText('Backup destination') as HTMLInputElement;
+    await vi.waitFor(() => expect(dest.value).toBe('/var/lib/rustegon/backups'));
+    await vi.waitFor(() =>
+      expect(api.get).toHaveBeenCalledWith('/api/v1/backups', {
+        query: { destination: '/var/lib/rustegon/backups' },
+      }),
+    );
+    for (const label of [
+      'New data directory',
+      'Point in time (optional)',
+      'Encryption key (encrypted backups)',
+      'Shell',
+    ])
+      expect(screen.queryByLabelText(label)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Generate command' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Restore' })).toBeTruthy();
+  });
+
+  it('tc_gui_007_restore_online_prefills_the_backup_from_the_link', async () => {
+    const api = mockApi({
+      '/api/v1/backups': () => Promise.resolve({ backups: [backup], unreadable: [] }),
+    });
+    await renderWith(RestorePage, api, { from: '/srv/backups', id: 'b-20261113' });
+    const choice = screen.getByLabelText('Backup to restore') as HTMLSelectElement;
+    await vi.waitFor(() => expect(choice.value).toBe('b-20261113'));
+    expect(within(choice).getByRole('option', { name: /b-20261113 .* 2.0 KiB/ })).toBeTruthy();
+  });
+
+  it('tc_gui_007_restore_online_confirms_restores_and_follows_the_node', async () => {
+    let up = false;
+    const api = mockApi({
+      '/api/v1/backups': () => Promise.resolve({ backups: [backup], unreadable: [] }),
+      '/api/v1/health/ready': () =>
+        up ? Promise.resolve({ status: 'ready' }) : Promise.reject(unavailable()),
+    });
+    const gates: (() => void)[] = [];
+    const wait = () => new Promise<void>((resolve) => gates.push(resolve));
+    const tick = async () => {
+      await vi.waitFor(() => expect(gates.length).toBe(1));
+      gates.shift()?.();
+    };
+    await renderWith(RestorePage, api, { from: '/srv/backups' }, wait);
+    const choice = screen.getByLabelText('Backup to restore');
+    await screen.findByRole('option', { name: /b-20261113/ });
+    await userEvent.selectOptions(choice, 'b-20261113');
+    await userEvent.click(screen.getByRole('button', { name: 'Restore' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toContain('store.pre-restore-');
+    // A plain confirmation: nothing to type (owner decision).
+    expect(within(dialog).queryByRole('textbox')).toBeNull();
+    const ok = within(dialog).getByRole('button', { name: 'Restore' }) as HTMLButtonElement;
+    expect(ok.disabled).toBe(false);
+    ok.click();
+    await vi.waitFor(() =>
+      expect(api.request).toHaveBeenCalledWith('post', '/api/v1/backups/{backup_id}/restore', {
+        path: { backup_id: 'b-20261113' },
+        body: { destination: '/srv/backups' },
+        timeoutMs: 3_600_000,
+      }),
+    );
+    expect(
+      await screen.findByText(
+        'Restore in progress: the node stops serving and restores the backup.',
+      ),
+    ).toBeTruthy();
+
+    // Ready before it went down does not count; then down; then ready again.
+    up = true;
+    await tick();
+    up = false;
+    await tick();
+    expect(screen.queryByText(/Restore completed/)).toBeNull();
+    up = true;
+    await tick();
+    expect(
+      await screen.findByText(
+        'Restore completed. Sign in again with the credentials of the backup.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe('/login');
+    expect(api.get).toHaveBeenCalledWith('/api/v1/health/ready', { skipAuthRedirect: true });
+    expect(api.request).toHaveBeenCalledWith('post', '/api/v1/auth/logout', {
+      skipAuthRedirect: true,
+    });
+  });
+
+  it('tc_gui_007_restore_online_requires_a_backup', async () => {
+    const api = mockApi({
+      '/api/v1/backups': () => Promise.resolve({ backups: [], unreadable: [] }),
+    });
+    await renderWith(RestorePage, api, { from: '/srv/backups' });
+    await userEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    expect(await screen.findByText('Choose a backup.')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('tc_gui_007_restore_shows_the_last_completed_restore', async () => {
+    const api = mockApi({
+      '/api/v1/restore-status': () =>
+        Promise.resolve({
+          state: 'completed',
+          backupId: 'b-old',
+          finishedAt: 0,
+          previousStore: 'store.pre-restore-20261117T100000Z',
+        }),
+    });
+    await renderWith(RestorePage, api);
+    expect(await screen.findByText(/backup b-old completed on/)).toBeTruthy();
+    expect(
+      screen.getByText(/kept on the server as store.pre-restore-20261117T100000Z/),
+    ).toBeTruthy();
+  });
+
+  it('tc_gui_007_restore_shows_the_last_failed_restore', async () => {
+    const api = mockApi({
+      '/api/v1/restore-status': () =>
+        Promise.resolve({
+          state: 'failed',
+          backupId: 'b-bad',
+          finishedAt: 0,
+          error: {
+            code: 5002,
+            name: 'DataCorruption',
+            message: 'checksum mismatch',
+            retryable: false,
+            details: {},
+            traceId: '4bf92f3577b34da6a3ce929d0e0e4736',
+          },
+        }),
+    });
+    await renderWith(RestorePage, api);
+    expect(await screen.findByText(/backup b-bad failed on/)).toBeTruthy();
+    expect(screen.getByText('RGN-5002')).toBeTruthy();
+    expect(screen.getByText('checksum mismatch')).toBeTruthy();
+  });
+
+  it('tc_gui_007_restore_status_error_does_not_break_the_page', async () => {
+    const api = mockApi({ '/api/v1/restore-status': () => Promise.reject(unavailable()) });
+    await renderWith(RestorePage, api);
+    expect(await screen.findByRole('button', { name: 'Restore' })).toBeTruthy();
+    expect(screen.queryByText('RGN-3002')).toBeNull();
   });
 });

@@ -78,6 +78,10 @@ enum rustegon.v1.ReadConsistencyLevel.READ_CONSISTENCY_LEVEL_BOUNDED_STALENESS =
 enum rustegon.v1.ReadConsistencyLevel.READ_CONSISTENCY_LEVEL_FOLLOWER = 3
 enum rustegon.v1.ReadConsistencyLevel.READ_CONSISTENCY_LEVEL_LINEARIZABLE = 1
 enum rustegon.v1.ReadConsistencyLevel.READ_CONSISTENCY_LEVEL_UNSPECIFIED = 0
+enum rustegon.v1.RestoreState.RESTORE_STATE_COMPLETED = 2
+enum rustegon.v1.RestoreState.RESTORE_STATE_FAILED = 3
+enum rustegon.v1.RestoreState.RESTORE_STATE_NONE = 1
+enum rustegon.v1.RestoreState.RESTORE_STATE_UNSPECIFIED = 0
 enum rustegon.v1.ReturnDocument.RETURN_DOCUMENT_AFTER = 2
 enum rustegon.v1.ReturnDocument.RETURN_DOCUMENT_BEFORE = 1
 enum rustegon.v1.ReturnDocument.RETURN_DOCUMENT_UNSPECIFIED = 0
@@ -658,6 +662,11 @@ field rustegon.v1.GetRequest.database = 1 singular string json=database
 field rustegon.v1.GetRequest.id = 3 singular rustegon.v1.Value json=id
 field rustegon.v1.GetRequest.txn_id = 4 optional string json=txnId
 field rustegon.v1.GetResponse.document = 1 optional rustegon.v1.Document json=document
+field rustegon.v1.GetRestoreStatusResponse.backup_id = 2 singular string json=backupId
+field rustegon.v1.GetRestoreStatusResponse.error = 4 singular rustegon.v1.ErrorDetail json=error
+field rustegon.v1.GetRestoreStatusResponse.finished_at_unix_ms = 3 singular int64 json=finishedAtUnixMs
+field rustegon.v1.GetRestoreStatusResponse.previous_store = 5 singular string json=previousStore
+field rustegon.v1.GetRestoreStatusResponse.state = 1 singular rustegon.v1.RestoreState json=state
 field rustegon.v1.GetRoleRequest.name = 1 singular string json=name
 field rustegon.v1.GetRoleResponse.role = 1 singular rustegon.v1.Role json=role
 field rustegon.v1.GetServerInfoResponse.features = 3 repeated string json=features
@@ -742,6 +751,9 @@ field rustegon.v1.ReplaceResponse.document = 3 optional rustegon.v1.Document jso
 field rustegon.v1.ReplaceResponse.matched = 1 singular bool json=matched
 field rustegon.v1.ReplaceResponse.result = 2 singular rustegon.v1.WriteResult json=result
 field rustegon.v1.ReplaceResponse.warnings = 4 repeated rustegon.v1.Warning json=warnings
+field rustegon.v1.RestoreBackupRequest.backup_id = 2 singular string json=backupId
+field rustegon.v1.RestoreBackupRequest.destination = 1 singular string json=destination
+field rustegon.v1.RestoreBackupResponse.backup = 1 singular rustegon.v1.BackupInfo json=backup
 field rustegon.v1.RestoredCollection.collection = 2 singular string json=collection
 field rustegon.v1.RestoredCollection.database = 1 singular string json=database
 field rustegon.v1.RestoredCollection.documents = 3 singular uint64 json=documents
@@ -867,9 +879,11 @@ rpc rustegon.v1.BackupService/CreateSnapshot (rustegon.v1.CreateSnapshotRequest)
 rpc rustegon.v1.BackupService/DeleteSnapshot (rustegon.v1.DeleteSnapshotRequest) -> (rustegon.v1.DeleteSnapshotResponse)
 rpc rustegon.v1.BackupService/Dump (rustegon.v1.DumpRequest) -> (stream rustegon.v1.DumpResponse)
 rpc rustegon.v1.BackupService/GetBackup (rustegon.v1.GetBackupRequest) -> (rustegon.v1.GetBackupResponse)
+rpc rustegon.v1.BackupService/GetRestoreStatus (rustegon.v1.GetRestoreStatusRequest) -> (rustegon.v1.GetRestoreStatusResponse)
 rpc rustegon.v1.BackupService/ListBackups (rustegon.v1.ListBackupsRequest) -> (rustegon.v1.ListBackupsResponse)
 rpc rustegon.v1.BackupService/ListSnapshots (rustegon.v1.ListSnapshotsRequest) -> (rustegon.v1.ListSnapshotsResponse)
 rpc rustegon.v1.BackupService/LogicalRestore (stream rustegon.v1.LogicalRestoreRequest) -> (rustegon.v1.LogicalRestoreResponse)
+rpc rustegon.v1.BackupService/RestoreBackup (rustegon.v1.RestoreBackupRequest) -> (rustegon.v1.RestoreBackupResponse)
 rpc rustegon.v1.BackupService/VerifyBackup (rustegon.v1.VerifyBackupRequest) -> (rustegon.v1.VerifyBackupResponse)
 rpc rustegon.v1.DocumentService/BulkWrite (rustegon.v1.BulkWriteRequest) -> (rustegon.v1.BulkWriteResponse)
 rpc rustegon.v1.DocumentService/Delete (rustegon.v1.DeleteRequest) -> (rustegon.v1.DeleteResponse)

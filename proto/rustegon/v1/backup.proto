@@ -10,12 +10,13 @@ import "rustegon/v1/error.proto";
 
 // Single-node backup, snapshots and logical dump/restore (protocol.md §2, backup-restore.md
 // "Single-node scope"; FR-BKP-001/003/004/006/007; PD-062, PD-077). Online operations run inside
-// the server; physical and snapshot restores are offline CLI operations on a stopped node and
-// have no RPC. Cluster-wide backups, incremental chains, schedules and retention are added
-// additively in M13b.
+// the server. A whole-node restore from a backup is online too (`RestoreBackup`, ADR-037);
+// snapshot, point-in-time and new-data-directory restores are offline CLI operations on a
+// stopped node and have no RPC. Cluster-wide backups, incremental chains, schedules and
+// retention are added additively in M13b.
 //
-// Privileges: `backup` on `cluster` for every RPC except `LogicalRestore`, which needs
-// `restore` on `cluster` (security.md §3.2).
+// Privileges: `backup` on `cluster` for every RPC except `LogicalRestore` and `RestoreBackup`,
+// which need `restore` on `cluster` (security.md §3.2).
 service BackupService {
   // Takes an online backup of the node consistent at one MVCC timestamp T (PD-063) and writes
   // it to a destination (backup format v1, PD-064). Returns once `COMPLETE` is written.
@@ -37,6 +38,15 @@ service BackupService {
   rpc Dump(DumpRequest) returns (stream DumpResponse);
   // Imports a logical dump sent as the chunks `Dump` produced (FR-BKP-007, PD-067).
   rpc LogicalRestore(stream LogicalRestoreRequest) returns (LogicalRestoreResponse);
+  // Replaces the whole node with a complete backup at a destination, online (FR-BKP-001,
+  // ADR-037): the backup is deep-verified while the node serves; then the node stops serving
+  // (connections close, open transactions roll back), replaces its store with the backup's
+  // image, keeping the replaced store as `store.pre-restore-<ts>` in the data directory, and
+  // serves again in the same process. Every database, user and role comes from the backup.
+  // Returns once the restore is scheduled; `GetRestoreStatus` reports how it ended.
+  rpc RestoreBackup(RestoreBackupRequest) returns (RestoreBackupResponse);
+  // The outcome of the last online restore of this node (ADR-037).
+  rpc GetRestoreStatus(GetRestoreStatusRequest) returns (GetRestoreStatusResponse);
 }
 
 // An HLC timestamp.
@@ -297,4 +307,48 @@ message LogicalRestoreResponse {
   HlcTimestamp source_timestamp = 1;
   // Restored collections.
   repeated RestoredCollection collections = 2;
+}
+
+// Request of BackupService.RestoreBackup.
+message RestoreBackupRequest {
+  // Destination holding the backup (as in CreateBackupRequest).
+  string destination = 1;
+  // Backup id: a single-file backup `<id>.bak` or a backup directory `backups/<id>/`.
+  string backup_id = 2;
+}
+
+// Response of BackupService.RestoreBackup: the restore is scheduled; the node stops serving
+// right after this response.
+message RestoreBackupResponse {
+  // The verified backup that will be restored.
+  BackupInfo backup = 1;
+}
+
+// Request of BackupService.GetRestoreStatus.
+message GetRestoreStatusRequest {}
+
+// How the last online restore ended.
+enum RestoreState {
+  // Not set.
+  RESTORE_STATE_UNSPECIFIED = 0;
+  // This node never ran an online restore.
+  RESTORE_STATE_NONE = 1;
+  // The backup was restored and the node serves it.
+  RESTORE_STATE_COMPLETED = 2;
+  // The restore failed before its swap: the node serves its previous store, unchanged.
+  RESTORE_STATE_FAILED = 3;
+}
+
+// Response of BackupService.GetRestoreStatus.
+message GetRestoreStatusResponse {
+  // Outcome of the last online restore.
+  RestoreState state = 1;
+  // The restored (or failed) backup; empty for RESTORE_STATE_NONE.
+  string backup_id = 2;
+  // When the restore ended; 0 for RESTORE_STATE_NONE.
+  int64 finished_at_unix_ms = 3;
+  // Why it failed (RESTORE_STATE_FAILED only).
+  ErrorDetail error = 4;
+  // Directory name, in the data directory, of the store the restore replaced (completed only).
+  string previous_store = 5;
 }

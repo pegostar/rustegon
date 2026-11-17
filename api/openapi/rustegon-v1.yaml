@@ -1276,6 +1276,62 @@ components:
       required:
         - removed
       type: object
+    RestoreBackupRequest:
+      additionalProperties: false
+      description: "`POST /backups/{backup_id}/restore` body."
+      properties:
+        destination:
+          description: Destination of the backup.
+          type: string
+      required:
+        - destination
+      type: object
+    RestoreBackupResponse:
+      description: "`POST /backups/{backup_id}/restore` response: the restore is scheduled and the node stops\nserving right after it."
+      properties:
+        backup:
+          $ref: "#/components/schemas/BackupJson"
+          description: The verified backup that will be restored.
+      required:
+        - backup
+      type: object
+    RestoreStateJson:
+      description: How the last online restore ended.
+      enum:
+        - none
+        - completed
+        - failed
+      type: string
+    RestoreStatusResponse:
+      description: "`GET /restore-status` response."
+      properties:
+        backupId:
+          description: "The restored (or failed) backup; absent for `none`."
+          type:
+            - string
+            - "null"
+        error:
+          oneOf:
+            - $ref: "#/components/schemas/ErrorInfo"
+              description: "Why it failed (`failed` only; the error body of protocol.md §7)."
+            - type: "null"
+        finishedAt:
+          description: "When the restore ended (Unix ms); absent for `none`."
+          format: int64
+          type:
+            - integer
+            - "null"
+        previousStore:
+          description: "Directory name, in the data directory, of the store the restore replaced (`completed`\nonly)."
+          type:
+            - string
+            - "null"
+        state:
+          $ref: "#/components/schemas/RestoreStateJson"
+          description: Outcome of the last online restore.
+      required:
+        - state
+      type: object
     ReturnDocumentName:
       description: Which version of a written document the response carries.
       enum:
@@ -2281,6 +2337,50 @@ paths:
         - apiKey: []
         - sessionCookie: []
       summary: "One complete backup (`BackupService.GetBackup`; `backup`)."
+      tags:
+        - backup
+  "/api/v1/backups/{backup_id}/restore":
+    post:
+      operationId: restoreBackup
+      parameters:
+        - description: Backup id.
+          in: path
+          name: backup_id
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/rgn-request-id"
+        - $ref: "#/components/parameters/traceparent"
+        - $ref: "#/components/parameters/x-rgn-timeout-ms"
+        - $ref: "#/components/parameters/rgn-txn-id"
+        - $ref: "#/components/parameters/rgn-causality-token"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreBackupRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreBackupResponse"
+          description: The restore is scheduled.
+          headers:
+            rgn-causality-token:
+              $ref: "#/components/headers/rgn-causality-token"
+            rgn-node-id:
+              $ref: "#/components/headers/rgn-node-id"
+            rgn-server-time:
+              $ref: "#/components/headers/rgn-server-time"
+        default:
+          $ref: "#/components/responses/Error"
+      security:
+        - bearer: []
+        - apiKey: []
+        - sessionCookie: []
+      summary: "Restores the whole node from a backup, online (`BackupService.RestoreBackup`; `restore`;\nADR-037). The backup is deep-verified first; then the node stops serving, replaces its store\nwith the backup's image (keeping the replaced one) and serves again. Every database, user and\nrole comes from the backup, so sessions end. The response arrives before the node stops;\n`GET /api/v1/restore-status` reports how the restore ended."
       tags:
         - backup
   "/api/v1/backups/{backup_id}/verify":
@@ -3876,6 +3976,38 @@ paths:
       summary: "Liveness round trip (gRPC `SessionService.Ping`); honours the request deadline."
       tags:
         - session
+  /api/v1/restore-status:
+    get:
+      operationId: getRestoreStatus
+      parameters:
+        - $ref: "#/components/parameters/rgn-request-id"
+        - $ref: "#/components/parameters/traceparent"
+        - $ref: "#/components/parameters/x-rgn-timeout-ms"
+        - $ref: "#/components/parameters/rgn-txn-id"
+        - $ref: "#/components/parameters/rgn-causality-token"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreStatusResponse"
+          description: The last online restore.
+          headers:
+            rgn-causality-token:
+              $ref: "#/components/headers/rgn-causality-token"
+            rgn-node-id:
+              $ref: "#/components/headers/rgn-node-id"
+            rgn-server-time:
+              $ref: "#/components/headers/rgn-server-time"
+        default:
+          $ref: "#/components/responses/Error"
+      security:
+        - bearer: []
+        - apiKey: []
+        - sessionCookie: []
+      summary: "The outcome of the last online restore of this node (`BackupService.GetRestoreStatus`;\n`backup`; ADR-037)."
+      tags:
+        - backup
   /api/v1/roles:
     get:
       operationId: listRoles

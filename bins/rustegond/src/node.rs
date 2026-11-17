@@ -82,7 +82,8 @@ use rustegon_server::{
         write_initial_password,
     },
     services::{
-        DataPlaneConfig, NodeIdentity, ServiceDeps, Services, backup_engine::EngineBackupBackend,
+        DataPlaneConfig, NodeIdentity, ServiceDeps, Services, backup::ScheduledRestore,
+        backup_engine::EngineBackupBackend,
     },
 };
 use rustegon_sim_api::{
@@ -148,6 +149,8 @@ struct Node {
     engine: Arc<EmbeddedDb>,
     /// The PITR archiver, started with the maintenance loops (`None`: archiving off).
     pitr: Option<(PreparedPitr, Option<Arc<dyn KekProvider>>)>,
+    /// Wakes the serving loop when an online restore is accepted (ADR-037).
+    restore: oneshot::Receiver<ScheduledRestore>,
 }
 
 fn io_error(what: &Path, e: &io::Error) -> Error {
@@ -159,37 +162,70 @@ fn io_error(what: &Path, e: &io::Error) -> Error {
 /// # Errors
 /// Any startup failure, with its reason.
 pub fn run(config: &Config, mut options: Options) -> Result<()> {
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .thread_name("rustegond")
-        .build()
-        .map_err(|e| Error::new(ErrorCode::Internal, "cannot start the runtime").with_source(e))?;
-    let result = {
-        // The startup steps are blocking and run on this thread, but inside the runtime
-        // context: the data plane starts its sweeper task on construction.
-        let _context = runtime.enter();
-        let stop = if options.stop_on_stdin_eof {
-            Some(crate::signals::stdin_eof().map_err(|e| {
-                Error::new(ErrorCode::Internal, "cannot watch standard input").with_source(e)
-            })?)
-        } else {
-            options.stop.take()
-        };
-        let on_ready = options.on_ready.take();
-        let signals = Signals::install().map_err(|e| {
-            Error::new(ErrorCode::Internal, "cannot install signal handlers").with_source(e)
-        })?;
-        open(config, options)
-            .and_then(|node| runtime.block_on(serve(node, signals, stop, on_ready)))
+    let mut stop = if options.stop_on_stdin_eof {
+        Some(crate::signals::stdin_eof().map_err(|e| {
+            Error::new(ErrorCode::Internal, "cannot watch standard input").with_source(e)
+        })?)
+    } else {
+        options.stop.take()
     };
-    runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
-    result
+    let mut on_ready = options.on_ready.take();
+    // Every serving period opens the node from these inputs again (online restore, ADR-037).
+    // The startup wipes an `env` KEK from the copy it is given, so each period gets a fresh copy
+    // of the captured environment; the process environment keeps the variable anyway (PD-057).
+    let sources = options.sources;
+    loop {
+        // An online restore accepted before a stop or a crash finishes before the node serves.
+        let restored = crate::restore::run_pending(config, &sources)?;
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .thread_name("rustegond")
+            .build()
+            .map_err(|e| {
+                Error::new(ErrorCode::Internal, "cannot start the runtime").with_source(e)
+            })?;
+        let result = {
+            // The startup steps are blocking and run on this thread, but inside the runtime
+            // context: the data plane starts its sweeper task on construction.
+            let _context = runtime.enter();
+            let signals = Signals::install().map_err(|e| {
+                Error::new(ErrorCode::Internal, "cannot install signal handlers").with_source(e)
+            })?;
+            let period = Options {
+                registry: Arc::clone(&options.registry),
+                sources: sources.clone(),
+                admin_password_file: options.admin_password_file.clone(),
+                stop_on_stdin_eof: false,
+                stop: None,
+                on_ready: None,
+            };
+            open(config, period, restored).and_then(|node| {
+                runtime.block_on(serve(node, signals, stop.as_mut(), on_ready.take()))
+            })
+        };
+        // Also lets go of the engine held by blocking tasks before a restore swaps the store.
+        runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
+        match result? {
+            Served::Stopped => return Ok(()),
+            Served::Restore => tracing::info!("serving again after the online restore"),
+        }
+    }
+}
+
+/// How a serving period ended.
+enum Served {
+    /// A shutdown was requested: the process ends.
+    Stopped,
+    /// An online restore was accepted (ADR-037): restore, then serve again.
+    Restore,
 }
 
 /// Startup steps 1–6 and the services (module docs). Blocking.
 // The startup order of the module docs, top to bottom; splitting it would scatter that order.
 #[allow(clippy::too_many_lines)]
-fn open(config: &Config, options: Options) -> Result<Node> {
+/// `restored`: an online restore just replaced the store (ADR-037); its sessions are revoked
+/// before the node serves.
+fn open(config: &Config, options: Options, restored: bool) -> Result<Node> {
     let node: NodeSettings = config.section()?;
     let storage: StorageSettings = config.section()?;
     let listen: ListenSettings = config.section()?;
@@ -249,6 +285,8 @@ fn open(config: &Config, options: Options) -> Result<Node> {
     )?;
 
     let timeline = pitr.as_ref().map(|p| p.timeline().to_owned());
+    let (restore_scheduler, restore) =
+        crate::restore::scheduler(Arc::clone(&fs), data_dir.clone(), kek_id.clone());
     let backup_backend = backup_backend(&engine, &fs, &clock, &rng, &data_dir, kek_id, timeline)?;
 
     let deps = ServiceDeps {
@@ -276,6 +314,10 @@ fn open(config: &Config, options: Options) -> Result<Node> {
         security_settings.turnkey_admin,
     )?;
     refuse_exposed_turnkey_password(&engine, &listen)?;
+    if restored {
+        let revoked = security.revoke_all_sessions()?;
+        tracing::info!(revoked, "sessions restored with the backup revoked");
+    }
 
     let data_plane = DataPlaneConfig {
         token_key: Some(*token_key),
@@ -293,7 +335,8 @@ fn open(config: &Config, options: Options) -> Result<Node> {
     .with_engine(Arc::clone(&engine), data_plane)
     .with_backup_backend(backup_backend)
     .with_backup_destinations(backup_policy)
-    .with_backup_s3(backup_settings.s3);
+    .with_backup_s3(backup_settings.s3)
+    .with_restore_scheduler(restore_scheduler);
     Ok(Node {
         services,
         transport,
@@ -303,6 +346,7 @@ fn open(config: &Config, options: Options) -> Result<Node> {
         clock,
         engine,
         pitr: pitr.map(|p| (p, kek)),
+        restore,
     })
 }
 
@@ -422,6 +466,8 @@ fn backup_backend(
     );
     // A backup taken with archiving on names the archive that continues it (FR-BKP-002).
     config.pitr_timeline = pitr_timeline;
+    // One `<id>.bak` file per backup (ADR-037).
+    config.single_file = true;
     let physical = PhysicalBackups::open(
         Arc::clone(engine),
         Arc::clone(fs),
@@ -453,7 +499,7 @@ fn backup_policy(settings: &BackupSettings, data_dir: &Path) -> Result<Destinati
 /// never need it). The process environment itself keeps the variable: removing it is unsound
 /// once threads run, so deployments that must not expose it to same-user processes use the
 /// `file` provider (docker.md, PD-057).
-fn encryption_key(
+pub(crate) fn encryption_key(
     storage: &StorageSettings,
     fs: &dyn FileSystem,
     sources: &mut Sources,
@@ -680,9 +726,9 @@ async fn report_draining(services: &Services, delay: Duration, clock: &dyn Clock
 async fn serve(
     node: Node,
     signals: Signals,
-    stop: Option<oneshot::Receiver<&'static str>>,
+    stop: Option<&mut oneshot::Receiver<&'static str>>,
     on_ready: Option<Box<dyn FnOnce() + Send>>,
-) -> Result<()> {
+) -> Result<Served> {
     let Node {
         services,
         transport,
@@ -692,6 +738,7 @@ async fn serve(
         clock,
         engine,
         pitr,
+        restore,
     } = node;
     let grace = listen.shutdown_grace();
     let tls = transport.listener.is_tls();
@@ -769,9 +816,13 @@ async fn serve(
         on_ready();
     }
 
-    let reason = signals
-        .wait_for_shutdown(Arc::clone(&reload_now), stop)
-        .await;
+    let (reason, served) = tokio::select! {
+        reason = signals.wait_for_shutdown(Arc::clone(&reload_now), stop) => {
+            (reason, Served::Stopped)
+        }
+        // The same graceful shutdown, without leaving the process (ADR-037).
+        Ok(_) = restore => ("online restore", Served::Restore),
+    };
     report_draining(&services, listen.drain_delay(), clock.as_ref(), reason).await;
     tracing::info!(reason, "shutdown requested; draining listeners");
     let _ = stop_tx.send(true);
@@ -799,8 +850,11 @@ async fn serve(
     // Last references to the security layer (audit log) and, unless a resumed index build is
     // still running, the engine.
     drop(services);
-    tracing::info!("rustegond stopped");
-    Ok(())
+    match served {
+        Served::Stopped => tracing::info!("rustegond stopped"),
+        Served::Restore => tracing::info!("stopped serving for the online restore"),
+    }
+    Ok(served)
 }
 
 /// Resumes interrupted index builds in the background so the node serves meanwhile.

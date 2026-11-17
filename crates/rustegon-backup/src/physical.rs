@@ -93,6 +93,9 @@ pub struct PhysicalConfig {
     /// The store's PITR timeline (`rustegond` with `[backup.pitr]` enabled): recorded in every
     /// manifest so a point-in-time restore finds the archive that continues the backup.
     pub pitr_timeline: Option<String>,
+    /// Write online backups as a single `<id>.bak` file (ADR-037; `rustegond`) instead of the
+    /// directory form `backups/<id>/` (default, the format of the M13a tests).
+    pub single_file: bool,
 }
 
 impl PhysicalConfig {
@@ -105,6 +108,7 @@ impl PhysicalConfig {
             kek_id,
             fence_timeout: DEFAULT_FENCE_TIMEOUT,
             pitr_timeline: None,
+            single_file: false,
         }
     }
 }
@@ -333,7 +337,11 @@ impl PhysicalBackups {
                 pitr: self.pitr_link(),
             },
         };
-        let manifest = write_backup(dest, self.fs.as_ref(), staging, &backup)?;
+        let manifest = if self.config.single_file {
+            crate::bak::write_bak(dest, self.fs.as_ref(), staging, &backup)?
+        } else {
+            write_backup(dest, self.fs.as_ref(), staging, &backup)?
+        };
         let mut warnings = Vec::new();
         if manifest.encryption == Encryption::Plaintext {
             warnings.push(BackupWarning {

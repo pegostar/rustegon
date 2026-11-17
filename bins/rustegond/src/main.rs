@@ -16,6 +16,7 @@ mod gui;
 mod maintenance;
 mod node;
 mod pitr;
+mod restore;
 mod service;
 mod signals;
 mod tls;

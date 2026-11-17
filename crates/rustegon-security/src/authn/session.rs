@@ -318,6 +318,25 @@ pub fn revoke_user_sessions(txn: &mut dyn SystemTxn, user: &str) -> AuthnResult<
     Ok(entries.len())
 }
 
+/// Revokes every session of every user; returns how many. After an online restore the store
+/// holds the sessions that were valid when the backup was taken, including ones closed or
+/// revoked since: they must not come back (ADR-037).
+///
+/// # Errors
+/// Store errors; `Corrupt`.
+pub fn revoke_all_sessions(txn: &mut dyn SystemTxn) -> AuthnResult<usize> {
+    let prefix = session_prefix();
+    let entries = txn.scan_prefix(&prefix)?;
+    for (key, value) in &entries {
+        let s = decode_session(value)?;
+        let hash: [u8; 32] = key[prefix.len()..]
+            .try_into()
+            .map_err(|_| AuthnError::corrupt(WHAT, "bad key length"))?;
+        delete(txn, &s.user, &hash)?;
+    }
+    Ok(entries.len())
+}
+
 /// Deletes up to `limit` expired sessions (background cleanup; validation also deletes the
 /// expired sessions it meets). Returns how many were deleted.
 ///

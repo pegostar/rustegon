@@ -24,6 +24,8 @@ rustegon-sim-api.workspace = true
 rustegon-storage.workspace = true
 rust-embed.workspace = true
 serde.workspace = true
+# Records of the online restore (ADR-037).
+serde_json.workspace = true
 # `signal`: SIGTERM/SIGINT/SIGHUP and Windows console events for graceful shutdown and
 # certificate reload (PD-054).
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "sync", "signal", "time"] }

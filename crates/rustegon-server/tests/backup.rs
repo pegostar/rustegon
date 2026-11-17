@@ -27,7 +27,7 @@ use std::{
 use axum::body::{Body, to_bytes};
 use common::{
     ADMIN, Binding, Conn, Harness, OTHER_PASSWORD, SEEDED_BACKUP_ID, authed, base_flags, bearer,
-    code_of, seed_backup,
+    code_of, seed_backup, seed_backup_as,
 };
 use rustegon_backup::{
     BackupId, BackupMetadata, Consistency, Destination, Encryption, HlcTimestamp, NewBackup,
@@ -36,8 +36,9 @@ use rustegon_backup::{
 use rustegon_common::Error;
 use rustegon_proto::v1::{
     CreateBackupRequest, CreateSnapshotRequest, CreateUserRequest, DeleteSnapshotRequest,
-    DumpRequest, GetBackupRequest, ListBackupsRequest, ListSnapshotsRequest,
-    LogicalRestoreOptions as PbOptions, LogicalRestoreRequest, RoleGrant, VerifyBackupRequest,
+    DumpRequest, GetBackupRequest, GetRestoreStatusRequest, ListBackupsRequest,
+    ListSnapshotsRequest, LogicalRestoreOptions as PbOptions, LogicalRestoreRequest,
+    RestoreBackupRequest, RestoreState, RoleGrant, VerifyBackupRequest,
     admin_service_client::AdminServiceClient, backup_service_client::BackupServiceClient,
     dump_response, logical_restore_request,
 };
@@ -1172,5 +1173,138 @@ async fn pd_082_destinations_outside_the_allowlist_are_refused_and_audited() {
         audit_of(&h, "backup").is_empty(),
         "refused before the start record"
     );
+    h.stop().await;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Online restore (ADR-037)
+// ---------------------------------------------------------------------------------------------
+
+/// FR-BKP-001 / TC-BKP-016 (server half): `RestoreBackup` hands a restore to the process only
+/// after the backup was found and deep-verified (a `.bak` or a backup directory), the caller
+/// holds `restore` and the destination is allowed; every refusal leaves nothing scheduled. The
+/// operation is audited (`restore`, start and end with `scheduled=true`) and the status is
+/// served over gRPC and REST.
+#[tokio::test]
+async fn fr_bkp_001_online_restore_is_verified_and_authorized_before_it_is_scheduled() {
+    let dir = tempfile::tempdir().unwrap();
+    let (dest, manifest) = seed_backup_as(dir.path(), true);
+    let destination = path_text(&dest);
+    assert!(dest.join(format!("{SEEDED_BACKUP_ID}.bak")).is_file());
+    let h = Harness::start(base_flags()).await;
+    let conn = h.channel().await;
+    let admin = conn.admin_token().await;
+    let auth = bearer(&admin);
+    let mut svc = client(&conn);
+    let restore = |destination: &str, id: &str, auth: &str| {
+        authed(
+            RestoreBackupRequest {
+                destination: destination.to_owned(),
+                backup_id: id.to_owned(),
+            },
+            auth,
+        )
+    };
+    let scheduled = || h.restores.scheduled.lock().unwrap().len();
+
+    let status = svc
+        .get_restore_status(authed(GetRestoreStatusRequest {}, &auth))
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(status.state, RestoreState::None as i32);
+
+    // Refusals: no such backup, a destination outside the allowlist, no `restore` privilege.
+    let err = svc
+        .restore_backup(restore(&destination, "20261109T101500Z-00000000", &auth))
+        .await
+        .unwrap_err();
+    assert_eq!(code_of(&err), 1030, "{err:?}");
+    let outside = path_text(&common::disallowed_destination());
+    let err = svc
+        .restore_backup(restore(&outside, SEEDED_BACKUP_ID, &auth))
+        .await
+        .unwrap_err();
+    assert_eq!(code_of(&err), 4002, "{err:?}");
+    let users = AdminServiceClient::new(conn.channel.clone());
+    users
+        .clone()
+        .create_user(authed(
+            CreateUserRequest {
+                name: "bob".into(),
+                password: Some(OTHER_PASSWORD.into()),
+                roles: vec![RoleGrant {
+                    role: "backup_operator".into(),
+                    resource: String::new(),
+                }],
+                ..CreateUserRequest::default()
+            },
+            &auth,
+        ))
+        .await
+        .unwrap();
+    let bob = bearer(
+        &conn
+            .login("bob", OTHER_PASSWORD, Binding::Plus)
+            .await
+            .unwrap()
+            .session_token,
+    );
+    let err = svc
+        .restore_backup(restore(&destination, SEEDED_BACKUP_ID, &bob))
+        .await
+        .unwrap_err();
+    assert_eq!(code_of(&err), 4002, "{err:?}");
+    assert_eq!(scheduled(), 0);
+
+    // A corrupt byte in the archive fails the deep verification: nothing is scheduled.
+    let bak = dest.join(format!("{SEEDED_BACKUP_ID}.bak"));
+    let good = std::fs::read(&bak).unwrap();
+    let mut bad = good.clone();
+    bad[3 * 512 + 10] ^= 0xff;
+    std::fs::write(&bak, &bad).unwrap();
+    let err = svc
+        .restore_backup(restore(&destination, SEEDED_BACKUP_ID, &auth))
+        .await
+        .unwrap_err();
+    assert_eq!(code_of(&err), 5002, "{err:?}");
+    assert_eq!(scheduled(), 0);
+    std::fs::write(&bak, &good).unwrap();
+
+    // Accepted: the verified manifest is handed over.
+    let accepted = svc
+        .restore_backup(restore(&destination, SEEDED_BACKUP_ID, &auth))
+        .await
+        .unwrap()
+        .into_inner();
+    assert_eq!(accepted.backup.unwrap().backup_id, SEEDED_BACKUP_ID);
+    {
+        let done = h.restores.scheduled.lock().unwrap();
+        assert_eq!(done.len(), 1);
+        assert_eq!(done[0].backup_id.as_str(), SEEDED_BACKUP_ID);
+        assert_eq!(done[0].manifest, manifest);
+    }
+    let restores = audit_of(&h, "restore");
+    assert!(
+        restores
+            .iter()
+            .any(|l| l["details"]["op"] == "restore_backup" && l["details"]["phase"] == "start"),
+        "{restores:?}"
+    );
+    assert!(
+        restores
+            .iter()
+            .any(|l| l["details"]["op"] == "restore_backup"
+                && l["details"]["phase"] == "end"
+                && l["details"]["scheduled"] == "true"),
+        "{restores:?}"
+    );
+
+    // The status over REST.
+    let app = router(&h.services, 64 << 20);
+    let (code, body) = rest(&app, "GET", "/api/v1/restore-status", &admin, None).await;
+    assert_eq!(code, 200, "{body}");
+    assert_eq!(body["state"], "completed");
+    assert_eq!(body["backupId"], SEEDED_BACKUP_ID);
     h.stop().await;
 }

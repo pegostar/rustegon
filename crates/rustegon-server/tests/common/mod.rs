@@ -202,8 +202,41 @@ pub enum BackupSetup {
     Engine,
 }
 
+/// The process side of the online restore in tests (ADR-037): records what `RestoreBackup`
+/// scheduled instead of stopping a process, and reports the last one as completed.
+#[derive(Default)]
+pub struct RecordingScheduler {
+    pub scheduled: Mutex<Vec<rustegon_server::services::backup::ScheduledRestore>>,
+}
+
+impl rustegon_server::services::backup::RestoreScheduler for RecordingScheduler {
+    fn schedule(
+        &self,
+        restore: rustegon_server::services::backup::ScheduledRestore,
+    ) -> Result<(), rustegon_common::Error> {
+        self.scheduled.lock().unwrap().push(restore);
+        Ok(())
+    }
+
+    fn status(
+        &self,
+    ) -> Result<rustegon_server::services::backup::RestoreOutcome, rustegon_common::Error> {
+        use rustegon_server::services::backup::RestoreOutcome;
+        Ok(match self.scheduled.lock().unwrap().last() {
+            None => RestoreOutcome::None,
+            Some(r) => RestoreOutcome::Completed {
+                backup_id: r.backup_id.to_string(),
+                finished_at_unix_ms: 1_794_219_400_000,
+                previous_store: "store.pre-restore-20261109T101640Z".into(),
+            },
+        })
+    }
+}
+
 /// A running server with its security layer.
 pub struct Harness {
+    /// The restores `RestoreBackup` scheduled.
+    pub restores: Arc<RecordingScheduler>,
     pub addr: SocketAddr,
     pub pki: Pki,
     pub security: Arc<Security>,
@@ -281,6 +314,8 @@ impl Harness {
         self.engine_dir_guard.path()
     }
 
+    // The node assembly of every server test, in startup order; splitting it would hide that order.
+    #[allow(clippy::too_many_lines)]
     async fn start_custom(
         flags: Vec<String>,
         bootstrap: bool,
@@ -326,6 +361,8 @@ impl Harness {
         // Every test destination is a temporary directory (PD-082 allowlist); the parent of
         // the temporary directory is the conventional "not allowed" path of the tests.
         .with_backup_destinations(test_backup_policy());
+        let restores = Arc::new(RecordingScheduler::default());
+        let services = services.with_restore_scheduler(Arc::clone(&restores) as _);
         let services = match data {
             Some(config) => services.with_engine(Arc::clone(&engine), config),
             None => services,
@@ -376,6 +413,7 @@ impl Harness {
             let _ = stopped.await;
         }));
         Self {
+            restores,
             addr,
             pki,
             security,
@@ -659,6 +697,14 @@ pub const SEEDED_BACKUP_ID: &str = "20261109T101500Z-3fa85f64";
 /// `<dir>/dest` with `rustegon-backup` and returns that destination directory and the manifest
 /// (M13a, PD-064). Everything in it is fixed (id, time, consistency point, file contents).
 pub fn seed_backup(dir: &std::path::Path) -> (PathBuf, rustegon_backup::Manifest) {
+    seed_backup_as(dir, false)
+}
+
+/// [`seed_backup`], as the single file `<id>.bak` with `single_file` (ADR-037).
+pub fn seed_backup_as(
+    dir: &std::path::Path,
+    single_file: bool,
+) -> (PathBuf, rustegon_backup::Manifest) {
     use rustegon_backup::{
         BackupId, BackupMetadata, Consistency, Encryption, HlcTimestamp, LocalDestination,
         NewBackup, SourceInfo, write_backup,
@@ -680,7 +726,12 @@ pub fn seed_backup(dir: &std::path::Path) -> (PathBuf, rustegon_backup::Manifest
     }
     let root = dir.join("dest");
     let dest = LocalDestination::open(Arc::clone(&fs), &root).unwrap();
-    let manifest = write_backup(
+    let write = if single_file {
+        rustegon_backup::write_bak
+    } else {
+        write_backup
+    };
+    let manifest = write(
         &dest,
         fs.as_ref(),
         &stage,

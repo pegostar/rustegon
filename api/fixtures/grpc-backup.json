@@ -1,5 +1,5 @@
 {
-  "description": "TC-API-003 BackupService over gRPC (M13a, PD-062, PD-077): list, get and verify a seeded local backup; engine operations without a backend fail with RGN-5007 not_implemented.",
+  "description": "TC-API-003 BackupService over gRPC (M13a, PD-062, PD-077): list, get and verify a seeded local backup; engine operations without a backend fail with RGN-5007 not_implemented; the online restore (ADR-037) of the seeded backup, scheduled through the test scheduler, and its status.",
   "steps": [
     {
       "capture": {
@@ -174,6 +174,70 @@
         "destination": "${backup_dest}"
       },
       "rpc": "rustegon.v1.BackupService/VerifyBackup"
+    },
+    {
+      "expect": {
+        "ok": {
+          "state": "RESTORE_STATE_NONE"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "restore status before any restore",
+      "request": {},
+      "rpc": "rustegon.v1.BackupService/GetRestoreStatus"
+    },
+    {
+      "expect": {
+        "ok": {
+          "backup": {
+            "backupId": "20261109T101500Z-3fa85f64",
+            "consistency": {
+              "appliedIndex": "42",
+              "appliedTerm": "1",
+              "storageSeqno": "100",
+              "timestamp": {
+                "logical": 1,
+                "wallNs": "1794219300000000000"
+              }
+            },
+            "createdAtUnixMs": "<unix-ms>",
+            "encryption": "BACKUP_ENCRYPTION_MODE_PLAINTEXT",
+            "fileCount": "4",
+            "formatVersion": 1,
+            "sourceClusterId": "cluster-test",
+            "sourceNodeId": "7",
+            "sourceServerVersion": "0.1.0",
+            "totalBytes": "4132"
+          }
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "online restore (ADR-037)",
+      "request": {
+        "backupId": "20261109T101500Z-3fa85f64",
+        "destination": "${backup_dest}"
+      },
+      "rpc": "rustegon.v1.BackupService/RestoreBackup"
+    },
+    {
+      "expect": {
+        "ok": {
+          "backupId": "20261109T101500Z-3fa85f64",
+          "finishedAtUnixMs": "1794219400000",
+          "previousStore": "store.pre-restore-20261109T101640Z",
+          "state": "RESTORE_STATE_COMPLETED"
+        }
+      },
+      "metadata": {
+        "authorization": "Bearer ${token}"
+      },
+      "name": "restore status",
+      "request": {},
+      "rpc": "rustegon.v1.BackupService/GetRestoreStatus"
     },
     {
       "expect": {

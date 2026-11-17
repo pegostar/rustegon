@@ -139,6 +139,10 @@ test('tc_gui_007_backup_verify_snapshot_and_restore_command', async ({ page }) =
   const backupId = ((await first.getByRole('rowheader').textContent()) ?? '').trim();
   await first.getByRole('link', { name: 'Restore…' }).click();
   await expect(page).toHaveURL(/backup\/restore\?/);
+  // Lands in the online restore (ADR-037) with the backup preselected; the offline command
+  // generator is a secondary choice.
+  await expect(page.getByLabel('Backup to restore')).toHaveValue(backupId);
+  await page.getByLabel('Restore from').selectOption('backup');
   await expect(page.getByLabel('Backup id')).toHaveValue(backupId);
   await page.getByLabel('New data directory').fill('/srv/rustegon restored');
   await page.getByLabel('Shell').selectOption({ label: 'POSIX sh / bash' });

@@ -12,7 +12,7 @@ import { Bytes } from '../../shared/format';
 import { Skeleton } from '../../shared/skeleton';
 import { StatusBadge } from '../../shared/status-badge';
 import { Mutation } from '../security/common';
-import { BackupNav, LONG_OP_MS, tomlStrings } from './common';
+import { BackupNav, destinationSuggestions, LONG_OP_MS } from './common';
 import { FIELD } from '../../shared/field';
 import { Dialogs } from '../../shared/dialog';
 
@@ -381,22 +381,9 @@ export class BackupsPage {
   /** `<data_dir>/backups` and the allowed destinations; none when settings are not readable. */
   protected readonly suggestions = resource({
     loader: async () => {
-      try {
-        const { settings } = await this.api.get('/api/v1/settings', {
-          query: { names: 'node.data_dir,backup.allowed_destinations' },
-        });
-        const out: string[] = [];
-        for (const s of settings) {
-          if (s.name === 'node.data_dir')
-            for (const d of tomlStrings(s.value))
-              out.push(`${d}${d.includes('\\') ? '\\' : '/'}backups`);
-          else out.push(...tomlStrings(s.value));
-        }
-        if (out.length && !this.dest.value) this.dest.setValue(out[0]);
-        return out;
-      } catch {
-        return [];
-      }
+      const out = await destinationSuggestions(this.api);
+      if (out.length && !this.dest.value) this.dest.setValue(out[0]);
+      return out;
     },
   });
 

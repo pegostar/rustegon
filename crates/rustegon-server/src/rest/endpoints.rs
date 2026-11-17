@@ -94,6 +94,8 @@ pub mod rpc {
     pub const CREATE_SNAPSHOT: &str = "/rustegon.v1.BackupService/CreateSnapshot";
     pub const LIST_SNAPSHOTS: &str = "/rustegon.v1.BackupService/ListSnapshots";
     pub const DELETE_SNAPSHOT: &str = "/rustegon.v1.BackupService/DeleteSnapshot";
+    pub const RESTORE_BACKUP: &str = "/rustegon.v1.BackupService/RestoreBackup";
+    pub const GET_RESTORE_STATUS: &str = "/rustegon.v1.BackupService/GetRestoreStatus";
 
     /// HTTP-only: the Prometheus scrape (`crate::security::HTTP_ACCESS`, PD-059).
     pub const METRICS: &str = crate::security::METRICS_ENDPOINT;
@@ -158,6 +160,12 @@ pub const REST_ENDPOINTS: &[RestEndpoint] = &[
         "/api/v1/backups/{backup_id}/verify",
         rpc::VERIFY_BACKUP,
     ),
+    ep(
+        "POST",
+        "/api/v1/backups/{backup_id}/restore",
+        rpc::RESTORE_BACKUP,
+    ),
+    ep("GET", "/api/v1/restore-status", rpc::GET_RESTORE_STATUS),
     ep("GET", "/api/v1/snapshots", rpc::LIST_SNAPSHOTS),
     ep("POST", "/api/v1/snapshots", rpc::CREATE_SNAPSHOT),
     ep("DELETE", "/api/v1/snapshots/{name}", rpc::DELETE_SNAPSHOT),

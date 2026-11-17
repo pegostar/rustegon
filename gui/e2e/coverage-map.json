@@ -40,7 +40,13 @@
       "POST /api/v1/snapshots",
       "DELETE /api/v1/snapshots/{name}"
     ],
-    "/backup/restore": ["GET /api/v1/backups"],
+    "/backup/restore": [
+      "GET /api/v1/settings",
+      "GET /api/v1/backups",
+      "POST /api/v1/backups/{backup_id}/restore",
+      "GET /api/v1/restore-status",
+      "GET /api/v1/health/ready"
+    ],
     "/settings": ["GET /api/v1/settings", "PATCH /api/v1/settings"],
     "/data": [
       "GET /api/v1/databases",

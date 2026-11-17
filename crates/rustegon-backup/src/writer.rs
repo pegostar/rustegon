@@ -250,7 +250,10 @@ fn walk(
     Ok(())
 }
 
-fn check_key_registry(files: &[(String, PathBuf)], encryption: &Encryption) -> Result<()> {
+pub(crate) fn check_key_registry(
+    files: &[(String, PathBuf)],
+    encryption: &Encryption,
+) -> Result<()> {
     let has_registry = files.iter().any(|(k, _)| k == KEY_REGISTRY_FILE);
     let has_keys_dir = files.iter().any(|(k, _)| k.starts_with("keys/"));
     match encryption {

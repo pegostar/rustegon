@@ -377,18 +377,14 @@ fn tc_bkp_001_e2e_online_backup_under_writers_restores_a_consistent_cut() {
     assert_eq!(got_lines.next(), Some(line));
     let file_lines: Vec<&str> = got_lines.collect();
     assert_eq!(file_lines.len(), files, "{}", got.stdout);
+    // ADR-037: the node writes one `<id>.bak`; every listed file is an entry of it.
+    let bak = std::fs::read(env.data_dir().join("backups").join(format!("{id}.bak"))).unwrap();
     for f in &file_lines {
         let cols: Vec<&str> = f.split('\t').collect();
         assert_eq!(cols.len(), 3, "{f}");
-        let on_disk = std::fs::metadata(
-            env.data_dir()
-                .join("backups")
-                .join("backups")
-                .join(&id)
-                .join(cols[0]),
-        )
-        .unwrap();
-        assert_eq!(on_disk.len().to_string(), cols[1], "{f}");
+        let (_, size) = bak_entry(&bak, &format!("backups/{id}/{}", cols[0]))
+            .unwrap_or_else(|| panic!("{f} not in the .bak"));
+        assert_eq!(size.to_string(), cols[1], "{f}");
         assert!(
             cols[2].len() == 64 && cols[2].bytes().all(|b| b.is_ascii_hexdigit()),
             "{f}"
@@ -472,16 +468,22 @@ fn tc_bkp_010_e2e_verify_detects_corrupt_and_missing_files() {
     };
     verify(true).ok();
 
-    let dir = env.data_dir().join("backups").join("backups").join(&id);
-    let sst = files_under(&dir)
+    // A byte in the middle of a table file inside the `.bak` (ADR-037).
+    let bak_path = env.data_dir().join("backups").join(format!("{id}.bak"));
+    let mut bytes = std::fs::read(&bak_path).unwrap();
+    let (offset, size) = bak_entries(&bytes)
         .into_iter()
-        .map(|(p, _)| p)
-        .find(|p| p.extension().is_some_and(|e| e == "sst"))
+        .find(|(name, _, size)| {
+            std::path::Path::new(name)
+                .extension()
+                .is_some_and(|e| e == "sst")
+                && *size > 0
+        })
+        .map(|(_, offset, size)| (offset, size))
         .expect("a table file in the backup");
-    let mut bytes = std::fs::read(&sst).unwrap();
-    let mid = bytes.len() / 2;
+    let mid = usize::try_from(offset + size / 2).unwrap();
     bytes[mid] ^= 0x5a;
-    std::fs::write(&sst, &bytes).unwrap();
+    std::fs::write(&bak_path, &bytes).unwrap();
     verify(false).ok();
     let deep = verify(true).failed();
     assert!(
@@ -501,10 +503,11 @@ fn tc_bkp_010_e2e_verify_detects_corrupt_and_missing_files() {
     assert!(refused.stderr.contains("5002"), "{}", refused.stderr);
     assert!(!env.path("restored").join("store").exists());
 
-    std::fs::remove_file(&sst).unwrap();
+    // A truncated `.bak` (the single-file form of a missing file) is refused.
+    std::fs::write(&bak_path, &bytes[..bytes.len() / 2]).unwrap();
     let missing = verify(false).failed();
     assert!(
-        missing.stderr.contains("RGN-5002") && missing.stderr.contains("missing"),
+        missing.stderr.contains("RGN-5002") && missing.stderr.contains("truncated"),
         "{}",
         missing.stderr
     );
@@ -667,7 +670,9 @@ fn tc_bkp_005_e2e_encrypted_backup_needs_its_kek_and_holds_no_plaintext() {
     assert!(!created.stderr.contains("plaintext"), "{}", created.stderr);
     let mut daemon_output = daemon.stop();
 
-    let backup_dir = env.data_dir().join("backups").join("backups").join(&id);
+    // The single-file backup (ADR-037) holds no plaintext either.
+    let backup_dir = env.data_dir().join("backups");
+    assert!(backup_dir.join(format!("{id}.bak")).is_file());
     assert_ne!(files_under(&backup_dir).len(), 0);
     let leaked = files_containing(&backup_dir, CANARY);
     assert!(leaked.is_empty(), "plaintext in {leaked:?}");
@@ -1119,4 +1124,36 @@ fn tc_bkp_009_e2e_destination_allowlist_privileges_and_secrets() {
         env.assert_never_printed(secret);
     }
     assert_not_in_node_output(&env, &daemon_output, &[ADMIN_PASSWORD, BOB_PASSWORD]);
+}
+
+/// The entries of a `.bak` (ustar, ADR-037): (name, data offset, size). Reads the archive
+/// headers directly, independently of `rustegon-backup`.
+fn bak_entries(bak: &[u8]) -> Vec<(String, u64, u64)> {
+    let text = |f: &[u8]| {
+        let end = f.iter().position(|&b| b == 0).unwrap_or(f.len());
+        String::from_utf8(f[..end].to_vec()).unwrap()
+    };
+    let mut out = Vec::new();
+    let mut at = 0usize;
+    while at + 512 <= bak.len() && bak[at..at + 512].iter().any(|&b| b != 0) {
+        let h = &bak[at..at + 512];
+        let (base, prefix) = (text(&h[..100]), text(&h[345..500]));
+        let name = if prefix.is_empty() {
+            base
+        } else {
+            format!("{prefix}/{base}")
+        };
+        let size = u64::from_str_radix(text(&h[124..135]).trim(), 8).unwrap();
+        out.push((name, (at + 512) as u64, size));
+        at += 512 + usize::try_from(size.div_ceil(512) * 512).unwrap();
+    }
+    out
+}
+
+/// (data offset, size) of the entry `name` of a `.bak`.
+fn bak_entry(bak: &[u8], name: &str) -> Option<(u64, u64)> {
+    bak_entries(bak)
+        .into_iter()
+        .find(|(n, _, _)| n == name)
+        .map(|(_, offset, size)| (offset, size))
 }

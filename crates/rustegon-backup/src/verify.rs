@@ -6,9 +6,13 @@
 //! A backup exists for these functions only once its `COMPLETE` marker does; a backup directory
 //! without it is an interrupted or failed write and is invisible (not listed, `RGN-1030` on
 //! verify/restore). A complete backup that does not match its manifest is corrupt (`RGN-5002`).
+//!
+//! A backup is either a directory (`backups/<id>/…`) or a single file (`<id>.bak`, ADR-037);
+//! [`open_backup`] picks the form, and every function here accepts both.
 
 use crate::{
     BACKUPS_DIR, COMPLETE_FILE, MANIFEST_FILE,
+    bak::{BakDestination, bak_id, bak_key},
     dest::{Destination, hash_object, join_key},
     error::{BackupError, Result},
     id::BackupId,
@@ -80,13 +84,87 @@ pub fn list(dest: &dyn Destination) -> Result<Vec<ListedBackup>> {
         if !dest.exists(&join_key(&[&backup_prefix(&id), COMPLETE_FILE]))? {
             continue;
         }
-        match load_manifest(dest, &id) {
+        match load_manifest_in(dest, &id) {
             Ok(manifest) => out.push(ListedBackup::Complete(manifest)),
             Err(e @ BackupError::Destination { .. }) => return Err(e),
             Err(error) => out.push(ListedBackup::Unreadable { id, error }),
         }
     }
+    // Single-file backups at the root (`<id>.bak`). A `.bak` is written atomically, so one
+    // that exists is complete; one that cannot be read is listed as unreadable.
+    for name in dest.list_children("")? {
+        let Some(id) = bak_id(&name) else {
+            continue;
+        };
+        let loaded = BakDestination::open(dest, &name).and_then(|bak| {
+            if bak.backup_id() == &id {
+                load_manifest_in(&bak, &id)
+            } else {
+                Err(BackupError::corrupt(
+                    &name,
+                    crate::bak::BAK_MARKER,
+                    format!("holds backup {}", bak.backup_id()),
+                ))
+            }
+        });
+        match loaded {
+            Ok(manifest) => out.push(ListedBackup::Complete(manifest)),
+            Err(e @ BackupError::Destination { .. }) => return Err(e),
+            Err(error) => out.push(ListedBackup::Unreadable { id, error }),
+        }
+    }
+    out.sort_by(|a, b| a.id().cmp(b.id()));
     Ok(out)
+}
+
+/// Where backup `id` lives at a destination (module docs).
+pub enum BackupSource<'a> {
+    /// A directory backup: the destination itself.
+    Directory(&'a dyn Destination),
+    /// A single-file backup `<id>.bak`.
+    File(BakDestination),
+}
+
+impl std::fmt::Debug for BackupSource<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Directory(dest) => f.debug_tuple("Directory").field(&dest.describe()).finish(),
+            Self::File(bak) => f.debug_tuple("File").field(bak).finish(),
+        }
+    }
+}
+
+impl BackupSource<'_> {
+    /// The destination that holds `backups/<id>/…`.
+    #[must_use]
+    pub fn destination(&self) -> &dyn Destination {
+        match self {
+            Self::Directory(dest) => *dest,
+            Self::File(bak) => bak,
+        }
+    }
+}
+
+/// Finds backup `id` at `dest`: `<id>.bak` when that file exists, the directory form
+/// otherwise (whose absence the callers report as `RGN-1030`).
+///
+/// # Errors
+/// As [`BakDestination::open`] for a `.bak` that is not well formed, or holds another backup
+/// ([`BackupError::Corrupt`]); [`BackupError::Destination`].
+pub fn open_backup<'a>(dest: &'a dyn Destination, id: &BackupId) -> Result<BackupSource<'a>> {
+    let key = bak_key(id);
+    if !dest.exists(&key)? {
+        return Ok(BackupSource::Directory(dest));
+    }
+    let bak = BakDestination::open(dest, &key)?;
+    if bak.backup_id() != id {
+        return Err(BackupError::corrupt(
+            &key,
+            crate::bak::BAK_MARKER,
+            format!("holds backup {}", bak.backup_id()),
+        ));
+    }
+    Ok(BackupSource::File(bak))
 }
 
 /// Reads and validates the manifest of the complete backup `id`.
@@ -99,6 +177,11 @@ pub fn list(dest: &dyn Destination) -> Result<Vec<ListedBackup>> {
 /// [`BackupError::BackupNotFound`], [`BackupError::UnsupportedFormat`],
 /// [`BackupError::Corrupt`], [`BackupError::Destination`].
 pub fn load_manifest(dest: &dyn Destination, id: &BackupId) -> Result<Manifest> {
+    load_manifest_in(open_backup(dest, id)?.destination(), id)
+}
+
+/// [`load_manifest`] of the directory form at `dest`.
+pub(crate) fn load_manifest_in(dest: &dyn Destination, id: &BackupId) -> Result<Manifest> {
     let prefix = backup_prefix(id);
     let marker = match dest.get_bytes(&join_key(&[&prefix, COMPLETE_FILE]), MAX_MARKER_BYTES) {
         Ok(marker) => marker,
@@ -149,7 +232,9 @@ pub fn load_manifest(dest: &dyn Destination, id: &BackupId) -> Result<Manifest> 
 /// As [`load_manifest`], plus [`BackupError::Corrupt`] for a missing file, a size mismatch
 /// (truncated or extended file) or, in [`VerifyMode::Deep`], a checksum mismatch.
 pub fn verify(dest: &dyn Destination, id: &BackupId, mode: VerifyMode) -> Result<VerifyReport> {
-    let manifest = load_manifest(dest, id)?;
+    let source = open_backup(dest, id)?;
+    let dest = source.destination();
+    let manifest = load_manifest_in(dest, id)?;
     let prefix = backup_prefix(id);
     let mut bytes_hashed = 0;
     for file in &manifest.files {

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { ApiClient } from '../../api/api-client';
 import { Icon } from '../../shared/icon';
 
 /** Long operations (backup, deep verify) get a 1 h server deadline instead of the default. */
@@ -21,6 +22,28 @@ export function tomlStrings(text: string): string[] {
     // Not JSON-compatible TOML: no suggestion.
   }
   return [];
+}
+
+/**
+ * Backup destinations to suggest: `<node.data_dir>/backups` (always allowed) first, then
+ * `backup.allowed_destinations`; none when the settings are not readable.
+ */
+export async function destinationSuggestions(api: ApiClient): Promise<string[]> {
+  try {
+    const { settings } = await api.get('/api/v1/settings', {
+      query: { names: 'node.data_dir,backup.allowed_destinations' },
+    });
+    const out: string[] = [];
+    for (const s of settings) {
+      if (s.name === 'node.data_dir')
+        for (const d of tomlStrings(s.value))
+          out.push(`${d}${d.includes('\\') ? '\\' : '/'}backups`);
+      else out.push(...tomlStrings(s.value));
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }
 
 /** Second-level navigation of Backup & restore (S22, S23). */

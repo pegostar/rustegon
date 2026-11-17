@@ -75,6 +75,20 @@ impl Security {
     }
 }
 
+impl Security {
+    /// Revokes every session (ADR-037: right after an online restore, before the node serves,
+    /// so the sessions stored in the backup do not come back). Blocking: call it at startup.
+    ///
+    /// # Errors
+    /// Store errors.
+    pub fn revoke_all_sessions(&self) -> Result<usize, Error> {
+        self.engine.system_transaction(|h| {
+            let mut txn = super::store::EngineTxn(h);
+            rustegon_security::authn::session::revoke_all_sessions(&mut txn).map_err(Error::from)
+        })
+    }
+}
+
 /// Writes a generated first-admin password to `<data_dir>/initial-admin-password` as a new
 /// owner-only file, synced with its directory, and returns the path.
 ///

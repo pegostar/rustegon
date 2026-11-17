@@ -222,6 +222,9 @@ const M4_SURFACE: &[(&str, &[&str])] = &[
             "DeleteSnapshot",
             "Dump",
             "LogicalRestore",
+            // ADR-037: online whole-node restore, added additively.
+            "RestoreBackup",
+            "GetRestoreStatus",
         ],
     ),
 ];

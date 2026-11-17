@@ -147,21 +147,28 @@ impl World {
 
     /// Starts the node; `PhysicalBackups::open` removes staging leftovers like `rustegond`.
     fn start(&self) -> Node {
+        self.start_as(false)
+    }
+
+    /// [`Self::start`], writing online backups as `.bak` files with `single_file` (ADR-037).
+    fn start_as(&self, single_file: bool) -> Node {
         let db = Arc::new(self.open_store(Path::new(STORE)));
+        let mut config = PhysicalConfig::new(
+            PathBuf::from(NODE),
+            SourceInfo {
+                cluster_id: "single-node".into(),
+                node_id: "node1".into(),
+                server_version: "test".into(),
+            },
+            self.kek.as_ref().map(|k| k.key_id().to_string()),
+        );
+        config.single_file = single_file;
         let physical = PhysicalBackups::open(
             Arc::clone(&db),
             sim(&self.fs),
             self.clock(),
             Arc::new(SimRng::new(12)),
-            PhysicalConfig::new(
-                PathBuf::from(NODE),
-                SourceInfo {
-                    cluster_id: "single-node".into(),
-                    node_id: "node1".into(),
-                    server_version: "test".into(),
-                },
-                self.kek.as_ref().map(|k| k.key_id().to_string()),
-            ),
+            config,
         )
         .unwrap();
         Node { db, physical }
@@ -610,15 +617,25 @@ fn tc_bkp_005_crash_during_snapshot_restore_never_loses_the_current_store() {
     }
 }
 
+/// ADR-037 crash variant: a crash at every operation of the online restore's offline step, a
+/// `.bak` restored over the live store (`RestoreKind::Replace`). As for a snapshot restore, the
+/// rerun completes it and the replaced store is kept with every write made after the backup.
+#[test]
+fn fr_bkp_001_crash_during_bak_restore_over_the_store_never_loses_it() {
+    for kek in [None, Some(kek())] {
+        crash_sweep_restore(kek, RestoreKind::Replace);
+    }
+}
+
 fn crash_sweep_restore(kek: Option<Arc<dyn KekProvider>>, kind: RestoreKind) {
     let name = BackupId::parse(SNAPSHOT).unwrap();
     // The backup (or snapshot) holds state `at_t`; the live store moves on to `current`.
     let setup = |w: &World| {
-        let node = w.start();
+        let node = w.start_as(kind == RestoreKind::Replace);
         populate(&node.db);
         let at_t = state(&node.db);
         let id = match kind {
-            RestoreKind::Backup => {
+            RestoreKind::Backup | RestoreKind::Replace => {
                 node.physical
                     .create_backup(&w.backups(), &never())
                     .unwrap()
@@ -635,7 +652,7 @@ fn crash_sweep_restore(kek: Option<Arc<dyn KekProvider>>, kind: RestoreKind) {
         // A second complete backup (snapshot): restoring it over an unfinished restore of the
         // first must be refused.
         let other = match kind {
-            RestoreKind::Backup => {
+            RestoreKind::Backup | RestoreKind::Replace => {
                 node.physical
                     .create_backup(&w.backups(), &never())
                     .unwrap()
@@ -657,6 +674,7 @@ fn crash_sweep_restore(kek: Option<Arc<dyn KekProvider>>, kind: RestoreKind) {
     let (data_dir, source): (&str, fn(&World) -> LocalDestination) = match kind {
         RestoreKind::Backup => ("/restored", World::backups),
         RestoreKind::Snapshot => (NODE, World::snapshots),
+        RestoreKind::Replace => (NODE, World::backups),
     };
     let total = count_ops(kek.as_ref(), setup, |w, (id, _, _, _)| {
         run_restore(w, &source(w), id, data_dir, kind).unwrap();
@@ -722,7 +740,7 @@ fn crash_sweep_restore(kek: Option<Arc<dyn KekProvider>>, kind: RestoreKind) {
             .unwrap()
             .iter()
             .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
-            .filter(|n| n != "snapshots")
+            .filter(|n| n != "snapshots" && n != "backup-staging")
             .collect();
         names.sort();
         assert!(
@@ -731,7 +749,9 @@ fn crash_sweep_restore(kek: Option<Arc<dyn KekProvider>>, kind: RestoreKind) {
                 .any(|n| n == RESTORING_DIR || n == JOURNAL_FILE),
             "{ctx}: leftovers {names:?}"
         );
-        if kind == RestoreKind::Snapshot {
+        if kind == RestoreKind::Backup {
+            assert_eq!(names, ["store"], "{ctx}");
+        } else {
             let kept: Vec<&String> = names
                 .iter()
                 .filter(|n| n.starts_with(PRE_RESTORE_PREFIX))
@@ -743,8 +763,6 @@ fn crash_sweep_restore(kek: Option<Arc<dyn KekProvider>>, kind: RestoreKind) {
                 current,
                 "{ctx}: the replaced store lost writes"
             );
-        } else {
-            assert_eq!(names, ["store"], "{ctx}");
         }
         world.assert_no_plaintext(&ctx);
     }

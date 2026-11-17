@@ -19,6 +19,7 @@
 //! All I/O goes through [`rustegon_sim_api::FileSystem`] (local destination, staged directory,
 //! restore target), so the crash tests run everything on the simulated file system.
 
+pub mod bak;
 pub mod dest;
 pub mod error;
 mod fsutil;
@@ -34,6 +35,7 @@ pub mod url;
 pub mod verify;
 pub mod writer;
 
+pub use bak::{BAK_EXTENSION, BakDestination, bak_id, bak_key, write_bak};
 pub use dest::{
     Destination, ObjectReader,
     local::LocalDestination,
@@ -47,8 +49,8 @@ pub use manifest::{
     SourceInfo,
 };
 pub use offline::{
-    PitrTarget, RestoreKind, RestoreReport, RestoreRequest, restore_data_dir,
-    restore_data_dir_to_time,
+    PitrTarget, RestoreKind, RestoreReport, RestoreRequest, abandon_unswapped_restore,
+    restore_data_dir, restore_data_dir_to_time,
 };
 pub use physical::{
     BackupWarning, CreatedPhysicalBackup, PhysicalBackups, PhysicalConfig, snapshots_dir,
@@ -57,7 +59,9 @@ pub use policy::{AllowedDestination, DestinationPolicy};
 pub use restore::restore_files;
 pub use settings::{BackupSettings, PitrSettings};
 pub use url::{DestinationUrl, open_destination};
-pub use verify::{ListedBackup, VerifyMode, VerifyReport, list, load_manifest, verify};
+pub use verify::{
+    BackupSource, ListedBackup, VerifyMode, VerifyReport, list, load_manifest, open_backup, verify,
+};
 pub use writer::{BackupMetadata, NewBackup, backup_prefix, write_backup};
 
 /// Directory below the destination root that holds one directory per backup.

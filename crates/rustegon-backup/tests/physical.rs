@@ -485,6 +485,93 @@ fn tc_bkp_005_snapshot_create_list_delete_and_restore_keeps_the_old_store() {
     rustegon_backup::verify(&local(&snapshots_dir(&data_dir)), &name, VerifyMode::Deep).unwrap();
 }
 
+/// ADR-037 (FR-BKP-001, TC-BKP-016 offline half): a node writing single-file backups leaves
+/// one `<id>.bak` at the destination; restored over the live store (`RestoreKind::Replace`, the
+/// step `rustegond` runs between stopping and serving again) the store equals the source at the
+/// backup's T, the replaced store is kept intact with the later writes, and the rest of the
+/// data directory is untouched. Refused while the store is open (TC-BKP-014).
+#[test]
+fn fr_bkp_001_bak_restores_over_the_store_and_keeps_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let data_dir = dir.path().join("node");
+    let store = data_dir.join("store");
+    let dest_dir = dir.path().join("backups");
+    let db = Arc::new(open(&store, None).unwrap());
+    populate(&db);
+    let mut config = PhysicalConfig::new(
+        data_dir.clone(),
+        SourceInfo {
+            cluster_id: "single-node".into(),
+            node_id: "node1".into(),
+            server_version: "test".into(),
+        },
+        None,
+    );
+    config.single_file = true;
+    let backups = PhysicalBackups::open(
+        Arc::clone(&db),
+        fs(),
+        Arc::new(SystemClock::new()),
+        Arc::new(OsRng),
+        config,
+    )
+    .unwrap();
+    let snapshot = pin(&db);
+    let at_t = dump(&db, &snapshot);
+    let created = backups
+        .create_backup_at(&snapshot, &local(&dest_dir))
+        .unwrap();
+    drop(snapshot);
+    let id = created.manifest.backup_id.clone();
+    assert_eq!(entries(&dest_dir), [format!("{id}.bak")]);
+    rustegon_backup::verify(
+        &local(&dest_dir),
+        &BackupId::parse(&id).unwrap(),
+        VerifyMode::Deep,
+    )
+    .unwrap();
+
+    for id in 0..DOCS {
+        db.replace(DB, COLL, &Value::Int64(id), &doc(id, 77))
+            .unwrap();
+    }
+    let after = latest(&db);
+    std::fs::write(data_dir.join("keep.txt"), b"node file").unwrap();
+
+    let e = restore(
+        &local(&dest_dir),
+        &id,
+        &data_dir,
+        RestoreKind::Replace,
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(e.code(), ErrorCode::Unavailable, "{e}");
+    drop(backups);
+    drop(db);
+
+    let report = restore(
+        &local(&dest_dir),
+        &id,
+        &data_dir,
+        RestoreKind::Replace,
+        None,
+    )
+    .unwrap();
+    let kept = report.previous_store.unwrap();
+    let restored = Arc::new(open(&store, None).unwrap());
+    assert_eq!(latest(&restored), at_t);
+    drop(restored);
+    let old = Arc::new(open(&kept, None).unwrap());
+    assert_eq!(latest(&old), after, "the replaced store is kept intact");
+    drop(old);
+    assert_eq!(
+        std::fs::read(data_dir.join("keep.txt")).unwrap(),
+        b"node file"
+    );
+    assert!(!data_dir.join("restore-in-progress.json").exists());
+}
+
 /// Restore reruns (module docs of `rustegon_backup::offline`): an interrupted download is
 /// redone, a failure after the engine's commit point (journal still present) completes on
 /// rerun without a second revert, a journal of another restore is refused.

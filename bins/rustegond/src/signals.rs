@@ -71,9 +71,10 @@ impl Signals {
     pub async fn wait_for_shutdown(
         mut self,
         reload: Arc<Notify>,
-        stop: Option<oneshot::Receiver<&'static str>>,
+        stop: Option<&mut oneshot::Receiver<&'static str>>,
     ) -> &'static str {
         let stop = async move {
+            // Borrowed: a serving period that ends for an online restore leaves it to the next.
             match stop {
                 // A dropped sender (stdin reader thread gone without EOF) also means stop.
                 Some(rx) => rx.await.unwrap_or("stop channel closed"),

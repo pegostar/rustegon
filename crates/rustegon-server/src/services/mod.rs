@@ -312,6 +312,14 @@ impl Services {
         self
     }
 
+    /// Installs the online restore of the process (`rustegond`, ADR-037): without one
+    /// `RestoreBackup` and `GetRestoreStatus` fail with RGN-5007 `not_implemented`.
+    #[must_use]
+    pub fn with_restore_scheduler(mut self, scheduler: Arc<dyn backup::RestoreScheduler>) -> Self {
+        self.backup = self.backup.clone().with_scheduler(scheduler);
+        self
+    }
+
     /// `BackupService`.
     #[must_use]
     pub fn backup(&self) -> &BackupService {

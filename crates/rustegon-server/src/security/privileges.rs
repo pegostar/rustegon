@@ -335,6 +335,14 @@ pub const RPC_ACCESS: &[RpcAccess] = &[
         "/rustegon.v1.BackupService/LogicalRestore",
         cluster(&[Action::Restore]),
     ),
+    rule(
+        "/rustegon.v1.BackupService/RestoreBackup",
+        cluster(&[Action::Restore]),
+    ),
+    rule(
+        "/rustegon.v1.BackupService/GetRestoreStatus",
+        cluster(&[Action::Backup]),
+    ),
 ];
 
 /// Pseudo-method of the Prometheus scrape endpoint `GET /metrics` (protocol.md §1), which has

@@ -24,7 +24,7 @@ use crate::{
     error::{BackupError, Result},
     id::BackupId,
     manifest::{FileEntry, Manifest},
-    verify::load_manifest,
+    verify::{load_manifest_in, open_backup},
     writer::backup_prefix,
 };
 
@@ -53,7 +53,9 @@ pub fn restore_files(
         Err(e) if e.kind() == io::ErrorKind::NotFound => {}
         Err(e) => return Err(BackupError::local("list", target_dir, e)),
     }
-    let manifest = load_manifest(dest, id)?;
+    let source = open_backup(dest, id)?;
+    let dest = source.destination();
+    let manifest = load_manifest_in(dest, id)?;
     // The target is written through the directory destination: it has exactly the atomic,
     // durable put this needs, and keys are the manifest's validated relative paths.
     let target = LocalDestination::open(fs, target_dir).map_err(|e| to_local(e, target_dir))?;

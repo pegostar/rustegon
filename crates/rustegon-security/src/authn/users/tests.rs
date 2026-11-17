@@ -15,7 +15,7 @@ use crate::authn::{
     secret,
     session::{
         LAST_SEEN_GRANULARITY, SessionKind, create_session, list_user_sessions, purge_expired,
-        revoke_session, validate_session,
+        revoke_all_sessions, revoke_session, validate_session,
     },
     store::{MemSystemTxn, session_user_prefix},
     testutil::{SeqRng, fast_settings, t0},
@@ -307,4 +307,33 @@ fn password_login_is_generic_for_every_failure() {
     }
     set_state(&mut t, "alice", UserState::Disabled, t0()).unwrap();
     assert!(authenticate_password(&t, "alice", &secret(PW), &fake, &s).is_err());
+}
+
+/// ADR-037: after an online restore every session of the backup is revoked, for every user.
+#[test]
+fn fr_bkp_001_revoke_all_sessions_after_a_restore() {
+    let (mut t, alice) = with_alice();
+    let s = fast_settings();
+    let bob = create_user(
+        &mut t,
+        &NewUser {
+            name: "bob",
+            password: Some(&secret(PW)),
+            roles: vec![],
+            password_change: PasswordChange::NotRequired,
+        },
+        &s,
+        t0(),
+        &OsRng,
+    )
+    .unwrap();
+    let (a, _) = create_session(&mut t, &alice, SessionKind::Gui, "", &s, t0(), &OsRng).unwrap();
+    let (b, _) = create_session(&mut t, &bob, SessionKind::Driver, "", &s, t0(), &OsRng).unwrap();
+    assert_eq!(revoke_all_sessions(&mut t).unwrap(), 2);
+    for tok in [a, b] {
+        assert!(validate_session(&mut t, tok.expose(), &s, t0()).is_err());
+    }
+    assert_eq!(list_user_sessions(&t, "alice").unwrap().len(), 0);
+    assert_eq!(list_user_sessions(&t, "bob").unwrap().len(), 0);
+    assert_eq!(revoke_all_sessions(&mut t).unwrap(), 0);
 }

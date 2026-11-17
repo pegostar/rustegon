@@ -1,5 +1,5 @@
 {
-  "description": "TC-API-003 REST backups and snapshots (M13a, PD-062, PD-077): list, get and verify a seeded local backup; engine operations without a backend fail with RGN-5007 not_implemented.",
+  "description": "TC-API-003 REST backups and snapshots (M13a, PD-062, PD-077): list, get and verify a seeded local backup; engine operations without a backend fail with RGN-5007 not_implemented; the online restore (ADR-037) of the seeded backup, scheduled through the test scheduler, and its status.",
   "steps": [
     {
       "body": {
@@ -180,6 +180,94 @@
       "method": "POST",
       "name": "deep verify",
       "path": "/api/v1/backups/20261109T101500Z-3fa85f64/verify"
+    },
+    {
+      "expect": {
+        "body": {
+          "state": "none"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "restore status before any restore",
+      "path": "/api/v1/restore-status"
+    },
+    {
+      "body": {
+        "destination": "${backup_dest}"
+      },
+      "expect": {
+        "body": {
+          "backup": {
+            "backupId": "20261109T101500Z-3fa85f64",
+            "consistency": {
+              "appliedIndex": 42,
+              "appliedTerm": 1,
+              "storageSeqno": 100,
+              "timestamp": {
+                "logical": 1,
+                "wallNs": "1794219300000000000"
+              }
+            },
+            "createdAtUnixMs": "<unix-ms>",
+            "encryption": "plaintext",
+            "fileCount": 4,
+            "formatVersion": 1,
+            "sourceClusterId": "cluster-test",
+            "sourceNodeId": "7",
+            "sourceServerVersion": "0.1.0",
+            "totalBytes": 4132
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "online restore (ADR-037)",
+      "path": "/api/v1/backups/20261109T101500Z-3fa85f64/restore"
+    },
+    {
+      "expect": {
+        "body": {
+          "backupId": "20261109T101500Z-3fa85f64",
+          "finishedAt": 1794219400000,
+          "previousStore": "store.pre-restore-20261109T101640Z",
+          "state": "completed"
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "restore status",
+      "path": "/api/v1/restore-status"
     },
     {
       "expect": {
