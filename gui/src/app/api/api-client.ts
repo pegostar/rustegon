@@ -19,7 +19,9 @@ export type RequestBody<O> = O extends {
   requestBody?: { content: { 'application/json': infer B } };
 }
   ? B
-  : never;
+  : O extends { requestBody?: { content: { 'application/octet-stream': unknown } } }
+    ? Blob
+    : never;
 export type Ok<O> = O extends { responses: { 200: { content: { 'application/json': infer R } } } }
   ? R
   : unknown;

@@ -1,5 +1,5 @@
 {
-  "description": "TC-API-003 REST backups and snapshots (M13a, PD-062, PD-077): list, get and verify a seeded local backup; engine operations without a backend fail with RGN-5007 not_implemented; the online restore (ADR-037) of the seeded backup, scheduled through the test scheduler, and its status.",
+  "description": "TC-API-003 REST backups and snapshots (M13a, PD-062, PD-077): list, get and verify a seeded local backup; engine operations without a backend fail with RGN-5007 not_implemented; the online restore (ADR-037) of the seeded backup, scheduled through the test scheduler, and its status; a database backup to one .dbck file, listed and restored (PD-226, PD-227).",
   "steps": [
     {
       "body": {
@@ -356,6 +356,274 @@
         "storageSeqno",
         "fileCount",
         "totalBytes"
+      ]
+    },
+    {
+      "body": {
+        "name": "shop"
+      },
+      "expect": {
+        "body": {
+          "created": true
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create database for a database backup",
+      "path": "/api/v1/databases"
+    },
+    {
+      "body": {
+        "name": "items"
+      },
+      "expect": {
+        "body": {
+          "created": true
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "create collection",
+      "path": "/api/v1/databases/shop/collections"
+    },
+    {
+      "body": {
+        "documents": [
+          {
+            "_id": 1,
+            "n": 1
+          },
+          {
+            "_id": 2,
+            "n": 2
+          }
+        ]
+      },
+      "expect": {
+        "body": {
+          "results": [
+            {
+              "id": 1,
+              "rev": "<rev>"
+            },
+            {
+              "id": 2,
+              "rev": "<rev>"
+            }
+          ],
+          "warnings": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "insert documents",
+      "path": "/api/v1/databases/shop/collections/items/documents"
+    },
+    {
+      "body": {
+        "databases": [
+          "shop"
+        ],
+        "destination": "${backup_dest}"
+      },
+      "capture": {
+        "dump": "/body/dump/dumpId"
+      },
+      "expect": {
+        "body": {
+          "dump": {
+            "createdAtUnixMs": "<volatile>",
+            "databases": [
+              {
+                "collections": [
+                  {
+                    "documents": 2,
+                    "name": "items"
+                  }
+                ],
+                "name": "shop"
+              }
+            ],
+            "dumpId": "${dump}",
+            "timestamp": {
+              "wallNs": "<volatile>"
+            }
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "database backup to a .dbck (PD-226, PD-227)",
+      "path": "/api/v1/dumps",
+      "volatile": [
+        "wallNs",
+        "-logical",
+        "createdAtUnixMs"
+      ]
+    },
+    {
+      "expect": {
+        "body": {
+          "dumps": [
+            {
+              "createdAtUnixMs": "<volatile>",
+              "databases": [
+                {
+                  "collections": [
+                    {
+                      "documents": 2,
+                      "name": "items"
+                    }
+                  ],
+                  "name": "shop"
+                }
+              ],
+              "dumpId": "${dump}",
+              "timestamp": {
+                "wallNs": "<volatile>"
+              }
+            }
+          ],
+          "unreadable": []
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "GET",
+      "name": "list database backups",
+      "path": "/api/v1/dumps?destination=${backup_dest_q}",
+      "volatile": [
+        "wallNs",
+        "-logical",
+        "createdAtUnixMs"
+      ]
+    },
+    {
+      "body": {
+        "databases": [
+          "shop"
+        ],
+        "destination": "${backup_dest}",
+        "dropExisting": true
+      },
+      "expect": {
+        "body": {
+          "collections": [
+            {
+              "collection": "items",
+              "database": "shop",
+              "documents": 2,
+              "indexes": 0
+            }
+          ],
+          "sourceTimestamp": {
+            "wallNs": "<volatile>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "restore the database backup",
+      "path": "/api/v1/dumps/${dump}/restore",
+      "volatile": [
+        "wallNs",
+        "-logical",
+        "createdAtUnixMs"
+      ]
+    },
+    {
+      "bodyFile": "${backup_dest}/${dump}.dbck",
+      "expect": {
+        "body": {
+          "collections": [
+            {
+              "collection": "items",
+              "database": "shop",
+              "documents": 2,
+              "indexes": 0
+            }
+          ],
+          "sourceTimestamp": {
+            "wallNs": "<volatile>"
+          }
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "restore a database backup file sent as the body",
+      "path": "/api/v1/dumps/restore-file?dropExisting=true",
+      "volatile": [
+        "wallNs",
+        "-logical"
       ]
     },
     {

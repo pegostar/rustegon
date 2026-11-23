@@ -1,6 +1,8 @@
-export type Locale = 'en' | 'it';
-export const LOCALES: readonly Locale[] = ['en', 'it'];
+export type Locale = 'en' | 'it' | 'de' | 'es' | 'fr';
+export const LOCALES: readonly Locale[] = ['en', 'it', 'de', 'es', 'fr'];
 const KEY = 'rg.locale';
+
+const isLocale = (s: string | null): s is Locale => LOCALES.includes(s as Locale);
 
 /** The stored choice, else the browser language, else English. */
 export function pickLocale(): Locale {
@@ -10,8 +12,9 @@ export function pickLocale(): Locale {
   } catch {
     // Storage blocked: fall back to the browser language.
   }
-  if (stored === 'en' || stored === 'it') return stored;
-  return navigator.language.toLowerCase().startsWith('it') ? 'it' : 'en';
+  if (isLocale(stored)) return stored;
+  const browser = navigator.language.toLowerCase().slice(0, 2);
+  return isLocale(browser) ? browser : 'en';
 }
 
 /** Stores the choice and reloads, since translations are applied at bootstrap. */

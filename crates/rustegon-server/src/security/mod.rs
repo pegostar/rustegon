@@ -96,6 +96,9 @@ pub struct SecurityConfig {
     pub registry: Arc<Registry>,
     /// Startup configuration layers (file, environment, flags).
     pub sources: Sources,
+    /// The configuration file `sources.file` was read from, when static settings may be written
+    /// to it (PD-230, `RuntimeSettings::with_config_file`); `None`: static settings read-only.
+    pub config_file: Option<PathBuf>,
     /// Argon2id cost of new API keys: [`ARGON2_COST`] in production; tests lower it.
     pub api_key_cost: Argon2Cost,
     /// Lifetime of a cached API key verification.
@@ -114,6 +117,13 @@ impl std::fmt::Debug for SecurityConfig {
 }
 
 impl SecurityConfig {
+    /// Lets static settings be written to `path` (see [`Self::config_file`]).
+    #[must_use]
+    pub fn with_config_file(mut self, path: Option<PathBuf>) -> Self {
+        self.config_file = path;
+        self
+    }
+
     /// A configuration with production defaults for the API key parameters.
     #[must_use]
     pub fn new(
@@ -131,6 +141,7 @@ impl SecurityConfig {
             node_name: node_name.into(),
             registry,
             sources,
+            config_file: None,
             api_key_cost: ARGON2_COST,
             key_cache_ttl: DEFAULT_TTL,
             key_cache_entries: DEFAULT_MAX_ENTRIES,
@@ -313,7 +324,8 @@ impl Security {
         let overrides = config
             .engine
             .system_transaction(|h| load_overrides(&EngineTxn(h)))?;
-        let settings = RuntimeSettings::open(config.registry, config.sources, overrides)?;
+        let settings = RuntimeSettings::open(config.registry, config.sources, overrides)?
+            .with_config_file(config.config_file, config.fs.as_ref());
         let effective = settings.config();
         let authn: AuthnSettings = effective.section()?;
         let audit_settings: AuditSettings = effective.section()?;

@@ -36,6 +36,8 @@ thiserror.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "net", "time", "macros", "sync"] }
 tracing.workspace = true
 zeroize.workspace = true
+# .nbck/.dbck entries (PD-227): level 19 with worker threads.
+zstd = { workspace = true, features = ["zstdmt"] }
 
 [dev-dependencies]
 hyper = { workspace = true, features = ["client", "http1", "server"] }

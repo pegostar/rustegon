@@ -99,6 +99,7 @@ tokio = { version = "1.54", default-features = false }
 rust-embed = { version = "8.14", default-features = false }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
 toml = "1.1"
+toml_edit = "0.25"
 # OpenAPI 3.1 document generated from the REST handlers (PD-052, protocol.md header); the
 # `yaml` feature is off: the checked-in YAML is emitted through `yaml-rust2`.
 utoipa = { version = "6.0", default-features = false, features = ["macros"] }

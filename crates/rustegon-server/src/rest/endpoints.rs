@@ -96,6 +96,8 @@ pub mod rpc {
     pub const DELETE_SNAPSHOT: &str = "/rustegon.v1.BackupService/DeleteSnapshot";
     pub const RESTORE_BACKUP: &str = "/rustegon.v1.BackupService/RestoreBackup";
     pub const GET_RESTORE_STATUS: &str = "/rustegon.v1.BackupService/GetRestoreStatus";
+    pub const DUMP: &str = "/rustegon.v1.BackupService/Dump";
+    pub const LOGICAL_RESTORE: &str = "/rustegon.v1.BackupService/LogicalRestore";
 
     /// HTTP-only: the Prometheus scrape (`crate::security::HTTP_ACCESS`, PD-059).
     pub const METRICS: &str = crate::security::METRICS_ENDPOINT;
@@ -151,7 +153,10 @@ pub const REST_ENDPOINTS: &[RestEndpoint] = &[
     ep("DELETE", "/api/v1/api-keys/{key_id}", rpc::REVOKE_API_KEY),
     ep("GET", "/api/v1/settings", rpc::GET_SETTINGS),
     ep("PATCH", "/api/v1/settings", rpc::UPDATE_SETTINGS),
-    // Backups and snapshots (PD-062, PD-077; `Dump`/`LogicalRestore` are gRPC only).
+    // REST only (PD-230): restarting applies static settings, so it needs their rule.
+    ep("POST", "/api/v1/node/restart", rpc::UPDATE_SETTINGS),
+    // Backups and snapshots (PD-062, PD-077). `Dump`/`LogicalRestore` stream over gRPC only;
+    // `/dumps` are dumps the server keeps at a destination, under their rules (PD-226).
     ep("GET", "/api/v1/backups", rpc::LIST_BACKUPS),
     ep("POST", "/api/v1/backups", rpc::CREATE_BACKUP),
     ep("GET", "/api/v1/backups/{backup_id}", rpc::GET_BACKUP),
@@ -169,6 +174,14 @@ pub const REST_ENDPOINTS: &[RestEndpoint] = &[
     ep("GET", "/api/v1/snapshots", rpc::LIST_SNAPSHOTS),
     ep("POST", "/api/v1/snapshots", rpc::CREATE_SNAPSHOT),
     ep("DELETE", "/api/v1/snapshots/{name}", rpc::DELETE_SNAPSHOT),
+    ep("GET", "/api/v1/dumps", rpc::LIST_BACKUPS),
+    ep("POST", "/api/v1/dumps", rpc::DUMP),
+    ep("POST", "/api/v1/dumps/restore-file", rpc::LOGICAL_RESTORE),
+    ep(
+        "POST",
+        "/api/v1/dumps/{dump_id}/restore",
+        rpc::LOGICAL_RESTORE,
+    ),
     // Transactions.
     ep("POST", "/api/v1/transactions", rpc::TXN_BEGIN),
     ep("GET", "/api/v1/transactions/{txn_id}", rpc::TXN_STATUS),

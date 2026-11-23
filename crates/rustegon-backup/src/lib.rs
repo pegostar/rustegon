@@ -19,6 +19,7 @@
 //! All I/O goes through [`rustegon_sim_api::FileSystem`] (local destination, staged directory,
 //! restore target), so the crash tests run everything on the simulated file system.
 
+pub mod archive;
 pub mod bak;
 pub mod dest;
 pub mod error;
@@ -35,6 +36,7 @@ pub mod url;
 pub mod verify;
 pub mod writer;
 
+pub use archive::{ArchiveBuilder, ArchiveKind, DUMPS_DIR, ZSTD_LEVEL, write_nbck};
 pub use bak::{BAK_EXTENSION, BakDestination, bak_id, bak_key, write_bak};
 pub use dest::{
     Destination, ObjectReader,

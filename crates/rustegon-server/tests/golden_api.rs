@@ -23,6 +23,8 @@
 //!   member names in `volatile` (e.g. the consistency point of a backup the step takes, the
 //!   bytes of a dump chunk): their values become `<volatile>` in that step's response only.
 //! - A client-streaming RPC sends the messages of `requests` (an array) instead of `request`.
+//! - A REST step may send the bytes of a local file as an `application/octet-stream` body:
+//!   `bodyFile` (interpolated, e.g. `${backup_dest}/${dump}.dbck`) instead of `body`.
 //! - An `OpenMetrics` body (`GET /metrics`) is recorded as its metadata lines only
 //!   ([`openmetrics_shape`]): the family set is the contract, sample values are volatile.
 //! - Steps carry either a gRPC `rpc` or a REST `method` + `path`. The SCRAM login is a
@@ -555,17 +557,22 @@ impl Node {
         path: &str,
         headers: &[(String, String)],
         body: Option<&Json>,
+        raw: Option<Vec<u8>>,
     ) -> Json {
         let mut b = http::Request::builder().method(method).uri(path);
         for (k, v) in headers {
             b = b.header(k.as_str(), v.as_str());
         }
-        let request = match body {
-            Some(j) => b
+        let request = match (body, raw) {
+            (_, Some(bytes)) => b
+                .header("content-type", "application/octet-stream")
+                .body(Body::from(bytes))
+                .unwrap(),
+            (Some(j), None) => b
                 .header("content-type", "application/json")
                 .body(Body::from(j.to_string()))
                 .unwrap(),
-            None => b.body(Body::empty()).unwrap(),
+            (None, None) => b.body(Body::empty()).unwrap(),
         };
         let response = self.rest.clone().oneshot(request).await.unwrap();
         let status = response.status().as_u16();
@@ -630,7 +637,12 @@ impl Node {
             vars.substitute(&mut b);
             b
         });
-        self.rest_call(method, &path, &headers, body.as_ref()).await
+        let raw = step
+            .get("bodyFile")
+            .and_then(Json::as_str)
+            .map(|f| std::fs::read(vars.interpolate(f)).unwrap());
+        self.rest_call(method, &path, &headers, body.as_ref(), raw)
+            .await
     }
 
     /// `/auth/scram/start` + `/auth/scram/finish` with the SCRAM test client; both responses
@@ -647,7 +659,13 @@ impl Node {
             start_body["delivery"] = d.clone();
         }
         let start = self
-            .rest_call("POST", "/api/v1/auth/scram/start", &[], Some(&start_body))
+            .rest_call(
+                "POST",
+                "/api/v1/auth/scram/start",
+                &[],
+                Some(&start_body),
+                None,
+            )
             .await;
         if start["status"] != 200 {
             return json!({"start": start});
@@ -664,6 +682,7 @@ impl Node {
                 "/api/v1/auth/scram/finish",
                 &[],
                 Some(&json!({"handshakeId": handshake, "clientFinal": client_final})),
+                None,
             )
             .await;
         if finish["status"] == 200 {

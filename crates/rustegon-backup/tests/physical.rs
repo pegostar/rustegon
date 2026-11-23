@@ -491,7 +491,7 @@ fn tc_bkp_005_snapshot_create_list_delete_and_restore_keeps_the_old_store() {
 /// backup's T, the replaced store is kept intact with the later writes, and the rest of the
 /// data directory is untouched. Refused while the store is open (TC-BKP-014).
 #[test]
-fn fr_bkp_001_bak_restores_over_the_store_and_keeps_it() {
+fn fr_bkp_001_nbck_restores_over_the_store_and_keeps_it() {
     let dir = tempfile::tempdir().unwrap();
     let data_dir = dir.path().join("node");
     let store = data_dir.join("store");
@@ -523,7 +523,7 @@ fn fr_bkp_001_bak_restores_over_the_store_and_keeps_it() {
         .unwrap();
     drop(snapshot);
     let id = created.manifest.backup_id.clone();
-    assert_eq!(entries(&dest_dir), [format!("{id}.bak")]);
+    assert_eq!(entries(&dest_dir), [format!("{id}.nbck")]);
     rustegon_backup::verify(
         &local(&dest_dir),
         &BackupId::parse(&id).unwrap(),

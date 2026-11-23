@@ -843,6 +843,9 @@
             {
               "defaultValue": "600000",
               "description": "PBKDF2-HMAC-SHA256 iterations of new SCRAM-SHA-256 credentials.",
+              "kind": "integer",
+              "max": 10000000,
+              "min": 100000,
               "name": "auth.scram_iterations",
               "runtimeMutable": true,
               "value": "100000"
@@ -877,6 +880,9 @@
             {
               "defaultValue": "1800",
               "description": "Seconds of inactivity after which a GUI session expires.",
+              "kind": "integer",
+              "max": 2592000,
+              "min": 60,
               "name": "auth.session_idle_timeout_gui_secs",
               "runtimeMutable": true,
               "value": "600"
@@ -898,6 +904,27 @@
       "method": "PATCH",
       "name": "update settings",
       "path": "/api/v1/settings"
+    },
+    {
+      "expect": {
+        "body": {
+          "restarting": true
+        },
+        "headers": {
+          "cache-control": "no-store",
+          "content-type": "application/json",
+          "rgn-node-id": "7",
+          "rgn-server-time": "<unix-ms>",
+          "x-content-type-options": "nosniff"
+        },
+        "status": 200
+      },
+      "headers": {
+        "authorization": "Bearer ${token}"
+      },
+      "method": "POST",
+      "name": "restart the node so static settings take effect",
+      "path": "/api/v1/node/restart"
     },
     {
       "body": {
@@ -1098,6 +1125,12 @@
           "# HELP rustegon_storage_immutable_memtables Storage engine statistic.",
           "# TYPE rustegon_storage_snapshots gauge",
           "# HELP rustegon_storage_snapshots Storage engine statistic.",
+          "# TYPE rustegon_storage_block_cache_usage_bytes gauge",
+          "# HELP rustegon_storage_block_cache_usage_bytes Storage engine statistic.",
+          "# TYPE rustegon_storage_memtable_bytes gauge",
+          "# HELP rustegon_storage_memtable_bytes Storage engine statistic.",
+          "# TYPE rustegon_storage_sst_files gauge",
+          "# HELP rustegon_storage_sst_files Storage engine statistic.",
           "# EOF"
         ],
         "headers": {

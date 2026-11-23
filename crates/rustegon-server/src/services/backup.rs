@@ -57,9 +57,15 @@ use tokio::sync::mpsc;
 use tonic::codegen::tokio_stream::Stream;
 
 use super::{RequestContext, ServiceDeps, Warning, cancelled, unauthenticated};
+
+mod server_dump;
 use crate::{
     CancelToken, Completion,
     security::{Security, access_of},
+};
+pub use server_dump::{
+    DUMPS_DIR, DumpListing, MAX_UPLOAD_BYTES, StoredDump, UploadReceiver, UploadSender,
+    upload_channel,
 };
 
 /// Largest chunk of a dump file the service accepts in a logical restore (bytes). Backends
@@ -465,6 +471,8 @@ pub struct BackupService {
     s3: Arc<S3Settings>,
     /// The online restore of `rustegond` (ADR-037); `None`: `RestoreBackup` is not served.
     scheduler: Option<Arc<dyn RestoreScheduler>>,
+    /// Spool directory of server-side dumps (`server_dump`); `None`: a temporary directory.
+    spool: Option<std::path::PathBuf>,
 }
 
 impl std::fmt::Debug for BackupService {
@@ -569,7 +577,15 @@ impl BackupService {
             policy: Arc::new(DestinationPolicy::deny_all()),
             s3: Arc::new(S3Settings::default()),
             scheduler: None,
+            spool: None,
         }
+    }
+
+    /// The same service spooling server-side dumps in `dir` (`server_dump`, PD-226).
+    #[must_use]
+    pub(crate) fn with_spool(mut self, dir: std::path::PathBuf) -> Self {
+        self.spool = Some(dir);
+        self
     }
 
     /// The same service with the online restore of the process installed (ADR-037).

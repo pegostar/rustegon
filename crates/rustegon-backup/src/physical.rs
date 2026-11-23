@@ -338,7 +338,7 @@ impl PhysicalBackups {
             },
         };
         let manifest = if self.config.single_file {
-            crate::bak::write_bak(dest, self.fs.as_ref(), staging, &backup)?
+            crate::archive::write_nbck(dest, self.fs.as_ref(), staging, &backup)?
         } else {
             write_backup(dest, self.fs.as_ref(), staging, &backup)?
         };

@@ -739,10 +739,17 @@ impl LsmEngine {
     #[must_use]
     pub fn metrics(&self) -> EngineMetrics {
         let mut m = EngineMetrics::from_counters(&self.counters);
-        let (version, immutable) = {
+        let (version, immutable, memtable_bytes) = {
             let mem = lock(&self.mem);
-            (Arc::clone(&mem.version), mem.immutable.len())
+            let bytes = mem.active.approximate_size()
+                + mem
+                    .immutable
+                    .iter()
+                    .map(|(t, _)| t.approximate_size())
+                    .sum::<usize>();
+            (Arc::clone(&mem.version), mem.immutable.len(), bytes)
         };
+        m.memtable_bytes = u64::try_from(memtable_bytes).unwrap_or(u64::MAX);
         for level in 0..m.level_files.len() {
             m.level_files[level] = version.files(level).len();
             m.level_bytes[level] = version.level_size(level);

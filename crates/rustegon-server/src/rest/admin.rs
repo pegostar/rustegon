@@ -41,6 +41,7 @@ pub(super) fn routes() -> OpenApiRouter<RestState> {
         .routes(routes!(list_api_keys, create_api_key))
         .routes(routes!(revoke_api_key))
         .routes(routes!(get_settings, update_settings))
+        .routes(routes!(restart_node))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -339,19 +340,58 @@ pub struct SettingJson {
     pub value: String,
     /// Default value as TOML text.
     pub default_value: String,
-    /// Changeable at runtime.
+    /// Changeable at runtime; a static setting takes effect at the next restart (PD-230).
     pub runtime_mutable: bool,
     /// Description.
     pub description: String,
+    /// Value type: `bool`, `integer`, `string`, `path`, `enum`, `string_list` or `table`.
+    pub kind: String,
+    /// Inclusive range of an `integer`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min: Option<i64>,
+    /// Inclusive range of an `integer`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max: Option<i64>,
+    /// Allowed values of an `enum`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub choices: Vec<String>,
+    /// Why it cannot be changed here: `secret`, `table`, `no_config_file`, `environment`
+    /// (an environment variable or a `--set` flag sets it) or `manual` (absent: it can).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locked: Option<String>,
+    /// A static setting's value in the configuration file, taking effect at the next restart.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_value: Option<String>,
 }
 
 fn setting_out(s: SettingInfo) -> SettingJson {
+    use rustegon_common::settings::Kind;
+    let (kind, min, max, choices) = match s.kind {
+        Kind::Bool => ("bool", None, None, Vec::new()),
+        Kind::Integer { min, max } => ("integer", Some(min), Some(max), Vec::new()),
+        Kind::String => ("string", None, None, Vec::new()),
+        Kind::Path => ("path", None, None, Vec::new()),
+        Kind::Enum(names) => (
+            "enum",
+            None,
+            None,
+            names.iter().map(|n| (*n).to_owned()).collect(),
+        ),
+        Kind::StringList => ("string_list", None, None, Vec::new()),
+        Kind::Table => ("table", None, None, Vec::new()),
+    };
     SettingJson {
         name: s.name,
         value: s.value,
         default_value: s.default_value,
         runtime_mutable: s.runtime_mutable,
         description: s.description,
+        kind: kind.to_owned(),
+        min,
+        max,
+        choices,
+        locked: s.locked.map(|l| l.as_str().to_owned()),
+        pending_value: s.pending_value,
     }
 }
 
@@ -366,9 +406,21 @@ pub struct SettingsQuery {
 
 /// Settings response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct SettingList {
     /// Settings.
     pub settings: Vec<SettingJson>,
+    /// Why the last restart could not start with the new configuration file; the node then
+    /// serves with the previous one (PD-230).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_restart_error: Option<String>,
+}
+
+/// `POST /node/restart` response.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct RestartResponse {
+    /// Always `true`: the node stops serving after this answer and starts again.
+    pub restarting: bool,
 }
 
 /// `PATCH /settings` body.
@@ -822,13 +874,14 @@ async fn get_settings(
     Ok(Reply::passthrough(
         SettingList {
             settings: settings.into_iter().map(setting_out).collect(),
+            last_restart_error: state.services.admin().last_restart_error(),
         },
         &ctx,
     ))
 }
 
-/// Changes runtime-mutable settings atomically (`AdminService.UpdateSettings`;
-/// `cluster_manage`).
+/// Changes settings atomically (`AdminService.UpdateSettings`; `cluster_manage`): runtime ones
+/// at once, static ones in the configuration file for the next restart (PD-230).
 #[utoipa::path(
     patch,
     path = "/api/v1/settings",
@@ -852,7 +905,35 @@ async fn update_settings(
     Ok(Reply::passthrough(
         SettingList {
             settings: settings.into_iter().map(setting_out).collect(),
+            last_restart_error: None,
         },
+        &ctx,
+    ))
+}
+
+/// Restarts the node in the same process so that pending static settings take effect (PD-230;
+/// rule of `UpdateSettings`, `cluster_manage`). The answer comes before the stop: poll
+/// `/health/ready` until it answers again.
+#[utoipa::path(
+    post,
+    path = "/api/v1/node/restart",
+    tag = "admin",
+    operation_id = "restartNode",
+    security(("bearer" = []), ("apiKey" = []), ("sessionCookie" = [])),
+    responses((status = 200, description = "The restart is under way.", body = RestartResponse))
+)]
+async fn restart_node(
+    State(state): State<RestState>,
+    Ctx(ctx): Ctx,
+) -> Result<Reply<RestartResponse>, ApiError> {
+    state
+        .services
+        .admin()
+        .restart_node(&ctx)
+        .await
+        .map_err(ApiError::on(&ctx))?;
+    Ok(Reply::passthrough(
+        RestartResponse { restarting: true },
         &ctx,
     ))
 }

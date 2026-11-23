@@ -6,6 +6,8 @@ import userEvent from '@testing-library/user-event';
 import { ApiClient } from '../../api/api-client';
 import { ApiError } from '../../api/api-error';
 import { BackupsPage } from './backups.page';
+import { DatabaseBackupsPage, dumpDocuments } from './database-backups.page';
+import { DatabaseRestorePage } from './database-restore.page';
 import { tomlStrings } from './common';
 import { quote, RESTORE_POLL_WAIT, RestorePage, restoreCommand, RestoreSpec } from './restore.page';
 
@@ -416,5 +418,151 @@ describe('S23 restore page', () => {
     await renderWith(RestorePage, api);
     expect(await screen.findByRole('button', { name: 'Restore' })).toBeTruthy();
     expect(screen.queryByText('RGN-3002')).toBeNull();
+  });
+});
+
+const dump = {
+  dumpId: '20261118T101500Z-0badc0de',
+  createdAtUnixMs: 0,
+  timestamp: { wallNs: '0', logical: 0 },
+  databases: [
+    {
+      name: 'shop',
+      collections: [
+        { name: 'items', documents: 30 },
+        { name: 'orders', documents: 12 },
+      ],
+    },
+  ],
+};
+
+describe('single-database backups page (FR-BKP-007, PD-226)', () => {
+  const renderDb = (api: ReturnType<typeof mockApi>) =>
+    render(DatabaseBackupsPage, {
+      providers: [provideRouter([]), { provide: ApiClient, useValue: api }],
+    });
+  const dbApi = (dumps: unknown[]) =>
+    mockApi({
+      '/api/v1/settings': settings,
+      '/api/v1/databases': () =>
+        Promise.resolve({ databases: [{ name: '_internal' }, { name: 'shop' }, { name: 'crm' }] }),
+      '/api/v1/dumps': () => Promise.resolve({ dumps, unreadable: [] }),
+    });
+
+  it('tc_gui_bkp_007_documents_are_summed_over_collections', () => {
+    expect(dumpDocuments(dump)).toBe(42);
+  });
+
+  it('tc_gui_bkp_007_backs_up_the_chosen_database', async () => {
+    const api = dbApi([]);
+    await renderDb(api);
+    const db = screen.getByLabelText('Database') as HTMLSelectElement;
+    await screen.findByRole('option', { name: 'crm' });
+    // Internal databases are never offered.
+    expect(screen.queryByRole('option', { name: '_internal' })).toBeNull();
+    expect(db.value).toBe('shop');
+    await userEvent.selectOptions(db, 'crm');
+    const dest = screen.getByLabelText('Backup destination') as HTMLInputElement;
+    await vi.waitFor(() => expect(dest.value).toBe('/var/lib/rustegon/backups'));
+    await userEvent.click(screen.getByRole('button', { name: 'Back up database' }));
+    await vi.waitFor(() =>
+      expect(api.request).toHaveBeenCalledWith('post', '/api/v1/dumps', {
+        body: { destination: '/var/lib/rustegon/backups', databases: ['crm'] },
+        timeoutMs: 3_600_000,
+      }),
+    );
+    expect(await screen.findByText('No database backups at this destination')).toBeTruthy();
+  });
+
+  it('tc_gui_bkp_007_restores_after_a_plain_confirmation', async () => {
+    const api = dbApi([dump]);
+    api.request.mockImplementation(() =>
+      Promise.resolve({
+        sourceTimestamp: { wallNs: '0', logical: 0 },
+        collections: [{ database: 'shop', collection: 'items', documents: 30, indexes: 1 }],
+      }),
+    );
+    await renderDb(api);
+    const dest = screen.getByLabelText('Backup destination') as HTMLInputElement;
+    await vi.waitFor(() => expect(dest.value).toBe('/var/lib/rustegon/backups'));
+    await userEvent.click(screen.getByRole('button', { name: 'Show database backups' }));
+    const row = await screen.findByRole('button', {
+      name: `Restore shop from ${dump.dumpId}`,
+    });
+    expect(screen.getByText('42')).toBeTruthy();
+    await userEvent.click(row);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('textbox')).toBeNull();
+    within(dialog).getByRole('button', { name: 'Restore' }).click();
+    await vi.waitFor(() =>
+      expect(api.request).toHaveBeenCalledWith('post', '/api/v1/dumps/{dump_id}/restore', {
+        path: { dump_id: dump.dumpId },
+        body: { destination: '/var/lib/rustegon/backups', databases: ['shop'], dropExisting: true },
+        timeoutMs: 3_600_000,
+      }),
+    );
+    expect(await screen.findByText(/shop\.items: 30 documents/)).toBeTruthy();
+  });
+
+  it('tc_gui_bkp_007_cancelled_confirmation_restores_nothing', async () => {
+    const api = dbApi([dump]);
+    await renderDb(api);
+    const dest = screen.getByLabelText('Backup destination') as HTMLInputElement;
+    await vi.waitFor(() => expect(dest.value).toBe('/var/lib/rustegon/backups'));
+    await userEvent.click(screen.getByRole('button', { name: 'Show database backups' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: `Restore shop from ${dump.dumpId}` }),
+    );
+    const dialog = await screen.findByRole('dialog');
+    within(dialog).getByRole('button', { name: 'Cancel' }).click();
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(api.request).not.toHaveBeenCalled();
+  });
+});
+
+describe('DatabaseRestorePage (PD-229)', () => {
+  const file = new File([new Uint8Array([1, 2, 3])], 'shop.dbck');
+  const renderPage = (api: ReturnType<typeof mockApi>) =>
+    render(DatabaseRestorePage, {
+      providers: [provideRouter([]), { provide: ApiClient, useValue: api }],
+    });
+
+  it('tc_gui_bkp_008_uploads_the_chosen_file_after_a_plain_confirmation', async () => {
+    const api = mockApi({});
+    api.request.mockImplementation(() =>
+      Promise.resolve({
+        sourceTimestamp: { wallNs: '0', logical: 0 },
+        collections: [{ database: 'shop', collection: 'items', documents: 30, indexes: 1 }],
+      }),
+    );
+    await renderPage(api);
+    const restore = screen.getByRole('button', { name: 'Restore' });
+    expect((restore as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.upload(screen.getByLabelText('Database backup file (.dbck)'), file);
+    expect(await screen.findByText(/shop\.dbck/)).toBeTruthy();
+    await userEvent.click(restore);
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('textbox')).toBeNull();
+    within(dialog).getByRole('button', { name: 'Restore' }).click();
+    await vi.waitFor(() =>
+      expect(api.request).toHaveBeenCalledWith('post', '/api/v1/dumps/restore-file', {
+        query: { dropExisting: true },
+        body: file,
+        headers: { 'content-type': 'application/octet-stream' },
+        timeoutMs: 3_600_000,
+      }),
+    );
+    expect(await screen.findByText(/shop\.items: 30 documents/)).toBeTruthy();
+  });
+
+  it('tc_gui_bkp_008_cancelled_confirmation_uploads_nothing', async () => {
+    const api = mockApi({});
+    await renderPage(api);
+    await userEvent.upload(screen.getByLabelText('Database backup file (.dbck)'), file);
+    await userEvent.click(screen.getByRole('button', { name: 'Restore' }));
+    const dialog = await screen.findByRole('dialog');
+    within(dialog).getByRole('button', { name: 'Cancel' }).click();
+    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(api.request).not.toHaveBeenCalled();
   });
 });

@@ -202,6 +202,25 @@ pub enum BackupSetup {
     Engine,
 }
 
+/// The process side of a node restart in tests (PD-230): counts the requests instead of
+/// restarting a process.
+#[derive(Default)]
+pub struct RecordingControl {
+    pub restarts: std::sync::atomic::AtomicUsize,
+}
+
+impl rustegon_server::services::admin::NodeControl for RecordingControl {
+    fn restart(&self) -> Result<(), rustegon_common::Error> {
+        self.restarts
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn last_restart_error(&self) -> Option<String> {
+        None
+    }
+}
+
 /// The process side of the online restore in tests (ADR-037): records what `RestoreBackup`
 /// scheduled instead of stopping a process, and reports the last one as completed.
 #[derive(Default)]
@@ -360,9 +379,12 @@ impl Harness {
         .with_security(Arc::clone(&security))
         // Every test destination is a temporary directory (PD-082 allowlist); the parent of
         // the temporary directory is the conventional "not allowed" path of the tests.
-        .with_backup_destinations(test_backup_policy());
+        .with_backup_destinations(test_backup_policy())
+        // As `rustegond`: `<data_dir>/dump-spool` (the tests check it is left empty).
+        .with_dump_spool(engine_dir.path().join("dump-spool"));
         let restores = Arc::new(RecordingScheduler::default());
         let services = services.with_restore_scheduler(Arc::clone(&restores) as _);
+        let services = services.with_node_control(Arc::new(RecordingControl::default()));
         let services = match data {
             Some(config) => services.with_engine(Arc::clone(&engine), config),
             None => services,

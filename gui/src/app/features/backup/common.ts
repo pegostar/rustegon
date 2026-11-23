@@ -63,6 +63,20 @@ export async function destinationSuggestions(api: ApiClient): Promise<string[]> 
       >
       <a
         class="nav-link"
+        routerLink="/backup/databases"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        ><rg-icon name="data" /><span i18n="@@backup.databases">Single database</span></a
+      >
+      <a
+        class="nav-link"
+        routerLink="/backup/database-restore"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        ><rg-icon name="upload" /><span i18n="@@backup.dbRestore">Restore a database</span></a
+      >
+      <a
+        class="nav-link"
         routerLink="/backup/restore"
         routerLinkActive="active"
         ariaCurrentWhenActive="page"

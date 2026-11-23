@@ -7,12 +7,14 @@
 //! without it is an interrupted or failed write and is invisible (not listed, `RGN-1030` on
 //! verify/restore). A complete backup that does not match its manifest is corrupt (`RGN-5002`).
 //!
-//! A backup is either a directory (`backups/<id>/…`) or a single file (`<id>.bak`, ADR-037);
+//! A backup is either a directory (`backups/<id>/…`) or a single file (`<id>.nbck`, PD-227, or
+//! the older uncompressed `<id>.bak`, ADR-037);
 //! [`open_backup`] picks the form, and every function here accepts both.
 
 use crate::{
     BACKUPS_DIR, COMPLETE_FILE, MANIFEST_FILE,
-    bak::{BakDestination, bak_id, bak_key},
+    archive::ArchiveKind,
+    bak::BakDestination,
     dest::{Destination, hash_object, join_key},
     error::{BackupError, Result},
     id::BackupId,
@@ -90,20 +92,27 @@ pub fn list(dest: &dyn Destination) -> Result<Vec<ListedBackup>> {
             Err(error) => out.push(ListedBackup::Unreadable { id, error }),
         }
     }
-    // Single-file backups at the root (`<id>.bak`). A `.bak` is written atomically, so one
-    // that exists is complete; one that cannot be read is listed as unreadable.
+    // Single-file backups at the root (`<id>.nbck`, `<id>.bak`). They are written atomically,
+    // so one that exists is complete; one that cannot be read is listed as unreadable.
     for name in dest.list_children("")? {
-        let Some(id) = bak_id(&name) else {
+        let Some((kind, id)) = [ArchiveKind::Node, ArchiveKind::Bak]
+            .into_iter()
+            .find_map(|k| k.id_of(&name).map(|id| (k, id)))
+        else {
             continue;
         };
         let loaded = BakDestination::open(dest, &name).and_then(|bak| {
-            if bak.backup_id() == &id {
+            if bak.backup_id() == &id && bak.kind() == kind {
                 load_manifest_in(&bak, &id)
             } else {
                 Err(BackupError::corrupt(
                     &name,
                     crate::bak::BAK_MARKER,
-                    format!("holds backup {}", bak.backup_id()),
+                    format!(
+                        "holds {} backup {}",
+                        bak.kind().extension(),
+                        bak.backup_id()
+                    ),
                 ))
             }
         });
@@ -121,7 +130,7 @@ pub fn list(dest: &dyn Destination) -> Result<Vec<ListedBackup>> {
 pub enum BackupSource<'a> {
     /// A directory backup: the destination itself.
     Directory(&'a dyn Destination),
-    /// A single-file backup `<id>.bak`.
+    /// A single-file backup `<id>.nbck` or `<id>.bak`.
     File(BakDestination),
 }
 
@@ -145,26 +154,33 @@ impl BackupSource<'_> {
     }
 }
 
-/// Finds backup `id` at `dest`: `<id>.bak` when that file exists, the directory form
-/// otherwise (whose absence the callers report as `RGN-1030`).
+/// Finds backup `id` at `dest`: `<id>.nbck`, else `<id>.bak` when that file exists, the
+/// directory form otherwise (whose absence the callers report as `RGN-1030`).
 ///
 /// # Errors
 /// As [`BakDestination::open`] for a `.bak` that is not well formed, or holds another backup
 /// ([`BackupError::Corrupt`]); [`BackupError::Destination`].
 pub fn open_backup<'a>(dest: &'a dyn Destination, id: &BackupId) -> Result<BackupSource<'a>> {
-    let key = bak_key(id);
-    if !dest.exists(&key)? {
-        return Ok(BackupSource::Directory(dest));
+    for kind in [ArchiveKind::Node, ArchiveKind::Bak] {
+        let key = kind.key(id);
+        if !dest.exists(&key)? {
+            continue;
+        }
+        let bak = BakDestination::open(dest, &key)?;
+        if bak.backup_id() != id || bak.kind() != kind {
+            return Err(BackupError::corrupt(
+                &key,
+                crate::bak::BAK_MARKER,
+                format!(
+                    "holds {} backup {}",
+                    bak.kind().extension(),
+                    bak.backup_id()
+                ),
+            ));
+        }
+        return Ok(BackupSource::File(bak));
     }
-    let bak = BakDestination::open(dest, &key)?;
-    if bak.backup_id() != id {
-        return Err(BackupError::corrupt(
-            &key,
-            crate::bak::BAK_MARKER,
-            format!("holds backup {}", bak.backup_id()),
-        ));
-    }
-    Ok(BackupSource::File(bak))
+    Ok(BackupSource::Directory(dest))
 }
 
 /// Reads and validates the manifest of the complete backup `id`.

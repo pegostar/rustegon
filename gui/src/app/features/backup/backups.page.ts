@@ -68,6 +68,9 @@ const SNAPSHOT_NAME = /^(?!\.)[A-Za-z0-9._-]{1,64}$/;
 
     <section class="panel wide rg-panel" aria-labelledby="dest-heading">
       <h2 id="dest-heading" i18n="@@backups.destination">Destination</h2>
+      <p class="hint" i18n="@@backups.formatHint">
+        Each backup of the whole node is one compressed .nbck file in the destination.
+      </p>
       <form class="inline-form" (submit)="$event.preventDefault(); show()">
         <rg-field>
           <label rgLabel i18n="@@backups.destinationLabel">Backup destination</label>

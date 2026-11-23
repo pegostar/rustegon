@@ -1431,3 +1431,275 @@ async fn tc_bkp_013_dump_and_restore_through_the_backup_service() {
     );
     h.stop().await;
 }
+
+/// A REST call through the in-process router: (status, body).
+async fn rest(
+    app: &axum::Router,
+    method: &str,
+    path: &str,
+    token: &str,
+    body: Option<serde_json::Value>,
+) -> (u16, serde_json::Value) {
+    use tower::ServiceExt;
+    let b = http::Request::builder()
+        .method(method)
+        .uri(path)
+        .header("authorization", bearer(token));
+    let request = match body {
+        Some(j) => b
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(j.to_string()))
+            .unwrap(),
+        None => b.body(axum::body::Body::empty()).unwrap(),
+    };
+    let response = app.clone().oneshot(request).await.unwrap();
+    let status = response.status().as_u16();
+    let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    (
+        status,
+        serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null),
+    )
+}
+
+/// PD-226 (FR-BKP-007, TC-BKP-013 over REST): the GUI's backup and restore of one database. The
+/// server writes the dump of `shop` to `dumps/<id>/` at an allowed destination in the layout of
+/// `rustegon dump`, lists it, and restores only `shop` from it: refused while `shop` exists
+/// without `dropExisting`, equal documents and indexes after it, `crm` untouched throughout.
+#[tokio::test(flavor = "multi_thread")]
+async fn tc_bkp_013_dump_one_database_to_a_destination_and_restore_it_over_rest() {
+    let backend = Arc::new(LogicalBackend::default());
+    let h = Harness::start_with_backup(base_flags(), backend.clone()).await;
+    assert!(backend.db.set(Arc::clone(&h.engine)).is_ok());
+    let engine = Arc::clone(&h.engine);
+    tokio::task::spawn_blocking(move || {
+        for db in ["shop", "crm"] {
+            engine
+                .create_database(db, &DatabaseOptions::default())
+                .unwrap();
+        }
+        for i in 0..30i64 {
+            engine
+                .insert(
+                    "shop",
+                    "items",
+                    &doc(&format!(r#"{{"_id":{i},"name":"n{i}"}}"#)),
+                )
+                .unwrap();
+        }
+        engine
+            .create_index(
+                "shop",
+                "items",
+                &IndexSpec::new("by_name", vec![IndexField::asc("name")]),
+            )
+            .unwrap();
+        engine
+            .insert("crm", "people", &doc(r#"{"_id":1,"name":"ada"}"#))
+            .unwrap();
+    })
+    .await
+    .unwrap();
+    let before = read_all(&h.engine, "shop", "items");
+    let crm_before = read_all(&h.engine, "crm", "people");
+
+    let conn = h.channel().await;
+    let token = conn.admin_token().await;
+    let app = rustegon_server::rest::router(&h.services, 64 << 20);
+    let dir = tempfile::tempdir().unwrap();
+    let destination = dir.path().to_str().unwrap().to_owned();
+
+    let (status, body) = rest(
+        &app,
+        "POST",
+        "/api/v1/dumps",
+        &token,
+        Some(serde_json::json!({"destination": destination, "databases": ["shop"]})),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let dump = &body["dump"];
+    let id = dump["dumpId"].as_str().unwrap().to_owned();
+    assert_eq!(dump["databases"].as_array().unwrap().len(), 1);
+    assert_eq!(dump["databases"][0]["name"], "shop");
+    assert_eq!(dump["databases"][0]["collections"][0]["documents"], 30);
+
+    // One file `<id>.dbck` (PD-227) holding the layout of `rustegon dump` under dumps/<id>/.
+    let names: Vec<String> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, [format!("{id}.dbck")]);
+    let local = rustegon_backup::LocalDestination::open(
+        Arc::new(rustegon_sim_api::StdFileSystem),
+        dir.path(),
+    )
+    .unwrap();
+    let archive = rustegon_backup::BakDestination::open(&local, &format!("{id}.dbck")).unwrap();
+    assert_eq!(archive.kind(), rustegon_backup::ArchiveKind::Database);
+    let entries = rustegon_backup::Destination::list(&archive, &format!("dumps/{id}")).unwrap();
+    let want: Vec<String> = [
+        "dump.json",
+        "shop.database.json",
+        "shop/items.metadata.json",
+        "shop/items.ndjson",
+    ]
+    .iter()
+    .map(|f| format!("dumps/{id}/{f}"))
+    .collect();
+    assert_eq!(entries, want);
+
+    let q: String = destination
+        .bytes()
+        .map(|b| {
+            if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
+                char::from(b).to_string()
+            } else {
+                format!("%{b:02X}")
+            }
+        })
+        .collect();
+    let (status, body) = rest(
+        &app,
+        "GET",
+        &format!("/api/v1/dumps?destination={q}"),
+        &token,
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["dumps"].as_array().unwrap().len(), 1);
+    assert_eq!(body["dumps"][0]["dumpId"], id.as_str());
+    // Whole-node backups at the same destination do not list the dump.
+    let (status, body) = rest(
+        &app,
+        "GET",
+        &format!("/api/v1/backups?destination={q}"),
+        &token,
+        None,
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["backups"].as_array().unwrap().len(), 0);
+    assert_eq!(body["unreadable"].as_array().unwrap().len(), 0);
+
+    let restore = |drop_existing: bool, dump_id: &str| {
+        let body = serde_json::json!({
+            "destination": destination,
+            "databases": ["shop"],
+            "dropExisting": drop_existing,
+        });
+        let path = format!("/api/v1/dumps/{dump_id}/restore");
+        let app = app.clone();
+        let token = token.clone();
+        async move { rest(&app, "POST", &path, &token, Some(body)).await }
+    };
+    let (_, body) = restore(false, &id).await;
+    assert_eq!(body["error"]["code"], 1031, "{body}");
+
+    // Change shop after the dump; the restore brings back the dumped state.
+    let engine = Arc::clone(&h.engine);
+    tokio::task::spawn_blocking(move || {
+        engine
+            .insert("shop", "items", &doc(r#"{"_id":99,"name":"late"}"#))
+            .unwrap();
+    })
+    .await
+    .unwrap();
+    let (status, body) = restore(true, &id).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["collections"][0]["database"], "shop");
+    assert_eq!(body["collections"][0]["documents"], 30);
+    assert_eq!(body["collections"][0]["indexes"], 1);
+    let after = read_all(&h.engine, "shop", "items");
+    assert_eq!(
+        before.values().map(without_rev).collect::<Vec<_>>(),
+        after.values().map(without_rev).collect::<Vec<_>>()
+    );
+    assert_eq!(
+        read_all(&h.engine, "crm", "people")
+            .values()
+            .map(without_rev)
+            .collect::<Vec<_>>(),
+        crm_before.values().map(without_rev).collect::<Vec<_>>()
+    );
+
+    let (_, body) = restore(true, "20200101T000000Z-00000000").await;
+    assert_eq!(body["error"]["code"], 1030, "{body}");
+
+    // PD-229: the same file uploaded as the request body. Changed again first, so the restore
+    // must bring the dumped state back; refused without dropExisting; spool left empty.
+    let file = std::fs::read(dir.path().join(format!("{id}.dbck"))).unwrap();
+    let engine = Arc::clone(&h.engine);
+    tokio::task::spawn_blocking(move || {
+        engine
+            .insert("shop", "items", &doc(r#"{"_id":98,"name":"later"}"#))
+            .unwrap();
+    })
+    .await
+    .unwrap();
+    let upload = |query: &str, content_type: &str, bytes: Vec<u8>| {
+        let request = http::Request::builder()
+            .method("POST")
+            .uri(format!("/api/v1/dumps/restore-file{query}"))
+            .header("authorization", bearer(&token))
+            .header("content-type", content_type)
+            .body(axum::body::Body::from(bytes))
+            .unwrap();
+        let app = app.clone();
+        async move {
+            use tower::ServiceExt;
+            let response = app.oneshot(request).await.unwrap();
+            let status = response.status().as_u16();
+            let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+                .await
+                .unwrap();
+            let body: serde_json::Value =
+                serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
+            (status, body)
+        }
+    };
+    let (status, body) = upload("", "application/json", file.clone()).await;
+    assert_eq!(
+        (status, &body["error"]["code"]),
+        (400, &1001.into()),
+        "{body}"
+    );
+    let (_, body) = upload("", "application/octet-stream", file.clone()).await;
+    assert_eq!(body["error"]["code"], 1031, "{body}");
+    let (_, body) = upload(
+        "?dropExisting=true",
+        "application/octet-stream",
+        b"junk".to_vec(),
+    )
+    .await;
+    assert_eq!(body["error"]["code"], 5002, "{body}");
+    let (status, body) = upload("?dropExisting=true", "application/octet-stream", file).await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["collections"][0]["database"], "shop");
+    assert_eq!(body["collections"][0]["documents"], 30);
+    let after = read_all(&h.engine, "shop", "items");
+    assert_eq!(
+        before.values().map(without_rev).collect::<Vec<_>>(),
+        after.values().map(without_rev).collect::<Vec<_>>()
+    );
+    let spool = h.engine_dir().join("dump-spool");
+    let left: Vec<_> = std::fs::read_dir(&spool)
+        .map(|d| d.map(|e| e.unwrap().file_name()).collect())
+        .unwrap_or_default();
+    assert!(left.is_empty(), "spool not cleaned: {left:?}");
+
+    let audits: Vec<_> = h
+        .audit_lines()
+        .into_iter()
+        .filter(|l| l["details"]["op"] == "dump")
+        .collect();
+    assert!(
+        audits
+            .iter()
+            .any(|l| l["details"]["phase"] == "end" && l["details"]["dump_id"] == id.as_str()),
+        "{audits:?}"
+    );
+    h.stop().await;
+}

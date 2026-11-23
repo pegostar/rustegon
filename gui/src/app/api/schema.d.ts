@@ -511,6 +511,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dumps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The database backups (`<id>.dbck` files) at a destination (`backup`, as `ListBackups`;
+         *     PD-226, PD-227).
+         */
+        get: operations["listDumps"];
+        put?: never;
+        /**
+         * Writes a logical dump of databases or collections to a destination as one compressed
+         *     `<id>.dbck` file, online (`backup`, as `Dump`; FR-BKP-007, PD-226, PD-227). Users, roles and
+         *     settings are never part of a dump.
+         */
+        post: operations["createDump"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dumps/restore-file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restores a database backup file (`.dbck`) sent as the request body into this node, online
+         *     (`restore`, as `LogicalRestore`; FR-BKP-007, PD-229): every database and collection it holds.
+         *     The body is streamed to the node's spool as it arrives (at most 64 GiB), so it is not bound
+         *     by the JSON body limit.
+         */
+        post: operations["restoreDumpFile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dumps/{dump_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restores a logical dump from a destination into this node, online (`restore`, as
+         *     `LogicalRestore`; FR-BKP-007, PD-226). Other databases and collections are not touched.
+         */
+        post: operations["restoreDump"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/live": {
         parameters: {
             query?: never;
@@ -547,6 +614,27 @@ export interface paths {
         get: operations["getReadiness"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/node/restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restarts the node in the same process so that pending static settings take effect (PD-230;
+         *     rule of `UpdateSettings`, `cluster_manage`). The answer comes before the stop: poll
+         *     `/health/ready` until it answers again.
+         */
+        post: operations["restartNode"];
         delete?: never;
         options?: never;
         head?: never;
@@ -662,8 +750,8 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Changes runtime-mutable settings atomically (`AdminService.UpdateSettings`;
-         *     `cluster_manage`).
+         * Changes settings atomically (`AdminService.UpdateSettings`; `cluster_manage`): runtime ones
+         *     at once, static ones in the configuration file for the next restart (PD-230).
          */
         patch: operations["updateSettings"];
         trace?: never;
@@ -1177,6 +1265,20 @@ export interface components {
             /** @description Options as extended-JSON values. */
             options?: Record<string, never>;
         };
+        /** @description `POST /dumps` body. */
+        CreateDumpRequest: {
+            /** @description Collections to dump, as `<db>.<coll>`. */
+            collections?: string[];
+            /** @description Databases to dump; empty with no `collections`: every user database. */
+            databases?: string[];
+            /** @description Destination: absolute path on the server, `file://…` or `s3://…` URL. */
+            destination: string;
+        };
+        /** @description `POST /dumps` response. */
+        CreateDumpResponse: {
+            /** @description The written dump. */
+            dump: components["schemas"]["DumpJson"];
+        };
         /** @description `POST …/indexes` body. */
         CreateIndexRequest: {
             /**
@@ -1257,6 +1359,44 @@ export interface components {
         DroppedResponse: {
             /** @description `false` when `ifExists` found nothing. */
             dropped: boolean;
+        };
+        /** @description A complete logical dump at a destination. */
+        DumpJson: {
+            /**
+             * Format: int64
+             * @description `timestamp` in Unix ms.
+             */
+            createdAtUnixMs: number;
+            /** @description The dumped databases, by name. */
+            databases: components["schemas"]["DumpedDatabaseJson"][];
+            /** @description Database backup id: the file `<id>.dbck` at the destination (PD-227). */
+            dumpId: string;
+            /** @description The snapshot timestamp every collection was read at. */
+            timestamp: components["schemas"]["HlcJson"];
+        };
+        /** @description `GET /dumps` response. */
+        DumpList: {
+            /** @description Complete dumps, oldest first. */
+            dumps: components["schemas"]["DumpJson"][];
+            /** @description Complete dumps whose `dump.json` cannot be used. */
+            unreadable: components["schemas"]["UnreadableDumpJson"][];
+        };
+        /** @description One collection of a dump. */
+        DumpedCollectionJson: {
+            /**
+             * Format: int64
+             * @description Number of documents.
+             */
+            documents: number;
+            /** @description Collection name. */
+            name: string;
+        };
+        /** @description One database of a dump. */
+        DumpedDatabaseJson: {
+            /** @description Its collections, by name. */
+            collections: components["schemas"]["DumpedCollectionJson"][];
+            /** @description Database name. */
+            name: string;
         };
         /** @description Empty success body of commit and rollback. */
         Empty: Record<string, never>;
@@ -1535,6 +1675,11 @@ export interface components {
             /** @description `false` when the collection had no validator. */
             removed: boolean;
         };
+        /** @description `POST /node/restart` response. */
+        RestartResponse: {
+            /** @description Always `true`: the node stops serving after this answer and starts again. */
+            restarting: boolean;
+        };
         /** @description `POST /backups/{backup_id}/restore` body. */
         RestoreBackupRequest: {
             /** @description Destination of the backup. */
@@ -1547,6 +1692,24 @@ export interface components {
         RestoreBackupResponse: {
             /** @description The verified backup that will be restored. */
             backup: components["schemas"]["BackupJson"];
+        };
+        /** @description `POST /dumps/{dump_id}/restore` body. */
+        RestoreDumpRequest: {
+            /** @description Collections of the dump to restore, as `<db>.<coll>`. */
+            collections?: string[];
+            /** @description Databases of the dump to restore; empty with no `collections`: all of them. */
+            databases?: string[];
+            /** @description Destination of the dump. */
+            destination: string;
+            /** @description Drop each existing target collection first; otherwise an existing one is RGN-1031. */
+            dropExisting?: boolean;
+        };
+        /** @description `POST /dumps/{dump_id}/restore` response. */
+        RestoreDumpResponse: {
+            /** @description Restored collections. */
+            collections: components["schemas"]["RestoredCollectionJson"][];
+            /** @description Snapshot timestamp of the restored dump. */
+            sourceTimestamp: components["schemas"]["HlcJson"];
         };
         /**
          * @description How the last online restore ended.
@@ -1570,6 +1733,23 @@ export interface components {
             previousStore?: string | null;
             /** @description Outcome of the last online restore. */
             state: components["schemas"]["RestoreStateJson"];
+        };
+        /** @description One restored collection. */
+        RestoredCollectionJson: {
+            /** @description Collection. */
+            collection: string;
+            /** @description Database. */
+            database: string;
+            /**
+             * Format: int64
+             * @description Documents imported.
+             */
+            documents: number;
+            /**
+             * Format: int32
+             * @description Indexes rebuilt.
+             */
+            indexes: number;
         };
         /**
          * @description Which version of a written document the response carries.
@@ -1651,19 +1831,45 @@ export interface components {
         };
         /** @description A runtime setting. */
         SettingJson: {
+            /** @description Allowed values of an `enum`. */
+            choices?: string[];
             /** @description Default value as TOML text. */
             defaultValue: string;
             /** @description Description. */
             description: string;
+            /** @description Value type: `bool`, `integer`, `string`, `path`, `enum`, `string_list` or `table`. */
+            kind: string;
+            /**
+             * @description Why it cannot be changed here: `secret`, `table`, `no_config_file`, `environment`
+             *     (an environment variable or a `--set` flag sets it) or `manual` (absent: it can).
+             */
+            locked?: string | null;
+            /**
+             * Format: int64
+             * @description Inclusive range of an `integer`.
+             */
+            max?: number | null;
+            /**
+             * Format: int64
+             * @description Inclusive range of an `integer`.
+             */
+            min?: number | null;
             /** @description Name (`section.key`). */
             name: string;
-            /** @description Changeable at runtime. */
+            /** @description A static setting's value in the configuration file, taking effect at the next restart. */
+            pendingValue?: string | null;
+            /** @description Changeable at runtime; a static setting takes effect at the next restart (PD-230). */
             runtimeMutable: boolean;
             /** @description Current value as TOML text (secrets redacted). */
             value: string;
         };
         /** @description Settings response. */
         SettingList: {
+            /**
+             * @description Why the last restart could not start with the new configuration file; the node then
+             *     serves with the previous one (PD-230).
+             */
+            lastRestartError?: string | null;
             /** @description Settings. */
             settings: components["schemas"]["SettingJson"][];
         };
@@ -1715,6 +1921,13 @@ export interface components {
         UnreadableBackupJson: {
             /** @description Backup id. */
             backupId: string;
+            /** @description Why (the error body of protocol.md §7). */
+            error: components["schemas"]["ErrorInfo"];
+        };
+        /** @description A complete dump whose `dump.json` cannot be used. */
+        UnreadableDumpJson: {
+            /** @description Dump id. */
+            dumpId: string;
             /** @description Why (the error body of protocol.md §7). */
             error: components["schemas"]["ErrorInfo"];
         };
@@ -3710,6 +3923,168 @@ export interface operations {
             default: components["responses"]["Error"];
         };
     };
+    listDumps: {
+        parameters: {
+            query: {
+                /** @description Destination: absolute path on the server, `file://…` or `s3://…` URL. */
+                destination: string;
+            };
+            header?: {
+                /** @description Client-generated UUIDv7 that makes retries idempotent (protocol.md §5.1); generated by the server when absent. */
+                "rgn-request-id"?: components["parameters"]["rgn-request-id"];
+                /** @description W3C Trace Context; an invalid value is ignored and a new trace is started. */
+                traceparent?: components["parameters"]["traceparent"];
+                /** @description Request timeout in milliseconds (1 to 8 decimal digits); becomes the request deadline (protocol.md §5.2). An expired deadline fails with RGN-5006. */
+                "x-rgn-timeout-ms"?: components["parameters"]["x-rgn-timeout-ms"];
+                /** @description Interactive transaction the request runs in (at most 256 visible ASCII bytes). */
+                "rgn-txn-id"?: components["parameters"]["rgn-txn-id"];
+                /** @description Causality token from an earlier response, for session consistency (at most 4 KiB of visible ASCII). */
+                "rgn-causality-token"?: components["parameters"]["rgn-causality-token"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dumps. */
+            200: {
+                headers: {
+                    "rgn-causality-token": components["headers"]["rgn-causality-token"];
+                    "rgn-node-id": components["headers"]["rgn-node-id"];
+                    "rgn-server-time": components["headers"]["rgn-server-time"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DumpList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createDump: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Client-generated UUIDv7 that makes retries idempotent (protocol.md §5.1); generated by the server when absent. */
+                "rgn-request-id"?: components["parameters"]["rgn-request-id"];
+                /** @description W3C Trace Context; an invalid value is ignored and a new trace is started. */
+                traceparent?: components["parameters"]["traceparent"];
+                /** @description Request timeout in milliseconds (1 to 8 decimal digits); becomes the request deadline (protocol.md §5.2). An expired deadline fails with RGN-5006. */
+                "x-rgn-timeout-ms"?: components["parameters"]["x-rgn-timeout-ms"];
+                /** @description Interactive transaction the request runs in (at most 256 visible ASCII bytes). */
+                "rgn-txn-id"?: components["parameters"]["rgn-txn-id"];
+                /** @description Causality token from an earlier response, for session consistency (at most 4 KiB of visible ASCII). */
+                "rgn-causality-token"?: components["parameters"]["rgn-causality-token"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDumpRequest"];
+            };
+        };
+        responses: {
+            /** @description The written dump. */
+            200: {
+                headers: {
+                    "rgn-causality-token": components["headers"]["rgn-causality-token"];
+                    "rgn-node-id": components["headers"]["rgn-node-id"];
+                    "rgn-server-time": components["headers"]["rgn-server-time"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateDumpResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreDumpFile: {
+        parameters: {
+            query?: {
+                /** @description Drop each existing target collection first; otherwise an existing one is RGN-1031. */
+                dropExisting?: boolean;
+            };
+            header?: {
+                /** @description Client-generated UUIDv7 that makes retries idempotent (protocol.md §5.1); generated by the server when absent. */
+                "rgn-request-id"?: components["parameters"]["rgn-request-id"];
+                /** @description W3C Trace Context; an invalid value is ignored and a new trace is started. */
+                traceparent?: components["parameters"]["traceparent"];
+                /** @description Request timeout in milliseconds (1 to 8 decimal digits); becomes the request deadline (protocol.md §5.2). An expired deadline fails with RGN-5006. */
+                "x-rgn-timeout-ms"?: components["parameters"]["x-rgn-timeout-ms"];
+                /** @description Interactive transaction the request runs in (at most 256 visible ASCII bytes). */
+                "rgn-txn-id"?: components["parameters"]["rgn-txn-id"];
+                /** @description Causality token from an earlier response, for session consistency (at most 4 KiB of visible ASCII). */
+                "rgn-causality-token"?: components["parameters"]["rgn-causality-token"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The `.dbck` file, as is. */
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description The restored collections. */
+            200: {
+                headers: {
+                    "rgn-causality-token": components["headers"]["rgn-causality-token"];
+                    "rgn-node-id": components["headers"]["rgn-node-id"];
+                    "rgn-server-time": components["headers"]["rgn-server-time"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreDumpResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    restoreDump: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Client-generated UUIDv7 that makes retries idempotent (protocol.md §5.1); generated by the server when absent. */
+                "rgn-request-id"?: components["parameters"]["rgn-request-id"];
+                /** @description W3C Trace Context; an invalid value is ignored and a new trace is started. */
+                traceparent?: components["parameters"]["traceparent"];
+                /** @description Request timeout in milliseconds (1 to 8 decimal digits); becomes the request deadline (protocol.md §5.2). An expired deadline fails with RGN-5006. */
+                "x-rgn-timeout-ms"?: components["parameters"]["x-rgn-timeout-ms"];
+                /** @description Interactive transaction the request runs in (at most 256 visible ASCII bytes). */
+                "rgn-txn-id"?: components["parameters"]["rgn-txn-id"];
+                /** @description Causality token from an earlier response, for session consistency (at most 4 KiB of visible ASCII). */
+                "rgn-causality-token"?: components["parameters"]["rgn-causality-token"];
+            };
+            path: {
+                /** @description Dump id. */
+                dump_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreDumpRequest"];
+            };
+        };
+        responses: {
+            /** @description The restored collections. */
+            200: {
+                headers: {
+                    "rgn-causality-token": components["headers"]["rgn-causality-token"];
+                    "rgn-node-id": components["headers"]["rgn-node-id"];
+                    "rgn-server-time": components["headers"]["rgn-server-time"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreDumpResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getLiveness: {
         parameters: {
             query?: never;
@@ -3762,6 +4137,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadyResponse"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    restartNode: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Client-generated UUIDv7 that makes retries idempotent (protocol.md §5.1); generated by the server when absent. */
+                "rgn-request-id"?: components["parameters"]["rgn-request-id"];
+                /** @description W3C Trace Context; an invalid value is ignored and a new trace is started. */
+                traceparent?: components["parameters"]["traceparent"];
+                /** @description Request timeout in milliseconds (1 to 8 decimal digits); becomes the request deadline (protocol.md §5.2). An expired deadline fails with RGN-5006. */
+                "x-rgn-timeout-ms"?: components["parameters"]["x-rgn-timeout-ms"];
+                /** @description Interactive transaction the request runs in (at most 256 visible ASCII bytes). */
+                "rgn-txn-id"?: components["parameters"]["rgn-txn-id"];
+                /** @description Causality token from an earlier response, for session consistency (at most 4 KiB of visible ASCII). */
+                "rgn-causality-token"?: components["parameters"]["rgn-causality-token"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The restart is under way. */
+            200: {
+                headers: {
+                    "rgn-causality-token": components["headers"]["rgn-causality-token"];
+                    "rgn-node-id": components["headers"]["rgn-node-id"];
+                    "rgn-server-time": components["headers"]["rgn-server-time"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestartResponse"];
                 };
             };
             default: components["responses"]["Error"];

@@ -152,9 +152,9 @@ const text = (required = false) =>
         <div>
           <h1 i18n="@@restore.heading">Restore</h1>
           <p class="rg-subtitle" i18n="@@restore.subtitle">
-            Restore a backup online: the node replaces all its data with the backup and serves
-            again. Restoring into a new data directory or from a local snapshot happens offline with
-            the rustegon command-line tool.
+            Restore a node backup (a .nbck file) online: the node replaces all its data with the
+            backup and serves again. Restoring into a new data directory or from a local snapshot
+            happens offline with the rustegon command-line tool.
           </p>
         </div>
       </div>

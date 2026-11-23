@@ -304,6 +304,14 @@ impl Services {
         self
     }
 
+    /// Installs the spool directory of the dumps the server writes to a destination
+    /// (`POST /api/v1/dumps`, PD-226); default: a directory under the system temporary one.
+    #[must_use]
+    pub fn with_dump_spool(mut self, dir: std::path::PathBuf) -> Self {
+        self.backup = self.backup.clone().with_spool(dir);
+        self
+    }
+
     /// Installs the `[backup.s3]` settings `BackupService` opens `s3://` destinations with
     /// (lane BS3, PD-065); default: `S3Settings::default()` (environment credentials).
     #[must_use]
@@ -317,6 +325,15 @@ impl Services {
     #[must_use]
     pub fn with_restore_scheduler(mut self, scheduler: Arc<dyn backup::RestoreScheduler>) -> Self {
         self.backup = self.backup.clone().with_scheduler(scheduler);
+        self
+    }
+
+    /// Installs the node restart of the process (`rustegond`, PD-230): without one
+    /// `POST /node/restart` fails with RGN-5007 `not_implemented`. Call it after
+    /// [`Self::with_security`].
+    #[must_use]
+    pub fn with_node_control(mut self, control: Arc<dyn admin::NodeControl>) -> Self {
+        self.admin = self.admin.clone().with_control(control);
         self
     }
 

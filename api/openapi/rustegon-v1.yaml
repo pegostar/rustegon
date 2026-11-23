@@ -652,6 +652,35 @@ components:
       required:
         - name
       type: object
+    CreateDumpRequest:
+      additionalProperties: false
+      description: "`POST /dumps` body."
+      properties:
+        collections:
+          description: "Collections to dump, as `<db>.<coll>`."
+          items:
+            type: string
+          type: array
+        databases:
+          description: "Databases to dump; empty with no `collections`: every user database."
+          items:
+            type: string
+          type: array
+        destination:
+          description: "Destination: absolute path on the server, `file://…` or `s3://…` URL."
+          type: string
+      required:
+        - destination
+      type: object
+    CreateDumpResponse:
+      description: "`POST /dumps` response."
+      properties:
+        dump:
+          $ref: "#/components/schemas/DumpJson"
+          description: The written dump.
+      required:
+        - dump
+      type: object
     CreateIndexRequest:
       additionalProperties: false
       description: "`POST …/indexes` body."
@@ -804,6 +833,77 @@ components:
           type: boolean
       required:
         - dropped
+      type: object
+    DumpJson:
+      description: A complete logical dump at a destination.
+      properties:
+        createdAtUnixMs:
+          description: "`timestamp` in Unix ms."
+          format: int64
+          type: integer
+        databases:
+          description: "The dumped databases, by name."
+          items:
+            $ref: "#/components/schemas/DumpedDatabaseJson"
+          type: array
+        dumpId:
+          description: "Database backup id: the file `<id>.dbck` at the destination (PD-227)."
+          type: string
+        timestamp:
+          $ref: "#/components/schemas/HlcJson"
+          description: The snapshot timestamp every collection was read at.
+      required:
+        - dumpId
+        - timestamp
+        - createdAtUnixMs
+        - databases
+      type: object
+    DumpList:
+      description: "`GET /dumps` response."
+      properties:
+        dumps:
+          description: "Complete dumps, oldest first."
+          items:
+            $ref: "#/components/schemas/DumpJson"
+          type: array
+        unreadable:
+          description: "Complete dumps whose `dump.json` cannot be used."
+          items:
+            $ref: "#/components/schemas/UnreadableDumpJson"
+          type: array
+      required:
+        - dumps
+        - unreadable
+      type: object
+    DumpedCollectionJson:
+      description: One collection of a dump.
+      properties:
+        documents:
+          description: Number of documents.
+          format: int64
+          minimum: 0
+          type: integer
+        name:
+          description: Collection name.
+          type: string
+      required:
+        - name
+        - documents
+      type: object
+    DumpedDatabaseJson:
+      description: One database of a dump.
+      properties:
+        collections:
+          description: "Its collections, by name."
+          items:
+            $ref: "#/components/schemas/DumpedCollectionJson"
+          type: array
+        name:
+          description: Database name.
+          type: string
+      required:
+        - name
+        - collections
       type: object
     Empty:
       description: Empty success body of commit and rollback.
@@ -1276,6 +1376,15 @@ components:
       required:
         - removed
       type: object
+    RestartResponse:
+      description: "`POST /node/restart` response."
+      properties:
+        restarting:
+          description: "Always `true`: the node stops serving after this answer and starts again."
+          type: boolean
+      required:
+        - restarting
+      type: object
     RestoreBackupRequest:
       additionalProperties: false
       description: "`POST /backups/{backup_id}/restore` body."
@@ -1294,6 +1403,44 @@ components:
           description: The verified backup that will be restored.
       required:
         - backup
+      type: object
+    RestoreDumpRequest:
+      additionalProperties: false
+      description: "`POST /dumps/{dump_id}/restore` body."
+      properties:
+        collections:
+          description: "Collections of the dump to restore, as `<db>.<coll>`."
+          items:
+            type: string
+          type: array
+        databases:
+          description: "Databases of the dump to restore; empty with no `collections`: all of them."
+          items:
+            type: string
+          type: array
+        destination:
+          description: Destination of the dump.
+          type: string
+        dropExisting:
+          description: Drop each existing target collection first; otherwise an existing one is RGN-1031.
+          type: boolean
+      required:
+        - destination
+      type: object
+    RestoreDumpResponse:
+      description: "`POST /dumps/{dump_id}/restore` response."
+      properties:
+        collections:
+          description: Restored collections.
+          items:
+            $ref: "#/components/schemas/RestoredCollectionJson"
+          type: array
+        sourceTimestamp:
+          $ref: "#/components/schemas/HlcJson"
+          description: Snapshot timestamp of the restored dump.
+      required:
+        - sourceTimestamp
+        - collections
       type: object
     RestoreStateJson:
       description: How the last online restore ended.
@@ -1331,6 +1478,31 @@ components:
           description: Outcome of the last online restore.
       required:
         - state
+      type: object
+    RestoredCollectionJson:
+      description: One restored collection.
+      properties:
+        collection:
+          description: Collection.
+          type: string
+        database:
+          description: Database.
+          type: string
+        documents:
+          description: Documents imported.
+          format: int64
+          minimum: 0
+          type: integer
+        indexes:
+          description: Indexes rebuilt.
+          format: int32
+          minimum: 0
+          type: integer
+      required:
+        - database
+        - collection
+        - documents
+        - indexes
       type: object
     ReturnDocumentName:
       description: Which version of a written document the response carries.
@@ -1470,17 +1642,47 @@ components:
     SettingJson:
       description: A runtime setting.
       properties:
+        choices:
+          description: "Allowed values of an `enum`."
+          items:
+            type: string
+          type: array
         defaultValue:
           description: Default value as TOML text.
           type: string
         description:
           description: Description.
           type: string
+        kind:
+          description: "Value type: `bool`, `integer`, `string`, `path`, `enum`, `string_list` or `table`."
+          type: string
+        locked:
+          description: "Why it cannot be changed here: `secret`, `table`, `no_config_file`, `environment`\n(an environment variable or a `--set` flag sets it) or `manual` (absent: it can)."
+          type:
+            - string
+            - "null"
+        max:
+          description: "Inclusive range of an `integer`."
+          format: int64
+          type:
+            - integer
+            - "null"
+        min:
+          description: "Inclusive range of an `integer`."
+          format: int64
+          type:
+            - integer
+            - "null"
         name:
           description: "Name (`section.key`)."
           type: string
+        pendingValue:
+          description: "A static setting's value in the configuration file, taking effect at the next restart."
+          type:
+            - string
+            - "null"
         runtimeMutable:
-          description: Changeable at runtime.
+          description: Changeable at runtime; a static setting takes effect at the next restart (PD-230).
           type: boolean
         value:
           description: Current value as TOML text (secrets redacted).
@@ -1491,10 +1693,16 @@ components:
         - defaultValue
         - runtimeMutable
         - description
+        - kind
       type: object
     SettingList:
       description: Settings response.
       properties:
+        lastRestartError:
+          description: "Why the last restart could not start with the new configuration file; the node then\nserves with the previous one (PD-230)."
+          type:
+            - string
+            - "null"
         settings:
           description: Settings.
           items:
@@ -1586,6 +1794,19 @@ components:
           description: Why (the error body of protocol.md §7).
       required:
         - backupId
+        - error
+      type: object
+    UnreadableDumpJson:
+      description: "A complete dump whose `dump.json` cannot be used."
+      properties:
+        dumpId:
+          description: Dump id.
+          type: string
+        error:
+          $ref: "#/components/schemas/ErrorInfo"
+          description: Why (the error body of protocol.md §7).
+      required:
+        - dumpId
         - error
       type: object
     UpdateRequest:
@@ -3897,6 +4118,170 @@ paths:
       summary: "Runs a statement and returns its first batch (`QueryService.Execute`, module docs)."
       tags:
         - query
+  /api/v1/dumps:
+    get:
+      operationId: listDumps
+      parameters:
+        - description: "Destination: absolute path on the server, `file://…` or `s3://…` URL."
+          in: query
+          name: destination
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/rgn-request-id"
+        - $ref: "#/components/parameters/traceparent"
+        - $ref: "#/components/parameters/x-rgn-timeout-ms"
+        - $ref: "#/components/parameters/rgn-txn-id"
+        - $ref: "#/components/parameters/rgn-causality-token"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DumpList"
+          description: Dumps.
+          headers:
+            rgn-causality-token:
+              $ref: "#/components/headers/rgn-causality-token"
+            rgn-node-id:
+              $ref: "#/components/headers/rgn-node-id"
+            rgn-server-time:
+              $ref: "#/components/headers/rgn-server-time"
+        default:
+          $ref: "#/components/responses/Error"
+      security:
+        - bearer: []
+        - apiKey: []
+        - sessionCookie: []
+      summary: "The database backups (`<id>.dbck` files) at a destination (`backup`, as `ListBackups`;\nPD-226, PD-227)."
+      tags:
+        - backup
+    post:
+      operationId: createDump
+      parameters:
+        - $ref: "#/components/parameters/rgn-request-id"
+        - $ref: "#/components/parameters/traceparent"
+        - $ref: "#/components/parameters/x-rgn-timeout-ms"
+        - $ref: "#/components/parameters/rgn-txn-id"
+        - $ref: "#/components/parameters/rgn-causality-token"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDumpRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateDumpResponse"
+          description: The written dump.
+          headers:
+            rgn-causality-token:
+              $ref: "#/components/headers/rgn-causality-token"
+            rgn-node-id:
+              $ref: "#/components/headers/rgn-node-id"
+            rgn-server-time:
+              $ref: "#/components/headers/rgn-server-time"
+        default:
+          $ref: "#/components/responses/Error"
+      security:
+        - bearer: []
+        - apiKey: []
+        - sessionCookie: []
+      summary: "Writes a logical dump of databases or collections to a destination as one compressed\n`<id>.dbck` file, online (`backup`, as `Dump`; FR-BKP-007, PD-226, PD-227). Users, roles and\nsettings are never part of a dump."
+      tags:
+        - backup
+  /api/v1/dumps/restore-file:
+    post:
+      operationId: restoreDumpFile
+      parameters:
+        - description: Drop each existing target collection first; otherwise an existing one is RGN-1031.
+          in: query
+          name: dropExisting
+          required: false
+          schema:
+            type: boolean
+        - $ref: "#/components/parameters/rgn-request-id"
+        - $ref: "#/components/parameters/traceparent"
+        - $ref: "#/components/parameters/x-rgn-timeout-ms"
+        - $ref: "#/components/parameters/rgn-txn-id"
+        - $ref: "#/components/parameters/rgn-causality-token"
+      requestBody:
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+        description: "The `.dbck` file, as is."
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreDumpResponse"
+          description: The restored collections.
+          headers:
+            rgn-causality-token:
+              $ref: "#/components/headers/rgn-causality-token"
+            rgn-node-id:
+              $ref: "#/components/headers/rgn-node-id"
+            rgn-server-time:
+              $ref: "#/components/headers/rgn-server-time"
+        default:
+          $ref: "#/components/responses/Error"
+      security:
+        - bearer: []
+        - apiKey: []
+        - sessionCookie: []
+      summary: "Restores a database backup file (`.dbck`) sent as the request body into this node, online\n(`restore`, as `LogicalRestore`; FR-BKP-007, PD-229): every database and collection it holds.\nThe body is streamed to the node's spool as it arrives (at most 64 GiB), so it is not bound\nby the JSON body limit."
+      tags:
+        - backup
+  "/api/v1/dumps/{dump_id}/restore":
+    post:
+      operationId: restoreDump
+      parameters:
+        - description: Dump id.
+          in: path
+          name: dump_id
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/rgn-request-id"
+        - $ref: "#/components/parameters/traceparent"
+        - $ref: "#/components/parameters/x-rgn-timeout-ms"
+        - $ref: "#/components/parameters/rgn-txn-id"
+        - $ref: "#/components/parameters/rgn-causality-token"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreDumpRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestoreDumpResponse"
+          description: The restored collections.
+          headers:
+            rgn-causality-token:
+              $ref: "#/components/headers/rgn-causality-token"
+            rgn-node-id:
+              $ref: "#/components/headers/rgn-node-id"
+            rgn-server-time:
+              $ref: "#/components/headers/rgn-server-time"
+        default:
+          $ref: "#/components/responses/Error"
+      security:
+        - bearer: []
+        - apiKey: []
+        - sessionCookie: []
+      summary: "Restores a logical dump from a destination into this node, online (`restore`, as\n`LogicalRestore`; FR-BKP-007, PD-226). Other databases and collections are not touched."
+      tags:
+        - backup
   /api/v1/health/live:
     get:
       operationId: getLiveness
@@ -3948,6 +4333,38 @@ paths:
       summary: "Readiness probe (protocol.md §4 \"no auth\"; FR-OPS-003): 200 while the node serves with a\nhealthy store, 503 while starting, draining for shutdown, or with a store that refuses\nwrites. Reads no request header and no credentials, like the liveness probe."
       tags:
         - health
+  /api/v1/node/restart:
+    post:
+      operationId: restartNode
+      parameters:
+        - $ref: "#/components/parameters/rgn-request-id"
+        - $ref: "#/components/parameters/traceparent"
+        - $ref: "#/components/parameters/x-rgn-timeout-ms"
+        - $ref: "#/components/parameters/rgn-txn-id"
+        - $ref: "#/components/parameters/rgn-causality-token"
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestartResponse"
+          description: The restart is under way.
+          headers:
+            rgn-causality-token:
+              $ref: "#/components/headers/rgn-causality-token"
+            rgn-node-id:
+              $ref: "#/components/headers/rgn-node-id"
+            rgn-server-time:
+              $ref: "#/components/headers/rgn-server-time"
+        default:
+          $ref: "#/components/responses/Error"
+      security:
+        - bearer: []
+        - apiKey: []
+        - sessionCookie: []
+      summary: "Restarts the node in the same process so that pending static settings take effect (PD-230;\nrule of `UpdateSettings`, `cluster_manage`). The answer comes before the stop: poll\n`/health/ready` until it answers again."
+      tags:
+        - admin
   /api/v1/ping:
     get:
       operationId: ping
@@ -4295,7 +4712,7 @@ paths:
         - bearer: []
         - apiKey: []
         - sessionCookie: []
-      summary: "Changes runtime-mutable settings atomically (`AdminService.UpdateSettings`;\n`cluster_manage`)."
+      summary: "Changes settings atomically (`AdminService.UpdateSettings`; `cluster_manage`): runtime ones\nat once, static ones in the configuration file for the next restart (PD-230)."
       tags:
         - admin
   /api/v1/snapshots:

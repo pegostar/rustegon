@@ -9,6 +9,16 @@ export const BACKUP_ROUTES: Routes = [
     loadComponent: () => import('./backups.page').then((m) => m.BackupsPage),
   },
   {
+    path: 'databases',
+    title: () => $localize`:@@title.dbBackups:Database backups · Rustegon`,
+    loadComponent: () => import('./database-backups.page').then((m) => m.DatabaseBackupsPage),
+  },
+  {
+    path: 'database-restore',
+    title: () => $localize`:@@title.dbRestore:Restore a database · Rustegon`,
+    loadComponent: () => import('./database-restore.page').then((m) => m.DatabaseRestorePage),
+  },
+  {
     path: 'restore',
     title: () => $localize`:@@title.restore:Restore · Rustegon`,
     loadComponent: () => import('./restore.page').then((m) => m.RestorePage),

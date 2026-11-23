@@ -4,8 +4,10 @@
 //! REST adapter of [`crate::services::BackupService`] (protocol.md §4 "backup"; FR-BKP-001/003/
 //! 004/006, PD-062, PD-077): backups at a destination and local snapshots.
 //!
-//! The streaming RPCs `Dump` and `LogicalRestore` have no REST form in M13a: a dump is a set of
-//! files of any size, which the CLI writes to disk over gRPC (PD-077). The whole-node restore
+//! The streaming RPCs `Dump` and `LogicalRestore` have no REST form (PD-077): a dump is a set of
+//! files of any size, which the CLI writes to disk over gRPC. REST has instead the dumps the server
+//! writes to and restores from a destination (`/dumps`, PD-226: the GUI's backup and restore of
+//! one database), under the access rules of `Dump`/`LogicalRestore`. The whole-node restore
 //! from a backup is online (`POST /backups/{id}/restore`, `GET /restore-status`, ADR-037);
 //! snapshot, point-in-time and new-data-directory restores are offline CLI operations and have
 //! no endpoint (PD-062); `POST /restores` of protocol.md §4 is the M13b cluster restore.
@@ -13,8 +15,14 @@
 //! HLC wall times are nanoseconds since the epoch, beyond the integers a JavaScript number holds
 //! exactly, so they travel as decimal strings (`wallNs`).
 
-use axum::extract::State;
+use axum::{
+    body::Body,
+    extract::State,
+    http::{HeaderMap, header},
+};
+use http_body::Body as _;
 use rustegon_backup::{Consistency, Encryption, HlcTimestamp, Manifest};
+use rustegon_common::{Error, ErrorCode};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -24,7 +32,10 @@ use super::{
     extract::{PathParams, QueryParams},
     wire::{WarningJson, unix_ms, warnings_out},
 };
-use crate::services::backup::{RestoreOutcome, SnapshotInfo, rfc3339_unix_ms};
+use crate::services::backup::{
+    DumpScope, LogicalRestoreOptions, RestoreOutcome, SnapshotInfo, StoredDump, rfc3339_unix_ms,
+};
+use crate::services::backup::{LogicalRestoreSummary, upload_channel};
 
 /// Routes of this module.
 pub(super) fn routes() -> OpenApiRouter<RestState> {
@@ -36,6 +47,9 @@ pub(super) fn routes() -> OpenApiRouter<RestState> {
         .routes(routes!(restore_status))
         .routes(routes!(list_snapshots, create_snapshot))
         .routes(routes!(delete_snapshot))
+        .routes(routes!(list_dumps, create_dump))
+        .routes(routes!(restore_dump))
+        .routes(routes!(restore_dump_file))
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -651,4 +665,344 @@ async fn delete_snapshot(
         .await
         .map_err(ApiError::on(&ctx))?;
     Ok(Reply::passthrough(DeleteSnapshotResponse { deleted }, &ctx))
+}
+
+// ---------------------------------------------------------------------------------------------
+// Dumps at a destination (PD-226)
+// ---------------------------------------------------------------------------------------------
+
+/// One collection of a dump.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct DumpedCollectionJson {
+    /// Collection name.
+    pub name: String,
+    /// Number of documents.
+    pub documents: u64,
+}
+
+/// One database of a dump.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct DumpedDatabaseJson {
+    /// Database name.
+    pub name: String,
+    /// Its collections, by name.
+    pub collections: Vec<DumpedCollectionJson>,
+}
+
+/// A complete logical dump at a destination.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DumpJson {
+    /// Database backup id: the file `<id>.dbck` at the destination (PD-227).
+    pub dump_id: String,
+    /// The snapshot timestamp every collection was read at.
+    pub timestamp: HlcJson,
+    /// `timestamp` in Unix ms.
+    pub created_at_unix_ms: i64,
+    /// The dumped databases, by name.
+    pub databases: Vec<DumpedDatabaseJson>,
+}
+
+fn dump_out(d: &StoredDump) -> DumpJson {
+    let t = d.manifest.timestamp;
+    DumpJson {
+        dump_id: d.dump_id.clone(),
+        timestamp: hlc_out(t),
+        created_at_unix_ms: i64::try_from(t.wall / 1_000_000).unwrap_or(i64::MAX),
+        databases: d
+            .manifest
+            .databases
+            .iter()
+            .map(|db| DumpedDatabaseJson {
+                name: db.name.clone(),
+                collections: db
+                    .collections
+                    .iter()
+                    .map(|c| DumpedCollectionJson {
+                        name: c.name.clone(),
+                        documents: c.documents,
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
+/// A complete dump whose `dump.json` cannot be used.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct UnreadableDumpJson {
+    /// Dump id.
+    pub dump_id: String,
+    /// Why (the error body of protocol.md §7).
+    pub error: ErrorInfo,
+}
+
+/// `GET /dumps` response.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct DumpList {
+    /// Complete dumps, oldest first.
+    pub dumps: Vec<DumpJson>,
+    /// Complete dumps whose `dump.json` cannot be used.
+    pub unreadable: Vec<UnreadableDumpJson>,
+}
+
+/// `POST /dumps` body.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreateDumpRequest {
+    /// Destination: absolute path on the server, `file://…` or `s3://…` URL.
+    pub destination: String,
+    /// Databases to dump; empty with no `collections`: every user database.
+    #[serde(default)]
+    pub databases: Vec<String>,
+    /// Collections to dump, as `<db>.<coll>`.
+    #[serde(default)]
+    pub collections: Vec<String>,
+}
+
+/// `POST /dumps` response.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CreateDumpResponse {
+    /// The written dump.
+    pub dump: DumpJson,
+}
+
+/// `POST /dumps/{dump_id}/restore` body.
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct RestoreDumpRequest {
+    /// Destination of the dump.
+    pub destination: String,
+    /// Databases of the dump to restore; empty with no `collections`: all of them.
+    #[serde(default)]
+    pub databases: Vec<String>,
+    /// Collections of the dump to restore, as `<db>.<coll>`.
+    #[serde(default)]
+    pub collections: Vec<String>,
+    /// Drop each existing target collection first; otherwise an existing one is RGN-1031.
+    #[serde(default)]
+    pub drop_existing: bool,
+}
+
+/// `POST /dumps/restore-file` query parameters.
+#[derive(Debug, Clone, Default, Deserialize, IntoParams)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[into_params(parameter_in = Query)]
+pub struct RestoreFileQuery {
+    /// Drop each existing target collection first; otherwise an existing one is RGN-1031.
+    #[serde(default)]
+    pub drop_existing: bool,
+}
+
+/// One restored collection.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RestoredCollectionJson {
+    /// Database.
+    pub database: String,
+    /// Collection.
+    pub collection: String,
+    /// Documents imported.
+    pub documents: u64,
+    /// Indexes rebuilt.
+    pub indexes: u32,
+}
+
+/// `POST /dumps/{dump_id}/restore` response.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RestoreDumpResponse {
+    /// Snapshot timestamp of the restored dump.
+    pub source_timestamp: HlcJson,
+    /// Restored collections.
+    pub collections: Vec<RestoredCollectionJson>,
+}
+
+/// The database backups (`<id>.dbck` files) at a destination (`backup`, as `ListBackups`;
+/// PD-226, PD-227).
+#[utoipa::path(
+    get,
+    path = "/api/v1/dumps",
+    tag = "backup",
+    operation_id = "listDumps",
+    params(DestinationQuery),
+    security(("bearer" = []), ("apiKey" = []), ("sessionCookie" = [])),
+    responses((status = 200, description = "Dumps.", body = DumpList))
+)]
+async fn list_dumps(
+    State(state): State<RestState>,
+    Ctx(ctx): Ctx,
+    QueryParams(q): QueryParams<DestinationQuery>,
+) -> Result<Reply<DumpList>, ApiError> {
+    let listing = state
+        .services
+        .backup()
+        .list_dumps(&ctx, &q.destination)
+        .await
+        .map_err(ApiError::on(&ctx))?;
+    let trace = ctx.trace_id_hex();
+    Ok(Reply::passthrough(
+        DumpList {
+            dumps: listing.dumps.iter().map(dump_out).collect(),
+            unreadable: listing
+                .unreadable
+                .iter()
+                .map(|(id, e)| UnreadableDumpJson {
+                    dump_id: id.clone(),
+                    error: ErrorBody::of(e, &trace).error,
+                })
+                .collect(),
+        },
+        &ctx,
+    ))
+}
+
+/// Writes a logical dump of databases or collections to a destination as one compressed
+/// `<id>.dbck` file, online (`backup`, as `Dump`; FR-BKP-007, PD-226, PD-227). Users, roles and
+/// settings are never part of a dump.
+#[utoipa::path(
+    post,
+    path = "/api/v1/dumps",
+    tag = "backup",
+    operation_id = "createDump",
+    request_body = CreateDumpRequest,
+    security(("bearer" = []), ("apiKey" = []), ("sessionCookie" = [])),
+    responses((status = 200, description = "The written dump.", body = CreateDumpResponse))
+)]
+async fn create_dump(
+    State(state): State<RestState>,
+    Ctx(ctx): Ctx,
+    JsonBody(body): JsonBody<CreateDumpRequest>,
+) -> Result<Reply<CreateDumpResponse>, ApiError> {
+    let backup = state.services.backup();
+    let dump = async {
+        let scope = DumpScope::parse(body.databases, &body.collections)?;
+        backup.create_dump(&ctx, &body.destination, scope).await
+    }
+    .await
+    .map_err(ApiError::on(&ctx))?;
+    Ok(Reply::passthrough(
+        CreateDumpResponse {
+            dump: dump_out(&dump),
+        },
+        &ctx,
+    ))
+}
+
+/// Restores a logical dump from a destination into this node, online (`restore`, as
+/// `LogicalRestore`; FR-BKP-007, PD-226). Other databases and collections are not touched.
+#[utoipa::path(
+    post,
+    path = "/api/v1/dumps/{dump_id}/restore",
+    tag = "backup",
+    operation_id = "restoreDump",
+    params(("dump_id" = String, Path, description = "Dump id.")),
+    request_body = RestoreDumpRequest,
+    security(("bearer" = []), ("apiKey" = []), ("sessionCookie" = [])),
+    responses((status = 200, description = "The restored collections.", body = RestoreDumpResponse))
+)]
+async fn restore_dump(
+    State(state): State<RestState>,
+    Ctx(ctx): Ctx,
+    PathParams(dump_id): PathParams<String>,
+    JsonBody(body): JsonBody<RestoreDumpRequest>,
+) -> Result<Reply<RestoreDumpResponse>, ApiError> {
+    let backup = state.services.backup();
+    let summary = async {
+        let options = LogicalRestoreOptions {
+            drop_existing: body.drop_existing,
+            scope: DumpScope::parse(body.databases, &body.collections)?,
+        };
+        backup
+            .restore_dump(&ctx, &body.destination, &dump_id, options)
+            .await
+    }
+    .await
+    .map_err(ApiError::on(&ctx))?;
+    Ok(Reply::passthrough(restore_response(summary), &ctx))
+}
+
+fn restore_response(summary: LogicalRestoreSummary) -> RestoreDumpResponse {
+    RestoreDumpResponse {
+        source_timestamp: hlc_out(summary.source_timestamp),
+        collections: summary
+            .collections
+            .into_iter()
+            .map(|c| RestoredCollectionJson {
+                database: c.database,
+                collection: c.collection,
+                documents: c.documents,
+                indexes: c.indexes,
+            })
+            .collect(),
+    }
+}
+
+/// Restores a database backup file (`.dbck`) sent as the request body into this node, online
+/// (`restore`, as `LogicalRestore`; FR-BKP-007, PD-229): every database and collection it holds.
+/// The body is streamed to the node's spool as it arrives (at most 64 GiB), so it is not bound
+/// by the JSON body limit.
+#[utoipa::path(
+    post,
+    path = "/api/v1/dumps/restore-file",
+    tag = "backup",
+    operation_id = "restoreDumpFile",
+    params(RestoreFileQuery),
+    request_body(
+        content = String,
+        content_type = "application/octet-stream",
+        description = "The `.dbck` file, as is."
+    ),
+    security(("bearer" = []), ("apiKey" = []), ("sessionCookie" = [])),
+    responses((status = 200, description = "The restored collections.", body = RestoreDumpResponse))
+)]
+async fn restore_dump_file(
+    State(state): State<RestState>,
+    Ctx(ctx): Ctx,
+    QueryParams(q): QueryParams<RestoreFileQuery>,
+    headers: HeaderMap,
+    body: Body,
+) -> Result<Reply<RestoreDumpResponse>, ApiError> {
+    let octets = headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.split(';').next())
+        .is_some_and(|m| m.trim().eq_ignore_ascii_case("application/octet-stream"));
+    if !octets {
+        return Err(ApiError::on(&ctx)(
+            Error::new(
+                ErrorCode::InvalidArgument,
+                "expected a `Content-Type: application/octet-stream` body (a .dbck file)",
+            )
+            .with_detail("body", "content-type"),
+        ));
+    }
+    let (tx, rx) = upload_channel();
+    // Feeds the body to the service as it arrives; stops when the service stops reading.
+    let pump = async move {
+        let mut body = body;
+        loop {
+            let frame =
+                std::future::poll_fn(|cx| std::pin::Pin::new(&mut body).poll_frame(cx)).await;
+            let item = match frame {
+                None => break,
+                Some(Err(e)) => Err(Error::new(
+                    ErrorCode::InvalidArgument,
+                    format!("the upload was interrupted: {e}"),
+                )),
+                Some(Ok(frame)) => match frame.into_data() {
+                    Ok(data) => Ok(data.to_vec()),
+                    Err(_) => continue,
+                },
+            };
+            let failed = item.is_err();
+            if tx.send(item).await.is_err() || failed {
+                break;
+            }
+        }
+    };
+    let backup = state.services.backup();
+    let ((), summary) = tokio::join!(pump, backup.restore_dump_upload(&ctx, q.drop_existing, rx));
+    let summary = summary.map_err(ApiError::on(&ctx))?;
+    Ok(Reply::passthrough(restore_response(summary), &ctx))
 }

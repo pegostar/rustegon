@@ -10,3 +10,7 @@ crates/rustegon-index/tests/fixtures/** binary
 crates/rustegon-query/tests/fixtures/** binary
 crates/rustegon-server/tests/fixtures/formats/** binary
 crates/rustegon-net/tests/fixtures/** binary
+# Single-file backup fixtures are tar archives compared byte for byte (ADR-037).
+crates/rustegon-backup/tests/fixtures/formats/bak/** binary
+crates/rustegon-backup/tests/fixtures/formats/nbck/** binary
+crates/rustegon-backup/tests/fixtures/formats/dbck/** binary

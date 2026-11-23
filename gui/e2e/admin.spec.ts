@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { Page, request } from '@playwright/test';
 import { ADMIN, adminPassword, expect, go, signIn, test } from './fixtures';
 
@@ -161,8 +162,72 @@ test('tc_gui_007_backup_verify_snapshot_and_restore_command', async ({ page }) =
   await expect(page.getByRole('rowheader', { name: snapshot })).toHaveCount(0);
 });
 
+test('tc_gui_bkp_007_back_up_one_database_to_a_dbck_and_restore_it', async ({ page, admin }) => {
+  test.setTimeout(180_000);
+  const db = `gui_dbb_${tag()}`;
+  const docs = `/api/v1/databases/${db}/collections/items/documents`;
+  const ok = async (res: Promise<{ ok(): boolean; text(): Promise<string> }>) => {
+    const r = await res;
+    expect(r.ok(), await r.text()).toBe(true);
+  };
+  await ok(admin.post('/api/v1/databases', { data: { name: db } }));
+  await ok(admin.post(`/api/v1/databases/${db}/collections`, { data: { name: 'items' } }));
+  await ok(
+    admin.post(docs, {
+      data: {
+        documents: [
+          { _id: 1, n: 1 },
+          { _id: 2, n: 2 },
+        ],
+      },
+    }),
+  );
+  try {
+    await signInAsAdmin(page, 'backup/databases');
+    await page.getByLabel('Database', { exact: true }).selectOption(db);
+    await expect(page.getByLabel('Backup destination')).toHaveValue(/backups$/);
+    const dest = await page.getByLabel('Backup destination').inputValue();
+    await page.getByRole('button', { name: 'Back up database' }).click();
+    const restore = page.getByRole('button', { name: new RegExp(`^Restore ${db} from `) });
+    await expect(restore).toBeVisible({ timeout: 120_000 });
+
+    // A document added after the backup is gone once the backup is restored (PD-226).
+    await ok(admin.post(docs, { data: { documents: [{ _id: 3, n: 3 }] } }));
+    await restore.click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Restore' }).click();
+    await expect(page.getByRole('region', { name: 'Restored' })).toContainText(
+      `${db}.items: 2 documents`,
+      { timeout: 120_000 },
+    );
+    expect((await admin.get(`${docs}/1`)).ok()).toBe(true);
+    expect((await admin.get(`${docs}/3`)).status()).toBe(404);
+
+    // PD-229: the same backup as a file chosen on the user's computer (the e2e node runs on
+    // this machine, so the .dbck written to its data directory is readable here).
+    const listed = await admin.get(`/api/v1/dumps?destination=${encodeURIComponent(dest)}`);
+    const { dumps } = (await listed.json()) as { dumps: { dumpId: string }[] };
+    const dumpId = dumps.at(-1)?.dumpId ?? '';
+    expect(dumpId).not.toBe('');
+    await ok(admin.post(docs, { data: { documents: [{ _id: 4, n: 4 }] } }));
+    await go(page, 'backup/database-restore');
+    await page
+      .getByLabel('Database backup file (.dbck)')
+      .setInputFiles(join(dest, `${dumpId}.dbck`));
+    await page.getByRole('button', { name: 'Restore' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Restore' }).click();
+    await expect(page.getByRole('region', { name: 'Restored' })).toContainText(
+      `${db}.items: 2 documents`,
+      { timeout: 120_000 },
+    );
+    expect((await admin.get(`${docs}/4`)).status()).toBe(404);
+  } finally {
+    await admin.delete(`/api/v1/databases/${db}`);
+  }
+});
+
 test('tc_gui_017_change_a_setting_and_restore_it', async ({ page, admin }) => {
   const name = 'auth.session_idle_timeout_driver_secs';
+  const label = 'Driver idle timeout';
   const read = async () => {
     const res = await admin.get(`/api/v1/settings?names=${name}`);
     return ((await res.json()) as { settings: { value: string }[] }).settings[0].value;
@@ -171,19 +236,18 @@ test('tc_gui_017_change_a_setting_and_restore_it', async ({ page, admin }) => {
   const changed = String(Number(original) + 60);
   try {
     await signInAsAdmin(page, 'settings');
-    await page.getByLabel('Search settings').fill('session_idle_timeout_driver');
-    const row = page.getByRole('row').filter({ has: page.getByRole('rowheader', { name }) });
-    await expect(row).toHaveCount(1);
-    await page.getByRole('button', { name: `Change ${name}` }).click();
-    await page.getByLabel('Value').fill(changed);
-    await page.getByRole('button', { name: 'Apply' }).click();
-    await expect(row).toContainText(changed);
-    expect(await read()).toBe(changed);
+    // Runtime settings apply at once: no restart is offered (PD-230).
+    await page.getByRole('tab', { name: 'Access and security' }).click();
+    await page.getByLabel(label, { exact: true }).fill(changed);
+    await page.getByRole('button', { name: 'Save changes (1)' }).click();
+    await expect.poll(read).toBe(changed);
+    await expect(page.getByRole('region', { name: 'Changes waiting for a restart' })).toHaveCount(
+      0,
+    );
 
-    await page.getByRole('button', { name: `Change ${name}` }).click();
-    await page.getByLabel('Value').fill(original);
-    await page.getByRole('button', { name: 'Apply' }).click();
-    await expect(row).toContainText(original);
+    await page.getByLabel(label, { exact: true }).fill(original);
+    await page.getByRole('button', { name: 'Save changes (1)' }).click();
+    await expect.poll(read).toBe(original);
   } finally {
     // Leave the shared node as it was, whatever happened above.
     if ((await read()) !== original)

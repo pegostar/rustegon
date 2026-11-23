@@ -40,6 +40,14 @@
       "POST /api/v1/snapshots",
       "DELETE /api/v1/snapshots/{name}"
     ],
+    "/backup/databases": [
+      "GET /api/v1/settings",
+      "GET /api/v1/databases",
+      "GET /api/v1/dumps",
+      "POST /api/v1/dumps",
+      "POST /api/v1/dumps/{dump_id}/restore"
+    ],
+    "/backup/database-restore": ["POST /api/v1/dumps/restore-file"],
     "/backup/restore": [
       "GET /api/v1/settings",
       "GET /api/v1/backups",
@@ -47,7 +55,7 @@
       "GET /api/v1/restore-status",
       "GET /api/v1/health/ready"
     ],
-    "/settings": ["GET /api/v1/settings", "PATCH /api/v1/settings"],
+    "/settings": ["GET /api/v1/settings", "PATCH /api/v1/settings", "POST /api/v1/node/restart"],
     "/data": [
       "GET /api/v1/databases",
       "GET /api/v1/databases/{db}/collections",

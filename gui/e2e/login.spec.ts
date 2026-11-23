@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { ADMIN, adminPassword, createUser, expect, go, signIn, test } from './fixtures';
 
 // TC-GUI-002 login/lockout (angular-gui.md §5, S01) against a real rustegond.
@@ -75,5 +76,22 @@ test('tc_gui_002_login_page_in_italian', async ({ page }) => {
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Accedi a Rustegon' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'it');
+  await page.evaluate(() => localStorage.removeItem('rg.locale'));
+});
+
+test('tc_gui_002_login_page_in_german_spanish_and_french', async ({ page }) => {
+  // PD-231: each locale file is served and applied at bootstrap.
+  await go(page, 'login');
+  for (const locale of ['de', 'es', 'fr']) {
+    const heading = (
+      JSON.parse(readFileSync(`src/locale/messages.${locale}.json`, 'utf8')) as {
+        translations: Record<string, string>;
+      }
+    ).translations['login.heading'];
+    await page.evaluate((l) => localStorage.setItem('rg.locale', l), locale);
+    await page.reload();
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', locale);
+  }
   await page.evaluate(() => localStorage.removeItem('rg.locale'));
 });

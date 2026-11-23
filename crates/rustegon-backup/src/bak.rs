@@ -49,6 +49,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     COMPLETE_FILE, MANIFEST_FILE,
+    archive::{ArchiveKind, ZstdEntryReader},
     dest::{Destination, FileReader, ObjectReader, join_key, validate_key},
     error::{BackupError, Result},
     id::{BackupId, UtcTime},
@@ -69,8 +70,8 @@ pub const BAK_FORMAT_VERSION: u32 = 1;
 const BLOCK: u64 = 512;
 /// [`BLOCK`] as a buffer length.
 const BLOCK_LEN: usize = 512;
-/// Largest accepted marker entry.
-const MAX_MARKER_BYTES: u64 = 4096;
+/// Largest accepted marker entry (a `.nbck`/`.dbck` marker lists every entry's size).
+const MAX_MARKER_BYTES: u64 = 16 << 20;
 /// Most entries a `.bak` may hold (a store has a few thousand files at most); bounds the index
 /// built from an untrusted file.
 const MAX_ENTRIES: usize = 1_000_000;
@@ -94,12 +95,17 @@ pub fn bak_id(key: &str) -> Option<BackupId> {
     BackupId::parse(stem).ok()
 }
 
-/// The marker entry (module docs).
+/// The marker entry (module docs; `compression` and `entries` only in `.nbck`/`.dbck`,
+/// [`crate::archive`]).
 #[derive(Debug, Serialize, Deserialize)]
-struct Marker {
-    format: String,
-    format_version: u64,
-    backup_id: String,
+pub(crate) struct Marker {
+    pub(crate) format: String,
+    pub(crate) format_version: u64,
+    pub(crate) backup_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) compression: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) entries: Option<BTreeMap<String, u64>>,
 }
 
 /// Writes the staged directory `staged_dir` of `fs` as the single file `<id>.bak` at `dest` and
@@ -154,6 +160,8 @@ pub fn write_bak(
         format: BAK_FORMAT.to_owned(),
         format_version: u64::from(BAK_FORMAT_VERSION),
         backup_id: backup.id.to_string(),
+        compression: None,
+        entries: None,
     })
     .map_err(|e| BackupError::Internal(format!("bak marker: {e}")))?;
 
@@ -175,34 +183,11 @@ pub fn write_bak(
         manifest_json,
     ));
     parts.push(Part::bytes(join_key(&[&prefix, COMPLETE_FILE]), complete));
-    // Every header is built before anything is written: a name ustar cannot hold fails here.
     let mtime = backup
         .created_at
         .duration_since(SystemTime::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
-    let headers = parts
-        .iter()
-        .map(|p| header(&p.name, p.size, mtime))
-        .collect::<Result<Vec<_>>>()?;
-    let total = parts.iter().map(|p| BLOCK + padded(p.size)).sum::<u64>() + 2 * BLOCK;
-
-    let mut stream = TarStream {
-        fs,
-        parts: &parts,
-        headers: &headers,
-        index: 0,
-        state: State::Header,
-        pending: Vec::new(),
-        pending_pos: 0,
-        file: None,
-        error: None,
-    };
-    if let Err(err) = dest.put_reader(&key, total, &mut stream) {
-        // The put is atomic, so nothing is visible; the delete only tidies a destination that
-        // kept a partial object anyway. A local read failure is reported as such.
-        let _ = dest.delete(&key);
-        return Err(stream.error.take().unwrap_or(err));
-    }
+    let total = put_tar(dest, &key, fs, &parts, mtime)?;
     if manifest.encryption == Encryption::Plaintext {
         tracing::warn!(
             backup_id = %backup.id,
@@ -217,6 +202,42 @@ pub fn write_bak(
         "backup complete"
     );
     Ok(manifest)
+}
+
+/// Streams `parts` as one ustar archive into the single object `key` of `dest` (module docs,
+/// "Writing") and returns its size.
+pub(crate) fn put_tar(
+    dest: &dyn Destination,
+    key: &str,
+    fs: &dyn FileSystem,
+    parts: &[Part],
+    mtime: u64,
+) -> Result<u64> {
+    // Every header is built before anything is written: a name ustar cannot hold fails here.
+    let headers = parts
+        .iter()
+        .map(|p| header(&p.name, p.size, mtime))
+        .collect::<Result<Vec<_>>>()?;
+    let total = parts.iter().map(|p| BLOCK + padded(p.size)).sum::<u64>() + 2 * BLOCK;
+
+    let mut stream = TarStream {
+        fs,
+        parts,
+        headers: &headers,
+        index: 0,
+        state: State::Header,
+        pending: Vec::new(),
+        pending_pos: 0,
+        file: None,
+        error: None,
+    };
+    if let Err(err) = dest.put_reader(key, total, &mut stream) {
+        // The put is atomic, so nothing is visible; the delete only tidies a destination that
+        // kept a partial object anyway. A local read failure is reported as such.
+        let _ = dest.delete(key);
+        return Err(stream.error.take().unwrap_or(err));
+    }
+    Ok(total)
 }
 
 /// Size and BLAKE3 (hex) of a local file.
@@ -239,13 +260,13 @@ fn padded(size: u64) -> u64 {
 }
 
 /// One archive entry to write.
-struct Part {
-    name: String,
-    size: u64,
-    source: Source,
+pub(crate) struct Part {
+    pub(crate) name: String,
+    pub(crate) size: u64,
+    pub(crate) source: Source,
 }
 
-enum Source {
+pub(crate) enum Source {
     Bytes(Vec<u8>),
     /// A staged file and the hash pass 1 recorded for it.
     File {
@@ -255,7 +276,7 @@ enum Source {
 }
 
 impl Part {
-    fn bytes(name: String, bytes: Vec<u8>) -> Self {
+    pub(crate) fn bytes(name: String, bytes: Vec<u8>) -> Self {
         Self {
             name,
             size: bytes.len() as u64,
@@ -472,6 +493,9 @@ pub struct BakDestination {
     reader: Arc<Mutex<Box<dyn ObjectReader>>>,
     location: String,
     id: BackupId,
+    kind: ArchiveKind,
+    /// Uncompressed size by entry name (compressed forms only).
+    sizes: Option<BTreeMap<String, u64>>,
     /// Entry name → (data offset, size).
     index: BTreeMap<String, (u64, u64)>,
 }
@@ -487,7 +511,8 @@ impl std::fmt::Debug for BakDestination {
 }
 
 impl BakDestination {
-    /// Opens the `.bak` stored under `key` at `dest`.
+    /// Opens the single-file backup (`.bak`, `.nbck` or `.dbck`, told apart by the marker)
+    /// stored under `key` at `dest`.
     ///
     /// # Errors
     /// [`BackupError::ObjectNotFound`] when `key` does not exist; [`BackupError::Corrupt`] for a
@@ -521,6 +546,7 @@ impl BakDestination {
             .ok()
             .and_then(|v| v.get("format_version").and_then(serde_json::Value::as_u64))
             .ok_or_else(|| corrupt(BAK_MARKER, "no format_version".into()))?;
+        // Every form is at version 1 (BAK_FORMAT_VERSION = ARCHIVE_FORMAT_VERSION).
         if version > u64::from(BAK_FORMAT_VERSION) {
             return Err(BackupError::UnsupportedFormat {
                 found: version,
@@ -529,19 +555,41 @@ impl BakDestination {
         }
         let marker: Marker =
             serde_json::from_slice(&bytes).map_err(|e| corrupt(BAK_MARKER, e.to_string()))?;
-        if marker.format != BAK_FORMAT {
-            return Err(corrupt(BAK_MARKER, format!("format {:?}", marker.format)));
-        }
+        let kind = ArchiveKind::from_format(&marker.format)
+            .ok_or_else(|| corrupt(BAK_MARKER, format!("format {:?}", marker.format)))?;
         let id =
             BackupId::parse(&marker.backup_id).map_err(|e| corrupt(BAK_MARKER, e.to_string()))?;
-        let prefix = format!("{}/", backup_prefix(&id));
+        let prefix = format!("{}/", kind.prefix(&id));
         if let Some(stray) = order[1..].iter().find(|n| !n.starts_with(&prefix)) {
             return Err(corrupt(stray, format!("outside {prefix}")));
         }
+        let sizes = if kind.compressed() {
+            if marker.compression.as_deref() != Some("zstd") {
+                return Err(corrupt(
+                    BAK_MARKER,
+                    format!("compression {:?}", marker.compression),
+                ));
+            }
+            // Exactly one uncompressed size per entry after the marker.
+            let sizes = marker
+                .entries
+                .ok_or_else(|| corrupt(BAK_MARKER, "no entries".into()))?;
+            if sizes.len() != order.len() - 1 || order[1..].iter().any(|n| !sizes.contains_key(n)) {
+                return Err(corrupt(
+                    BAK_MARKER,
+                    "entries do not match the archive".into(),
+                ));
+            }
+            Some(sizes)
+        } else {
+            None
+        };
         Ok(Self {
             reader: Arc::new(Mutex::new(reader)),
             location,
             id,
+            kind,
+            sizes,
             index,
         })
     }
@@ -550,6 +598,12 @@ impl BakDestination {
     #[must_use]
     pub fn backup_id(&self) -> &BackupId {
         &self.id
+    }
+
+    /// Which form the archive is.
+    #[must_use]
+    pub fn kind(&self) -> ArchiveKind {
+        self.kind
     }
 }
 
@@ -713,6 +767,15 @@ impl Destination for BakDestination {
                 key: key.to_owned(),
                 destination: self.location.clone(),
             })?;
+        if let Some(original) = self.sizes.as_ref().and_then(|s| s.get(key)) {
+            return Ok(Box::new(ZstdEntryReader::new(
+                Arc::clone(&self.reader),
+                base,
+                size,
+                *original,
+                format!("{} {key}", self.location),
+            )));
+        }
         Ok(Box::new(EntryReader {
             reader: Arc::clone(&self.reader),
             base,
@@ -721,7 +784,12 @@ impl Destination for BakDestination {
     }
 
     fn size(&self, key: &str) -> Result<Option<u64>> {
-        Ok(self.index.get(key).map(|&(_, size)| size))
+        Ok(self.index.get(key).map(|&(_, size)| {
+            self.sizes
+                .as_ref()
+                .and_then(|s| s.get(key).copied())
+                .unwrap_or(size)
+        }))
     }
 
     fn list(&self, prefix: &str) -> Result<Vec<String>> {

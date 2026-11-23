@@ -19,6 +19,8 @@ const ROUTES = [
   'security/api-keys',
   'backup',
   'backup/restore',
+  'backup/databases',
+  'backup/database-restore',
   'settings',
   'change-password',
   'no-such-page',

@@ -88,7 +88,13 @@ export class Shell {
   );
   protected readonly locale = pickLocale();
   protected readonly locales = LOCALES;
-  protected readonly localeNames: Record<Locale, string> = { en: 'English', it: 'Italiano' };
+  protected readonly localeNames: Record<Locale, string> = {
+    en: 'English',
+    it: 'Italiano',
+    de: 'Deutsch',
+    es: 'Español',
+    fr: 'Français',
+  };
 
   protected readonly nav = computed<NavItem[]>(() =>
     (

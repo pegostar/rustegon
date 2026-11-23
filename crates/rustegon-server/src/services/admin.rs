@@ -139,10 +139,36 @@ pub struct NewApiKeySpec {
     pub ip_allowlist: Vec<String>,
 }
 
+/// The process side of a node restart (PD-230), installed by `rustegond`
+/// ([`crate::services::Services::with_node_control`]): stopping and starting the node cannot
+/// happen inside a request, so the service hands it over and returns.
+pub trait NodeControl: Send + Sync + 'static {
+    /// Asks the node to stop serving after the current requests and serve again in the same
+    /// process, with its configuration file read again (static settings take effect).
+    ///
+    /// # Errors
+    /// RGN-1031 when a restart is already under way.
+    fn restart(&self) -> Result<(), Error>;
+
+    /// Why the last restart could not start with the new configuration; the node then served
+    /// with the previous one (`None`: no restart failed).
+    fn last_restart_error(&self) -> Option<String>;
+}
+
 /// The administration service (module docs).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AdminService {
     security: Option<Arc<Security>>,
+    control: Option<Arc<dyn NodeControl>>,
+}
+
+impl std::fmt::Debug for AdminService {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AdminService")
+            .field("security", &self.security)
+            .field("restartable", &self.control.is_some())
+            .finish()
+    }
 }
 
 fn invalid(msg: impl Into<String>) -> Error {
@@ -272,7 +298,49 @@ impl AdminService {
     /// Creates the service; without a security layer every call fails with `RGN-4001`.
     #[must_use]
     pub fn new(security: Option<Arc<Security>>) -> Self {
-        Self { security }
+        Self {
+            security,
+            control: None,
+        }
+    }
+
+    pub(crate) fn with_control(mut self, control: Arc<dyn NodeControl>) -> Self {
+        self.control = Some(control);
+        self
+    }
+
+    /// Restarts the node in the same process (PD-230; rule of `UpdateSettings`,
+    /// `cluster_manage`): pending static settings take effect. The answer comes before the stop;
+    /// the node is unavailable for a few seconds. Audited as `settings_change` with
+    /// `details.op = restart`.
+    ///
+    /// # Errors
+    /// RGN-4001/4002/4003; RGN-5007 `not_implemented` without a [`NodeControl`]; RGN-1031 while
+    /// a restart is under way.
+    pub async fn restart_node(&self, ctx: &RequestContext) -> Result<(), Error> {
+        let sec = self.guard(ctx, "UpdateSettings").await?;
+        Self::admin_op(sec, ctx)?;
+        let control = self
+            .control
+            .as_ref()
+            .ok_or_else(|| super::backup::not_implemented("RestartNode"))?;
+        let result = control.restart();
+        let outcome = if result.is_ok() {
+            AuditOutcome::Success
+        } else {
+            AuditOutcome::Failure
+        };
+        let event = sec
+            .event(ctx, AuditEventKind::SettingsChange, outcome)
+            .detail("op", "restart");
+        sec.audit_or_log(event).await;
+        result
+    }
+
+    /// Why the last restart could not use the new configuration (see [`NodeControl`]).
+    #[must_use]
+    pub fn last_restart_error(&self) -> Option<String> {
+        self.control.as_ref().and_then(|c| c.last_restart_error())
     }
 
     fn security(&self) -> Result<&Arc<Security>, Error> {
@@ -862,11 +930,13 @@ impl AdminService {
         sec.settings().describe(&names)
     }
 
-    /// Applies runtime-mutable settings atomically, persists them and returns the changed
-    /// settings.
+    /// Applies settings and returns them: runtime-mutable ones atomically as persisted
+    /// overrides, static ones written into the configuration file for the next restart (PD-230;
+    /// `security::settings` module docs). Both kinds are validated before anything changes.
     ///
     /// # Errors
-    /// `RGN-1001` (invalid value, static setting), `RGN-1030` (unknown setting), store errors.
+    /// `RGN-1001` (invalid value, a locked setting), `RGN-1030` (unknown setting), store and
+    /// file errors.
     pub async fn update_settings(
         &self,
         ctx: &RequestContext,
@@ -876,13 +946,28 @@ impl AdminService {
         Self::admin_op(sec, ctx)?;
         // Held across the commit (an async mutex: no blocking lock across `.await`).
         let _serial = sec.settings_update_lock().lock().await;
-        let config = sec.settings().prepare(&values)?;
-        let mutations = override_mutations(&values, sec.clock().wall())?;
-        sec.transact(ctx, Completion::Await, move |t| t.apply(mutations.clone()))
+        let (dynamic, stat) = sec.settings().split(&values)?;
+        let prepared = if dynamic.is_empty() {
+            None
+        } else {
+            Some(sec.settings().prepare(&dynamic)?)
+        };
+        if !stat.is_empty() {
+            // File I/O on a blocking thread; validated as a whole before the file is replaced.
+            let owner = Arc::clone(sec);
+            sec.compute(ctx, move || {
+                owner.settings().write_static(owner.fs().as_ref(), &stat)
+            })
             .await?;
+        }
         let names: Vec<String> = values.keys().cloned().collect();
-        sec.settings().commit(values, config);
-        sec.reload_runtime_settings()?;
+        if let Some(config) = prepared {
+            let mutations = override_mutations(&dynamic, sec.clock().wall())?;
+            sec.transact(ctx, Completion::Await, move |t| t.apply(mutations.clone()))
+                .await?;
+            sec.settings().commit(dynamic, config);
+            sec.reload_runtime_settings()?;
+        }
         let event = sec
             .event(ctx, AuditEventKind::SettingsChange, AuditOutcome::Success)
             .detail("settings", names.join(","));
