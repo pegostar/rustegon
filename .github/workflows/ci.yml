@@ -42,7 +42,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install
+      # protoc for prost-build: the ARM (and Windows) runner images do not ship it.
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest
@@ -77,6 +83,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --workspace --all-features --no-deps
 
@@ -100,6 +109,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install && rustup component add llvm-tools-preview
+      - uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with:
