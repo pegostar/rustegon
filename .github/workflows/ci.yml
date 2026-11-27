@@ -23,8 +23,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: rustup toolchain install # version and components from rust-toolchain.toml
-      - run: cargo fmt --all --check
+      # Nightly rustfmt: rustfmt.toml uses unstable options (imports_granularity, group_imports).
+      - run: rustup toolchain install nightly --profile minimal --component rustfmt
+      - run: cargo +nightly fmt --all --check
 
   test:
     name: clippy + tests (${{ matrix.target }})
@@ -41,11 +42,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - run: rustup toolchain install
-      # protoc for prost-build: the ARM (and Windows) runner images do not ship it.
-      - uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: rustup toolchain install # version and components from rust-toolchain.toml
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
@@ -83,9 +80,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install
-      - uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: Swatinem/rust-cache@v2
       - run: cargo doc --workspace --all-features --no-deps
 
@@ -109,9 +103,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install && rustup component add llvm-tools-preview
-      - uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with:
