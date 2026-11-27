@@ -33,9 +33,9 @@ use super::{
     wire::{WarningJson, unix_ms, warnings_out},
 };
 use crate::services::backup::{
-    DumpScope, LogicalRestoreOptions, RestoreOutcome, SnapshotInfo, StoredDump, rfc3339_unix_ms,
+    DumpScope, LogicalRestoreOptions, LogicalRestoreSummary, RestoreOutcome, SnapshotInfo,
+    StoredDump, rfc3339_unix_ms, upload_channel,
 };
-use crate::services::backup::{LogicalRestoreSummary, upload_channel};
 
 /// Routes of this module.
 pub(super) fn routes() -> OpenApiRouter<RestState> {

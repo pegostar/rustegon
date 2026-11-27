@@ -43,7 +43,6 @@ use std::{
 };
 
 use rustegon_backup::pitr::PitrMetrics;
-
 use rustegon_common::ErrorCode;
 use rustegon_sim_api::Clock;
 

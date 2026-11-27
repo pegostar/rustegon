@@ -56,11 +56,6 @@ use std::{
     time::UNIX_EPOCH,
 };
 
-use crate::{
-    cert::{self, CA_CERT, CaAlgorithm},
-    output::{CliError, CliResult, err, fail, io_err, out},
-    secrets,
-};
 use clap::Args;
 use rustegon_net::{
     TrustAnchors, crypto_provider, not_after_unix, parse_certificates, parse_private_key,
@@ -74,6 +69,12 @@ use rustegon_security::authn::{
 };
 use rustegon_sim_api::{Clock as _, OsRng, Rng as _, SystemClock};
 use zeroize::Zeroizing;
+
+use crate::{
+    cert::{self, CA_CERT, CaAlgorithm},
+    output::{CliError, CliResult, err, fail, io_err, out},
+    secrets,
+};
 
 /// Environment variable naming the first admin's password file (as for `rustegond`).
 pub const ADMIN_PASSWORD_FILE_ENV: &str = "RUSTEGON_INITIAL_ADMIN_PASSWORD_FILE";

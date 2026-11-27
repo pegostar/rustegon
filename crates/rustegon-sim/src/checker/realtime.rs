@@ -12,8 +12,10 @@
 //! joins. Reachability in the reduced graph equals the full relation; the frontier only holds
 //! mutually concurrent transactions, so its size is bounded by the workload's concurrency.
 
-use super::graph::RT;
-use super::history::{History, Outcome};
+use super::{
+    graph::RT,
+    history::{History, Outcome},
+};
 
 /// Event order at equal timestamps: starts before ends, because `end == start` is concurrency,
 /// not precedence.

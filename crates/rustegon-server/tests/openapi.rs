@@ -13,9 +13,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use std::path::PathBuf;
-
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, path::PathBuf};
 
 use rustegon_server::{
     rest::{REST_ENDPOINTS, openapi, openapi_yaml},

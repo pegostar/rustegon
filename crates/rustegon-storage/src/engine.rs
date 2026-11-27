@@ -39,6 +39,8 @@ use std::{
 use bytes::Bytes;
 use rustegon_sim_api::FileSystem;
 
+/// Default memtable size that triggers rotation (`storage.memtable_size`).
+pub use crate::settings::DEFAULT_MEMTABLE_SIZE;
 use crate::{
     admission::{AdmissionOptions, WriteCondition, write_condition},
     checkpoint::{CheckpointInfo, CheckpointSource, create_checkpoint},
@@ -62,9 +64,6 @@ use crate::{
         FileKind, FileMeta, Version, VersionEdit, VersionSet, parse_file_name, sst_file_name,
     },
 };
-
-/// Default memtable size that triggers rotation (`storage.memtable_size`).
-pub use crate::settings::DEFAULT_MEMTABLE_SIZE;
 /// Immutable memtables kept before writes are signalled to stall (§3: "≤ 3").
 pub const DEFAULT_MAX_IMMUTABLE_MEMTABLES: usize = 3;
 

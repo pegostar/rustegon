@@ -8,10 +8,11 @@
 //! was dropped (PD-233). Elsewhere the system allocator; jemalloc on Linux waits for the M15
 //! benchmark (PD-010).
 
-#[cfg(windows)]
-pub(crate) use mimalloc::MiMalloc as NodeAlloc;
 #[cfg(not(windows))]
 pub(crate) use std::alloc::System as NodeAlloc;
+
+#[cfg(windows)]
+pub(crate) use mimalloc::MiMalloc as NodeAlloc;
 
 // With `heap-stats` the counting allocator of `heap_stats` is the global one and forwards here.
 #[cfg(not(feature = "heap-stats"))]

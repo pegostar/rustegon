@@ -57,8 +57,10 @@
 //! dropped when their metadata arrived and stay dropped: `--drop` means "replace", take a
 //! snapshot first if the old contents matter.
 
-use std::collections::{BTreeMap, BTreeSet};
-use std::sync::Arc;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use rustegon_backup::{HlcTimestamp, validate_key};
 use rustegon_catalog::{

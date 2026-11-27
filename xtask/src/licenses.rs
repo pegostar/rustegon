@@ -186,8 +186,9 @@ pub fn crates_report(metadata: &Value, roots: &[&str], triple: &str) -> Result<S
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde_json::json;
+
+    use super::*;
 
     #[test]
     fn fr_ins_003_licenses_follow_shipped_edges_and_dedup_texts() -> Result<()> {

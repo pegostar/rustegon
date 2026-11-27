@@ -32,7 +32,10 @@ use super::{
     eval::{Env, Tri, Val, eval},
     predicate,
 };
-use crate::ast::{BinaryOp, Expr, literal::format_datetime, literal::format_uuid};
+use crate::ast::{
+    BinaryOp, Expr,
+    literal::{format_datetime, format_uuid},
+};
 
 /// Largest array `range(…)` builds.
 pub const MAX_RANGE_LEN: i64 = 10_000;

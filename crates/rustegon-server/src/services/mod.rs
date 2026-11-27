@@ -68,7 +68,6 @@ pub use self::{
     auth::AuthService,
     backup::{BackupBackend, BackupService},
 };
-
 use crate::{Executor, health::Readiness, metrics::ServerMetrics, security::Security};
 
 /// Shared dependencies of every service.

@@ -20,8 +20,10 @@
 //! Base values use the same encoding as operands (a base is just "the sum so far"), so compaction
 //! can write a full-merge result back as a `Put` without a second format.
 
-use crate::coding::{Reader, put_varint};
-use crate::error::{Result, StorageError};
+use crate::{
+    coding::{Reader, put_varint},
+    error::{Result, StorageError},
+};
 
 /// Encoding version byte, first byte of every operand/value (implementation-rules.md §6).
 const FORMAT_VERSION: u8 = 1;

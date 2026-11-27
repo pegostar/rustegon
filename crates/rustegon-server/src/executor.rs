@@ -292,12 +292,14 @@ impl Executor {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-        mpsc,
+    use std::{
+        sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+            mpsc,
+        },
+        time::Duration,
     };
-    use std::time::Duration;
 
     use rustegon_sim_api::{OsRng, SystemClock};
 

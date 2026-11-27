@@ -27,7 +27,11 @@ use rustegon_doc::{
     },
 };
 
-use super::{ExecCtx, QueryResult, project::project, read::collect, read::collect_documents};
+use super::{
+    ExecCtx, QueryResult,
+    project::project,
+    read::{collect, collect_documents},
+};
 use crate::{
     bind::{
         BoundConflict, BoundDelete, BoundInsert, BoundOps, BoundQuery, BoundReturning, BoundSelect,

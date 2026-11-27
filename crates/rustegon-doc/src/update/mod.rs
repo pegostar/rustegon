@@ -38,7 +38,12 @@ use std::{fmt, sync::Arc};
 use rustegon_common::{Error, ErrorCode};
 
 pub use self::apply::apply_updates;
-use crate::{error::DocError, keyenc::Direction, path::FieldPath, path::Segment, value::Value};
+use crate::{
+    error::DocError,
+    keyenc::Direction,
+    path::{FieldPath, Segment},
+    value::Value,
+};
 
 /// A predicate over one array element, evaluated by `PULL … WHERE` and array filters.
 ///

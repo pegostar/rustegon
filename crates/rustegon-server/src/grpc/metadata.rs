@@ -5,9 +5,8 @@
 //! §7; PD-050).
 
 use rustegon_common::Error;
-use tonic::metadata::MetadataMap;
-
 use rustegon_security::ratelimit::RETRY_AFTER_MS;
+use tonic::metadata::MetadataMap;
 
 use crate::services::{
     ConnectionInfo, RawRequestHeaders, RequestContext, ServiceDeps, TraceContext,

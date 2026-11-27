@@ -766,8 +766,9 @@ fn dist(targets: &[TargetArg], packages: bool, site: bool) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::io::Read;
+
+    use super::*;
 
     /// TC-INS-015: the MSI license dialog's RTF escapes RTF control characters and keeps one
     /// paragraph per line.

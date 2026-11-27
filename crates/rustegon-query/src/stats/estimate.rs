@@ -29,7 +29,11 @@ use rustegon_doc::{
     keyenc::{Direction, encode_element},
 };
 
-use super::{clamp01, model::CollectionStats, model::FieldStats, to_f64};
+use super::{
+    clamp01,
+    model::{CollectionStats, FieldStats},
+    to_f64,
+};
 
 /// Selectivity of `=` without statistics (PostgreSQL's `DEFAULT_EQ_SEL`).
 pub const DEFAULT_EQ: f64 = 0.005;

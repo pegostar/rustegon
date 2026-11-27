@@ -29,8 +29,7 @@ mod common;
 use std::{error::Error, sync::Arc, time::Duration};
 
 use common::{ManualClock, T0, as_int, coordinator, int, key, open_replica};
-use rustegon_mvcc::Replica;
-use rustegon_mvcc::TxnId;
+use rustegon_mvcc::{Replica, TxnId};
 use rustegon_sim::{CrashMode, SimFileSystem};
 use rustegon_txn::{OrphanStatus, TxnConfig, TxnOptions};
 

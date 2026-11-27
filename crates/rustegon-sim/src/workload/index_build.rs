@@ -28,6 +28,7 @@ use std::{
 use rustegon_catalog::{DatabaseOptions, IndexField, IndexSpec, IndexState};
 use rustegon_common::{Error, ErrorCode};
 use rustegon_doc::{Document, Value};
+use rustegon_engine::embedded::EmbeddedDb;
 use rustegon_index::{BuildConfig, BuildStep, IndexBuild};
 
 use super::{
@@ -35,7 +36,6 @@ use super::{
     rng::{SimRng, mix},
 };
 use crate::{CrashMode, SimFileSystem};
-use rustegon_engine::embedded::EmbeddedDb;
 
 /// Database of the workload.
 pub const DB: &str = "w";

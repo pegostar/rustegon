@@ -33,6 +33,7 @@ use std::{
     time::SystemTime,
 };
 
+pub use rustegon_backup::DUMPS_DIR;
 use rustegon_backup::{
     ArchiveBuilder, ArchiveKind, BackupId, BakDestination, Destination, HlcTimestamp,
     LocalDestination, ObjectReader,
@@ -53,8 +54,6 @@ use crate::{
         backup_logical::{DUMP_MANIFEST, DumpManifest},
     },
 };
-
-pub use rustegon_backup::DUMPS_DIR;
 
 /// Largest `dump.json` read (as `backup_logical`'s bound on JSON files).
 const MAX_MANIFEST_BYTES: u64 = 64 << 20;

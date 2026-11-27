@@ -30,7 +30,10 @@ use tracing::{
     field::{Field, Visit},
 };
 use tracing_subscriber::{
-    Layer, filter::Targets, layer::Context, layer::SubscriberExt, util::SubscriberInitExt,
+    Layer,
+    filter::Targets,
+    layer::{Context, SubscriberExt},
+    util::SubscriberInitExt,
 };
 
 use crate::{

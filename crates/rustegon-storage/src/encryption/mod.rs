@@ -49,12 +49,11 @@ use aes_gcm::{
     Aes256Gcm,
     aead::{AeadInOut, KeyInit},
 };
+pub use kek::{FileKekProvider, KekId, KekProvider, WrappedKey};
+pub use registry::{KeyManager, REGISTRY_FILE_NAME};
 use rustegon_common::Redacted;
 use rustegon_sim_api::Rng;
 use zeroize::{Zeroize, ZeroizeOnDrop};
-
-pub use kek::{FileKekProvider, KekId, KekProvider, WrappedKey};
-pub use registry::{KeyManager, REGISTRY_FILE_NAME};
 
 use crate::error::{Result, StorageError};
 

@@ -33,12 +33,11 @@ pub mod store;
 pub mod users;
 pub mod x509;
 
-use rustegon_common::Redacted;
-use zeroize::Zeroizing;
-
 pub use error::{AUTHENTICATION_FAILED, AuthnError, AuthnResult, FailureReason};
+use rustegon_common::Redacted;
 pub use settings::AuthnSettings;
 pub use store::{MemSystemTxn, SystemTxn};
+use zeroize::Zeroizing;
 
 /// A secret string: redacted in `Debug`/`Display` and wiped from memory on drop.
 pub type SecretString = Redacted<Zeroizing<String>>;

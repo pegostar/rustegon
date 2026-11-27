@@ -59,13 +59,14 @@ use tonic::codegen::tokio_stream::Stream;
 use super::{RequestContext, ServiceDeps, Warning, cancelled, unauthenticated};
 
 mod server_dump;
-use crate::{
-    CancelToken, Completion,
-    security::{Security, access_of},
-};
 pub use server_dump::{
     DUMPS_DIR, DumpListing, MAX_UPLOAD_BYTES, StoredDump, UploadReceiver, UploadSender,
     upload_channel,
+};
+
+use crate::{
+    CancelToken, Completion,
+    security::{Security, access_of},
 };
 
 /// Largest chunk of a dump file the service accepts in a logical restore (bytes). Backends

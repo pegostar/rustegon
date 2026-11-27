@@ -43,7 +43,10 @@ use std::{sync::Arc, time::Duration};
 use rustegon_engine::EmbeddedDb;
 use rustegon_mvcc::Timestamp;
 use rustegon_sim_api::Clock;
-use tokio::{sync::Notify, sync::watch, task::JoinHandle};
+use tokio::{
+    sync::{Notify, watch},
+    task::JoinHandle,
+};
 
 /// Period of the flush loop's check for immutable memtables.
 pub const FLUSH_POLL: Duration = Duration::from_millis(100);
