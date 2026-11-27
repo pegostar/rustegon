@@ -1,0 +1,522 @@
+{
+  "benchmark": "soak-1n",
+  "checks": [
+    {
+      "check": "window 1 p99 74270 us <= 89124 us",
+      "ok": true
+    },
+    {
+      "check": "window 1 rate 1411505 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 2 p99 94184 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 2 rate 1385194 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 3 p99 101924 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 3 rate 1373282 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 4 p99 102275 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 4 rate 1375271 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 5 p99 103906 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 5 rate 1371729 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 6 p99 103445 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 6 rate 1363911 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 7 p99 112283 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 7 rate 1353978 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 8 p99 110473 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 8 rate 1368205 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 9 p99 129396 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 9 rate 1319395 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 10 p99 176331 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 10 rate 1015226 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 11 p99 211964 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 11 rate 841399 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 12 p99 236920 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 12 rate 761801 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 13 p99 244604 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 13 rate 727925 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 14 p99 245878 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 14 rate 703371 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 15 p99 263802 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 15 rate 689684 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 16 p99 253348 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 16 rate 685267 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 17 p99 273557 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 17 rate 665667 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 18 p99 265734 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 18 rate 660189 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 19 p99 265961 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 19 rate 664145 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 20 p99 315479 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 20 rate 642819 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 21 p99 295064 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 21 rate 622890 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 22 p99 280839 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 22 rate 639345 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 23 p99 269582 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 23 rate 674211 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "window 24 p99 257374 us <= 89124 us",
+      "ok": false
+    },
+    {
+      "check": "window 24 rate 677688 ops >= 99 % of target",
+      "ok": false
+    },
+    {
+      "check": "failed ops 0 == 0",
+      "ok": true
+    },
+    {
+      "check": "transfer conflicts 0 <= 0.1 % of 3447176",
+      "ok": true
+    },
+    {
+      "check": "rss last window 1002995712 <= 1.10 x window 2 962654208",
+      "ok": true
+    },
+    {
+      "check": "disk end 6035721402 <= 1.5 x window 2 888217936",
+      "ok": false
+    },
+    {
+      "check": "balance sum constant at 1000000 in every window",
+      "ok": true
+    },
+    {
+      "check": "balance sum after kill+restart 1000000",
+      "ok": true
+    },
+    {
+      "check": "docs before kill 100000, after restart 100000, expected 100000",
+      "ok": true
+    }
+  ],
+  "decision": "PD-157",
+  "driver": "0.1.0",
+  "duration_s": 86400,
+  "keys": 100000,
+  "pass": false,
+  "rate": 400,
+  "windows": [
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 690219430,
+      "errors": [],
+      "failed": 0,
+      "ops": 1411505,
+      "p99_us": 74270,
+      "rss_max_bytes": 951132160,
+      "transfer_conflicts": 0,
+      "transfers": 212137,
+      "window": 1
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 888217936,
+      "errors": [],
+      "failed": 0,
+      "ops": 1385194,
+      "p99_us": 94184,
+      "rss_max_bytes": 962654208,
+      "transfer_conflicts": 0,
+      "transfers": 207418,
+      "window": 2
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 1282778644,
+      "errors": [],
+      "failed": 0,
+      "ops": 1373282,
+      "p99_us": 101924,
+      "rss_max_bytes": 961708032,
+      "transfer_conflicts": 0,
+      "transfers": 205844,
+      "window": 3
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 1804759819,
+      "errors": [],
+      "failed": 0,
+      "ops": 1375271,
+      "p99_us": 102275,
+      "rss_max_bytes": 968654848,
+      "transfer_conflicts": 0,
+      "transfers": 205964,
+      "window": 4
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 2046342647,
+      "errors": [],
+      "failed": 0,
+      "ops": 1371729,
+      "p99_us": 103906,
+      "rss_max_bytes": 975892480,
+      "transfer_conflicts": 0,
+      "transfers": 205498,
+      "window": 5
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 2387786255,
+      "errors": [],
+      "failed": 0,
+      "ops": 1363911,
+      "p99_us": 103445,
+      "rss_max_bytes": 996270080,
+      "transfer_conflicts": 0,
+      "transfers": 204164,
+      "window": 6
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 2618102154,
+      "errors": [],
+      "failed": 0,
+      "ops": 1353978,
+      "p99_us": 112283,
+      "rss_max_bytes": 997748736,
+      "transfer_conflicts": 0,
+      "transfers": 202537,
+      "window": 7
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 3489723010,
+      "errors": [],
+      "failed": 0,
+      "ops": 1368205,
+      "p99_us": 110473,
+      "rss_max_bytes": 992976896,
+      "transfer_conflicts": 0,
+      "transfers": 205532,
+      "window": 8
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 3375054373,
+      "errors": [],
+      "failed": 0,
+      "ops": 1319395,
+      "p99_us": 129396,
+      "rss_max_bytes": 982560768,
+      "transfer_conflicts": 0,
+      "transfers": 197695,
+      "window": 9
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 3641601425,
+      "errors": [],
+      "failed": 0,
+      "ops": 1015226,
+      "p99_us": 176331,
+      "rss_max_bytes": 998359040,
+      "transfer_conflicts": 0,
+      "transfers": 152566,
+      "window": 10
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 3839146952,
+      "errors": [],
+      "failed": 0,
+      "ops": 841399,
+      "p99_us": 211964,
+      "rss_max_bytes": 977813504,
+      "transfer_conflicts": 0,
+      "transfers": 125255,
+      "window": 11
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 4025696433,
+      "errors": [],
+      "failed": 0,
+      "ops": 761801,
+      "p99_us": 236920,
+      "rss_max_bytes": 979038208,
+      "transfer_conflicts": 0,
+      "transfers": 114434,
+      "window": 12
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 4317148420,
+      "errors": [],
+      "failed": 0,
+      "ops": 727925,
+      "p99_us": 244604,
+      "rss_max_bytes": 978153472,
+      "transfer_conflicts": 0,
+      "transfers": 109397,
+      "window": 13
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 4534034716,
+      "errors": [],
+      "failed": 0,
+      "ops": 703371,
+      "p99_us": 245878,
+      "rss_max_bytes": 976175104,
+      "transfer_conflicts": 0,
+      "transfers": 105497,
+      "window": 14
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 4511110974,
+      "errors": [],
+      "failed": 0,
+      "ops": 689684,
+      "p99_us": 263802,
+      "rss_max_bytes": 991334400,
+      "transfer_conflicts": 0,
+      "transfers": 103806,
+      "window": 15
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 4838986653,
+      "errors": [],
+      "failed": 0,
+      "ops": 685267,
+      "p99_us": 253348,
+      "rss_max_bytes": 984567808,
+      "transfer_conflicts": 0,
+      "transfers": 102629,
+      "window": 16
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 4879767673,
+      "errors": [],
+      "failed": 0,
+      "ops": 665667,
+      "p99_us": 273557,
+      "rss_max_bytes": 980373504,
+      "transfer_conflicts": 0,
+      "transfers": 99953,
+      "window": 17
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 5151610241,
+      "errors": [],
+      "failed": 0,
+      "ops": 660189,
+      "p99_us": 265734,
+      "rss_max_bytes": 983937024,
+      "transfer_conflicts": 0,
+      "transfers": 99337,
+      "window": 18
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 5333695905,
+      "errors": [],
+      "failed": 0,
+      "ops": 664145,
+      "p99_us": 265961,
+      "rss_max_bytes": 997543936,
+      "transfer_conflicts": 0,
+      "transfers": 99705,
+      "window": 19
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 5473893841,
+      "errors": [],
+      "failed": 0,
+      "ops": 642819,
+      "p99_us": 315479,
+      "rss_max_bytes": 1002283008,
+      "transfer_conflicts": 0,
+      "transfers": 96523,
+      "window": 20
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 5682977188,
+      "errors": [],
+      "failed": 0,
+      "ops": 622890,
+      "p99_us": 295064,
+      "rss_max_bytes": 1009016832,
+      "transfer_conflicts": 0,
+      "transfers": 93046,
+      "window": 21
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 5657679563,
+      "errors": [],
+      "failed": 0,
+      "ops": 639345,
+      "p99_us": 280839,
+      "rss_max_bytes": 999641088,
+      "transfer_conflicts": 0,
+      "transfers": 95507,
+      "window": 22
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 6020436869,
+      "errors": [],
+      "failed": 0,
+      "ops": 674211,
+      "p99_us": 269582,
+      "rss_max_bytes": 996921344,
+      "transfer_conflicts": 0,
+      "transfers": 100999,
+      "window": 23
+    },
+    {
+      "balance_sum": 1000000,
+      "disk_bytes": 6035721402,
+      "errors": [],
+      "failed": 0,
+      "ops": 677688,
+      "p99_us": 257374,
+      "rss_max_bytes": 1002995712,
+      "transfer_conflicts": 0,
+      "transfers": 101733,
+      "window": 24
+    }
+  ],
+  "workers": 16
+}
