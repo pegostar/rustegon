@@ -435,7 +435,7 @@ impl RuntimeSettings {
     /// Splits an update into runtime overrides and static settings for the configuration file.
     ///
     /// # Errors
-    /// `RGN-1030` for an unknown name, `RGN-1001` for a [`Locked`] one or an empty update.
+    /// `RGN-1030` for an unknown name, `RGN-1001` for a `Locked` one or an empty update.
     pub fn split(&self, values: &BTreeMap<String, String>) -> Result<(Values, Values), Error> {
         if values.is_empty() {
             return Err(Error::new(
