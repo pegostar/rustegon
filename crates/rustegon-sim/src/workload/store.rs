@@ -12,7 +12,7 @@ use std::{
 };
 
 use rustegon_cluster::{LocalReplica, LocalReplicaConfig};
-use rustegon_mvcc::{Hlc, Replica};
+use rustegon_mvcc::{Hlc, Replica, mvcc_filter_options};
 use rustegon_raft::LogStoreOptions;
 use rustegon_sim_api::Clock;
 use rustegon_storage::{EngineOptions, LsmEngine};
@@ -46,11 +46,12 @@ impl Store {
         let engine = Arc::new(LsmEngine::open(
             fs.clone(),
             Path::new(LSM_DIR),
-            EngineOptions {
+            // Filters on logical keys, as in `EmbeddedDb`: point reads go through them.
+            mvcc_filter_options(EngineOptions {
                 // Small memtables: flushes (and SST reads after recovery) happen in short runs.
                 memtable_size: 256 << 10,
                 ..EngineOptions::default()
-            },
+            }),
         )?);
         let replica = Arc::new(LocalReplica::open(LocalReplicaConfig {
             fs: fs.clone(),

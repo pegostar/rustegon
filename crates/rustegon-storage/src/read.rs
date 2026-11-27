@@ -95,18 +95,7 @@ impl ReadView {
     /// # Errors
     /// I/O and corruption errors opening the SSTs.
     pub fn iterator(&self, snapshot: SeqNo) -> Result<DbIterator> {
-        let mut children: Vec<Box<dyn InternalIterator>> = Vec::new();
-        let mut tombstones: Vec<RangeTombstone> = Vec::new();
-        for memtable in &self.memtables {
-            children.push(Box::new(memtable.cursor()));
-            tombstones.extend(memtable.range_tombstones());
-        }
-        // shortcut: every live SST is opened to collect its tombstones (the table cache keeps
-        // them); a per-level tombstone index in the version would avoid opening untouched
-        // L1+ files. Revisit with BM-STO scan benchmarks.
-        for (_, file) in self.version.all_files() {
-            tombstones.extend_from_slice(self.tables.get(file.number)?.range_tombstones());
-        }
+        let (mut children, tombstones) = self.memtable_sources();
         for file in self.version.files(0) {
             children.push(Box::new(self.tables.get(file.number)?.new_iterator()));
         }
@@ -119,12 +108,93 @@ impl ReadView {
                 )));
             }
         }
+        self.db_iterator(children, &tombstones, snapshot, None)
+    }
+
+    /// A user-key iterator at `snapshot` over the user keys in `[lower, upper)`.
+    ///
+    /// It leaves out the sources that cannot hold a key of the range: the files outside it
+    /// and, with `prefix`, the files whose filter excludes that prefix. `prefix` is the filter
+    /// prefix (the reader's prefix extractor) of **every** key of the range; a caller whose
+    /// range mixes prefixes, or that does not know the extractor, passes `None` (a key with
+    /// another prefix would be missed). A point read of the layer above then seeks the one or
+    /// two files that hold its key instead of every L0 file and every level (PD-233).
+    ///
+    /// The iterator is complete only inside the range: positioned outside it, it is invalid.
+    ///
+    /// # Errors
+    /// I/O and corruption errors opening the SSTs.
+    pub fn iterator_within(
+        &self,
+        lower: &[u8],
+        upper: &[u8],
+        prefix: Option<&[u8]>,
+        snapshot: SeqNo,
+    ) -> Result<DbIterator> {
+        let (mut children, tombstones) = self.memtable_sources();
+        // Range tombstones come from the whole version (`db_iterator`), so a file left out
+        // here hides none of them.
+        let overlaps =
+            |f: &FileMeta| f.largest.user_key() >= lower && f.smallest.user_key() < upper;
+        let mut add = |file: &FileMeta| -> Result<()> {
+            let reader = self.tables.get(file.number)?;
+            if prefix.is_none_or(|p| reader.may_contain_prefix(p)) {
+                children.push(Box::new(reader.new_iterator()));
+            }
+            Ok(())
+        };
+        for file in self.version.files(0).iter().filter(|f| overlaps(f)) {
+            add(file)?;
+        }
+        for level in 1..NUM_LEVELS {
+            // L1+ files are sorted and user-key-disjoint: the overlapping ones are contiguous.
+            let files = self.version.files(level);
+            let from = files.partition_point(|f| f.largest.user_key() < lower);
+            for file in files[from..].iter().take_while(|f| overlaps(f)) {
+                add(file)?;
+            }
+        }
+        let bounds = Some((lower.to_vec(), upper.to_vec()));
+        self.db_iterator(children, &tombstones, snapshot, bounds)
+    }
+
+    /// The memtable cursors and the range tombstones of the memtables.
+    fn memtable_sources(&self) -> (Vec<Box<dyn InternalIterator>>, Vec<RangeTombstone>) {
+        let mut children: Vec<Box<dyn InternalIterator>> = Vec::new();
+        let mut tombstones = Vec::new();
+        for memtable in &self.memtables {
+            children.push(Box::new(memtable.cursor()));
+            tombstones.extend(memtable.range_tombstones());
+        }
+        (children, tombstones)
+    }
+
+    /// An iterator merging `children`, under the range tombstones of the memtables and those
+    /// of the files of the version.
+    fn db_iterator(
+        &self,
+        children: Vec<Box<dyn InternalIterator>>,
+        memtable_tombstones: &[RangeTombstone],
+        snapshot: SeqNo,
+        bounds: Option<(Vec<u8>, Vec<u8>)>,
+    ) -> Result<DbIterator> {
+        let sst_tombstones = self.version.range_tombstones(|| {
+            let mut out = Vec::new();
+            for (_, file) in self.version.all_files() {
+                out.extend_from_slice(self.tables.get(file.number)?.range_tombstones());
+            }
+            Ok(out)
+        })?;
         Ok(DbIterator {
             inner: MergingIterator::new(children),
-            tombstones: FragmentedTombstones::new(&tombstones, snapshot),
+            tombstones: FragmentedTombstones::new(
+                memtable_tombstones.iter().chain(sst_tombstones.iter()),
+                snapshot,
+            ),
             snapshot,
             forward: true,
             current: None,
+            bounds,
             _view: self.clone(),
         })
     }
@@ -365,6 +435,9 @@ pub struct DbIterator {
     snapshot: SeqNo,
     forward: bool,
     current: Option<(Vec<u8>, Bytes)>,
+    /// `[lower, upper)` of an iterator that is complete only there
+    /// ([`ReadView::iterator_within`]): outside it the iterator is invalid.
+    bounds: Option<(Vec<u8>, Vec<u8>)>,
     /// Pins the memtables and the version (and so the SST files) for the iterator's lifetime.
     _view: ReadView,
 }
@@ -491,8 +564,16 @@ impl DbIterator {
         self.guard(r)
     }
 
+    /// Every positioning method ends here: an error or a position outside the bounds leaves
+    /// the iterator invalid.
     fn guard(&mut self, result: Result<()>) -> Result<()> {
-        if result.is_err() {
+        let inside = match (&self.bounds, &self.current) {
+            (Some((lower, upper)), Some((key, _))) => {
+                lower.as_slice() <= key.as_slice() && key.as_slice() < upper.as_slice()
+            }
+            _ => true,
+        };
+        if result.is_err() || !inside {
             self.current = None;
         }
         result

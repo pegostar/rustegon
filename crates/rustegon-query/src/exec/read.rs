@@ -211,11 +211,18 @@ impl std::fmt::Debug for RowStream {
 impl RowStream {
     pub(crate) fn new(plan: &Arc<PhysicalPlan>, with_projection: bool, cfg: StreamConfig) -> Self {
         let mut resume = cfg.resume;
-        let mut op: Box<dyn Operator> = Box::new(Source::new(Arc::clone(plan)));
-        for (slot, stage) in stages(plan, with_projection, resume.is_some())
-            .into_iter()
-            .enumerate()
-        {
+        let stages = stages(plan, with_projection, resume.is_some());
+        // A sort reads its whole input whatever the limit; otherwise the limit bounds what
+        // the source has to read (PD-233).
+        let sorted = stages
+            .iter()
+            .any(|s| matches!(s, Stage::Sort | Stage::TopK));
+        let cap = plan
+            .limit
+            .filter(|_| !sorted)
+            .map(|l| usize::try_from(plan.offset.saturating_add(l)).unwrap_or(usize::MAX));
+        let mut op: Box<dyn Operator> = Box::new(Source::new(Arc::clone(plan), cap));
+        for (slot, stage) in stages.into_iter().enumerate() {
             op = match stage {
                 Stage::Source => op,
                 Stage::Filter => Box::new(FilterOp {
@@ -378,13 +385,17 @@ enum SourceState {
 struct Source {
     plan: Arc<PhysicalPlan>,
     state: SourceState,
+    /// Rows of the next batch when a `LIMIT` bounds the read (`RowStream::new`): what the
+    /// limit still needs if no row is dropped downstream. `None`: full batches.
+    cap: Option<usize>,
 }
 
 impl Source {
-    fn new(plan: Arc<PhysicalPlan>) -> Self {
+    fn new(plan: Arc<PhysicalPlan>, cap: Option<usize>) -> Self {
         Self {
             plan,
             state: SourceState::Start,
+            cap,
         }
     }
 
@@ -441,6 +452,7 @@ fn next_hits(
     buffer: &mut VecDeque<IndexHit>,
     seen: &mut HashSet<Vec<u8>>,
     counted: &mut bool,
+    page_size: usize,
 ) -> ExecResult<bool> {
     let AccessPath::IndexScan {
         index,
@@ -451,7 +463,6 @@ fn next_hits(
     else {
         return Ok(false);
     };
-    let page_size = cx.opts.batch_rows.max(1);
     while buffer.is_empty() {
         let Some(r) = ranges.get(*range) else {
             return Ok(false);
@@ -500,7 +511,11 @@ impl Operator for Source {
         if matches!(self.state, SourceState::Start) {
             self.state = self.start()?;
         }
-        let (max_rows, max_bytes) = (cx.opts.batch_rows.max(1), cx.opts.batch_bytes.max(1));
+        let (batch_rows, max_bytes) = (cx.opts.batch_rows.max(1), cx.opts.batch_bytes.max(1));
+        let max_rows = self.cap.map_or(batch_rows, |c| c.clamp(1, batch_rows));
+        // Pulled again, rows were dropped downstream (a residual filter, a resume point):
+        // double the batch rather than pay one round trip per limit's worth of rows.
+        self.cap = self.cap.map(|c| c.max(1).saturating_mul(2));
         let plan = Arc::clone(&self.plan);
         let coll = &plan.collection;
         let mut out = Vec::new();
@@ -558,7 +573,7 @@ impl Operator for Source {
                 let fetch = matches!(&plan.access, AccessPath::IndexScan { fetch: true, .. });
                 while out.len() < max_rows && bytes < max_bytes {
                     if buffer.is_empty()
-                        && !next_hits(&plan, cx, range, after, buffer, seen, counted)?
+                        && !next_hits(&plan, cx, range, after, buffer, seen, counted, max_rows)?
                     {
                         break;
                     }

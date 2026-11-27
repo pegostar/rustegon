@@ -44,6 +44,12 @@ pub const BLOCK_CACHE_USAGE_BYTES: &str = "rustegon_storage_block_cache_usage_by
 pub const MEMTABLE_BYTES: &str = "rustegon_storage_memtable_bytes";
 /// Gauge: live SST files over all levels (PD-233).
 pub const SST_FILES: &str = "rustegon_storage_sst_files";
+/// Gauge: compactions running now (PD-233: dates compaction episodes against latency).
+pub const RUNNING_COMPACTIONS: &str = "rustegon_storage_running_compactions";
+/// Counter: block cache lookups that found the block (PD-233).
+pub const BLOCK_CACHE_HITS_TOTAL: &str = "rustegon_storage_block_cache_hits_total";
+/// Counter: block cache lookups that missed and read the file (PD-233).
+pub const BLOCK_CACHE_MISSES_TOTAL: &str = "rustegon_storage_block_cache_misses_total";
 
 /// Monotonic counters updated by the engine. `Relaxed`: each is an independent statistic, read
 /// only for reporting; no other memory is published through them.
@@ -98,6 +104,8 @@ pub struct EngineMetrics {
     pub snapshots: usize,
     /// Approximate bytes of the active and immutable memtables.
     pub memtable_bytes: u64,
+    /// Compactions running now.
+    pub running_compactions: usize,
     /// Block cache statistics, if a cache is configured.
     pub block_cache: Option<CacheStats>,
 }
@@ -166,6 +174,15 @@ impl EngineMetrics {
             ),
             (MEMTABLE_BYTES, self.memtable_bytes as f64),
             (SST_FILES, self.level_files.iter().sum::<usize>() as f64),
+            (RUNNING_COMPACTIONS, self.running_compactions as f64),
+            (
+                BLOCK_CACHE_HITS_TOTAL,
+                self.block_cache.as_ref().map_or(0, |c| c.hits) as f64,
+            ),
+            (
+                BLOCK_CACHE_MISSES_TOTAL,
+                self.block_cache.as_ref().map_or(0, |c| c.misses) as f64,
+            ),
         ]
     }
 }
@@ -210,9 +227,10 @@ mod tests {
         let m = EngineMetrics {
             level_files: [3, 0, 0, 0, 0, 0, 1],
             memtable_bytes: 9,
+            running_compactions: 2,
             block_cache: Some(CacheStats {
-                hits: 0,
-                misses: 0,
+                hits: 5,
+                misses: 6,
                 usage: 7,
                 rejected_oversize: 0,
             }),
@@ -226,6 +244,9 @@ mod tests {
         assert!(is(&m, BLOCK_CACHE_USAGE_BYTES, 7.0));
         assert!(is(&m, MEMTABLE_BYTES, 9.0));
         assert!(is(&m, SST_FILES, 4.0));
+        assert!(is(&m, RUNNING_COMPACTIONS, 2.0));
+        assert!(is(&m, BLOCK_CACHE_HITS_TOTAL, 5.0));
+        assert!(is(&m, BLOCK_CACHE_MISSES_TOTAL, 6.0));
         // Without a cache the gauge still exists, at 0, so a scraper never misses the family.
         assert!(is(&EngineMetrics::default(), BLOCK_CACHE_USAGE_BYTES, 0.0));
     }

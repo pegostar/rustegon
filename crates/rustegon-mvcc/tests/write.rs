@@ -12,7 +12,7 @@ use bytes::Bytes;
 use rustegon_common::ErrorCode;
 use rustegon_mvcc::{
     IntentResolution, MvccError, MvccReader, MvccWriter, ReadOptions, ResolveOutcome, SeqRange,
-    Timestamp, TxnContext, TxnMeta, TxnRecord, TxnStatus, VersionValue,
+    Timestamp, TxnContext, TxnMeta, TxnRecord, TxnStatus, VersionValue, meta_key,
     value::{InFlightWrite, Span},
 };
 
@@ -282,6 +282,53 @@ fn tc_txn_031_txn_record_round_trip() {
     w.delete_txn_record(b"k", &[4; 16]);
     w.commit().unwrap();
     assert_eq!(reader.get_txn_record(b"k", &[4; 16]).unwrap(), None);
+}
+
+/// PD-233: a point read (and the write path's search for the newest version) opens only the
+/// files that may hold its key. Versions spread over several files must all be seen, and a
+/// range tombstone must hide the key even from a file with no entry of that key, whose filter
+/// therefore excludes it.
+#[test]
+fn tc_txn_031_point_read_spans_files_and_honours_range_tombstones() {
+    let (engine, _) = common::engine(false);
+    let put = |key: &[u8], wall: u64, s: &str| {
+        let mut w = MvccWriter::new(&engine, None);
+        w.put_version(key, ts(wall), &v(s)).unwrap();
+        w.commit().unwrap();
+    };
+    put(b"b", 5, "b5");
+    put(b"d", 5, "d5");
+    engine.flush().unwrap();
+    put(b"b", 7, "b7");
+    engine.flush().unwrap();
+    put(b"b", 9, "b9");
+    assert_eq!(read(&engine, b"b", 6).unwrap(), "b5");
+    assert_eq!(read(&engine, b"b", 8).unwrap(), "b7");
+    assert_eq!(read(&engine, b"b", 9).unwrap(), "b9");
+    assert_eq!(read(&engine, b"b", 4), None);
+    assert_eq!(read(&engine, b"c", 9), None);
+    assert_eq!(read(&engine, b"d", 9).unwrap(), "d5");
+
+    // A third file: another key and a range tombstone over every entry of `d`.
+    put(b"a", 8, "a8");
+    let mut batch = rustegon_storage::WriteBatch::new();
+    batch.delete_range(&meta_key(b"d"), &meta_key(b"e"));
+    engine.write(&batch).unwrap();
+    engine.flush().unwrap();
+    assert_eq!(read(&engine, b"d", 9), None);
+    assert_eq!(read(&engine, b"a", 9).unwrap(), "a8");
+    assert_eq!(read(&engine, b"b", 9).unwrap(), "b9");
+
+    // The newest version of `b` is in the memtable, older ones in two files.
+    let mut w = MvccWriter::new(&engine, None);
+    assert!(matches!(
+        w.put_version(b"b", ts(9), &v("late")),
+        Err(MvccError::WriteTooOld { existing, .. }) if existing == ts(9)
+    ));
+    // `d` is gone, so nothing is newer than a write at 3.
+    w.put_version(b"d", ts(3), &v("d3")).unwrap();
+    w.commit().unwrap();
+    assert_eq!(read(&engine, b"d", 9).unwrap(), "d3");
 }
 
 #[test]

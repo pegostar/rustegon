@@ -56,6 +56,11 @@ fn abandoned_writer(co: &TxnCoordinator) -> TxnId {
     t.put(&key(0), int(7)).unwrap();
     t.put(&key(1), int(7)).unwrap();
     let id = t.id();
+    // Intents reach the log with the next durable proposal (ADR-038): another transaction's
+    // commit carries them.
+    let mut other = co.begin(TxnOptions::default());
+    other.put(&key(9), int(1)).unwrap();
+    other.commit().unwrap();
     // The process dies: no rollback, the intents and the PENDING record stay on disk.
     std::mem::forget(t);
     id

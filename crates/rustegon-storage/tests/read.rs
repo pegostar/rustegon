@@ -272,7 +272,26 @@ fn check(store: &Store, walks: &[Walk]) -> Result<(), TestCaseError> {
                 .find(|(ek, _)| *ek == key)
                 .map(|(_, v)| v.clone());
             let got = view.get(&key, snapshot).unwrap().map(|b| b.to_vec());
-            prop_assert_eq!(got, want, "get {:?} at {}", key, snapshot);
+            prop_assert_eq!(&got, &want, "get {:?} at {}", key, snapshot);
+
+            // The same read through an iterator limited to this key (PD-233; the filter
+            // prefix here is the whole key): complete inside its range, invalid outside it.
+            let upper = [key.as_slice(), &[0]].concat();
+            let mut within = view
+                .iterator_within(&key, &upper, Some(&key), snapshot)
+                .unwrap();
+            within.seek(&key).unwrap();
+            let got = within
+                .valid()
+                .then(|| (within.key().to_vec(), within.value().to_vec()));
+            let want = want.map(|v| (key.clone(), v));
+            prop_assert_eq!(&got, &want, "bounded read {:?} at {}", key, snapshot);
+            within.next().unwrap();
+            prop_assert!(!within.valid(), "bounded read past {:?}", key);
+            within.seek_to_first().unwrap();
+            prop_assert!(!within.valid() || within.key() == key.as_slice());
+            within.seek_for_prev(&upper).unwrap();
+            prop_assert!(!within.valid() || within.key() == key.as_slice());
         }
 
         let mut it = view.iterator(snapshot).unwrap();

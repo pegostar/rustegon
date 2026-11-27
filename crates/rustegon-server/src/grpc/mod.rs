@@ -37,6 +37,7 @@ pub use metadata::{
 };
 pub use query::{ExecuteResponses, QueryGrpc};
 pub use schema::SchemaGrpc;
+pub(crate) use server::SLOW_QUERY;
 pub use server::{
     ConnectionInfo, GrpcServer, GrpcServerOptions, ListenerSecurity, ServerError, TrailerBody,
 };

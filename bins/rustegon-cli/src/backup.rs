@@ -31,7 +31,9 @@
 //! access; the server's `backup.allowed_destinations` applies to requests the server executes.
 //!
 //! `dump` writes the PD-067 layout into an empty or new directory exactly as the server streams
-//! it; `restore` sends a dump directory back, every file in path order and `dump.json` last.
+//! it, or, when `--out` ends in `.dbck`, one compressed database backup file (the format of the
+//! GUI's database backups, PD-227/PD-228); `restore` sends a dump directory or a `.dbck` back,
+//! every file in path order and `dump.json` last.
 //! Secrets never come from argv (connection options as everywhere in the CLI).
 
 use std::{
@@ -42,9 +44,10 @@ use std::{
 
 use clap::{Args, Subcommand};
 use rustegon_backup::{
-    BackupId, Destination, DestinationUrl, LocalDestination, PitrTarget, RestoreKind,
-    RestoreReport, RestoreRequest, S3Settings, VerifyMode, open_destination, restore_data_dir,
-    restore_data_dir_to_time, snapshots_dir, validate_key,
+    ArchiveBuilder, ArchiveKind, BackupId, BakDestination, Destination, DestinationUrl,
+    LocalDestination, PitrTarget, RestoreKind, RestoreReport, RestoreRequest, S3Settings,
+    VerifyMode, open_destination, restore_data_dir, restore_data_dir_to_time, snapshots_dir,
+    validate_key,
 };
 use rustegon_proto::v1::{
     BackupEncryptionMode, BackupInfo, CreateBackupRequest, CreateSnapshotRequest,
@@ -53,7 +56,7 @@ use rustegon_proto::v1::{
     RestoreBackupRequest, RestoreState, SnapshotInfo, backup_service_client::BackupServiceClient,
     dump_response, logical_restore_request,
 };
-use rustegon_sim_api::{FileSystem, OpenMode, OsRng, StdFileSystem, SystemClock};
+use rustegon_sim_api::{Clock, FileSystem, OpenMode, OsRng, StdFileSystem, SystemClock};
 use rustegon_storage::encryption::{FileKekProvider, KekProvider};
 use tonic::codegen::tokio_stream::wrappers::ReceiverStream;
 
@@ -253,7 +256,8 @@ enum SnapshotCommand {
 pub struct DumpArgs {
     #[command(flatten)]
     conn: ConnArgs,
-    /// Output directory (must be empty or absent).
+    /// Output directory (must be empty or absent), or a new `<name>.dbck` file: one compressed
+    /// database backup file.
     #[arg(long, value_name = "PATH")]
     out: PathBuf,
     /// Database to dump (repeatable; default: every database).
@@ -269,7 +273,8 @@ pub struct DumpArgs {
 pub struct RestoreArgs {
     #[command(flatten)]
     conn: ConnArgs,
-    /// Dump directory written by `rustegon dump`.
+    /// Dump directory or `.dbck` file written by `rustegon dump` (or a database backup of the
+    /// GUI).
     #[arg(long, value_name = "PATH")]
     from: PathBuf,
     /// Drop existing target collections first (else an existing target is refused).
@@ -700,14 +705,35 @@ fn valid_name(name: &str) -> bool {
 // dump / restore
 // ---------------------------------------------------------------------------------------------
 
-/// Writes the chunks of a dump stream into a directory (order rules of backup.proto
-/// `DumpChunk`: files contiguous, never reopened, valid keys).
+/// Where [`DumpWriter`] puts the files.
+enum DumpStore<'a> {
+    /// The PD-067 directory layout.
+    Dir {
+        root: PathBuf,
+        file: Option<Box<dyn rustegon_sim_api::File>>,
+        dirs: BTreeSet<PathBuf>,
+    },
+    /// One `.dbck` file at `out` (PD-228).
+    Archive {
+        out: PathBuf,
+        id: BackupId,
+        builder: Box<ArchiveBuilder<'a>>,
+    },
+}
+
+/// Writes the chunks of a dump stream into a directory or a `.dbck` (order rules of
+/// backup.proto `DumpChunk`: files contiguous, never reopened, valid keys).
 struct DumpWriter<'a> {
     fs: &'a dyn FileSystem,
-    root: PathBuf,
-    open: Option<(String, Box<dyn rustegon_sim_api::File>)>,
+    store: DumpStore<'a>,
+    open: Option<String>,
     finished: BTreeSet<String>,
-    dirs: BTreeSet<PathBuf>,
+}
+
+/// `--out` names a `.dbck` file rather than a directory.
+fn is_dbck(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case(ArchiveKind::Database.extension()))
 }
 
 impl<'a> DumpWriter<'a> {
@@ -717,10 +743,37 @@ impl<'a> DumpWriter<'a> {
             .map_err(|e| io_err(root.display(), &e))?;
         Ok(Self {
             fs,
-            root: root.to_path_buf(),
+            store: DumpStore::Dir {
+                root: root.to_path_buf(),
+                file: None,
+                dirs: BTreeSet::from([root.to_path_buf()]),
+            },
             open: None,
             finished: BTreeSet::new(),
-            dirs: BTreeSet::from([root.to_path_buf()]),
+        })
+    }
+
+    /// A writer of the new file `out` (`<name>.dbck`), compressing into a spool beside it.
+    fn archive(fs: &'a dyn FileSystem, out: &Path) -> CliResult<Self> {
+        ensure_new_file(fs, out)?;
+        let parent = parent_dir(out);
+        fs.create_dir_all(&parent)
+            .map_err(|e| io_err(parent.display(), &e))?;
+        let id =
+            BackupId::generate(SystemClock::new().wall(), &OsRng).map_err(|e| backup_err(&e))?;
+        // Beside the output, so the final rename stays on one volume; removed by the builder.
+        let spool = parent.join(format!(".{}.dbck-spool", id.as_str()));
+        let builder = ArchiveBuilder::new(fs, &spool, ArchiveKind::Database, id.clone())
+            .map_err(|e| backup_err(&e))?;
+        Ok(Self {
+            fs,
+            store: DumpStore::Archive {
+                out: out.to_path_buf(),
+                id,
+                builder: Box::new(builder),
+            },
+            open: None,
+            finished: BTreeSet::new(),
         })
     }
 
@@ -729,49 +782,113 @@ impl<'a> DumpWriter<'a> {
         if self.finished.contains(path) {
             return fail(format!("the server sent file {path} twice"));
         }
-        let reuse = matches!(&self.open, Some((open, _)) if open == path);
-        if !reuse {
-            if let Some((open, _)) = &self.open {
+        if self.open.as_deref() != Some(path) {
+            if let Some(open) = &self.open {
                 return fail(format!("the server interleaved {path} with {open}"));
             }
-            let target = self.root.join(path);
-            if let Some(parent) = target.parent() {
-                self.fs
-                    .create_dir_all(parent)
-                    .map_err(|e| io_err(parent.display(), &e))?;
-                self.dirs.insert(parent.to_path_buf());
+            match &mut self.store {
+                DumpStore::Dir { root, file, dirs } => {
+                    let target = root.join(path);
+                    if let Some(parent) = target.parent() {
+                        self.fs
+                            .create_dir_all(parent)
+                            .map_err(|e| io_err(parent.display(), &e))?;
+                        dirs.insert(parent.to_path_buf());
+                    }
+                    *file = Some(
+                        self.fs
+                            .open(&target, OpenMode::CreateNew)
+                            .map_err(|e| io_err(target.display(), &e))?,
+                    );
+                }
+                DumpStore::Archive { builder, .. } => {
+                    builder.start(path).map_err(|e| backup_err(&e))?;
+                }
             }
-            let file = self
-                .fs
-                .open(&target, OpenMode::CreateNew)
-                .map_err(|e| io_err(target.display(), &e))?;
-            self.open = Some((path.to_owned(), file));
+            self.open = Some(path.to_owned());
         }
-        if let Some((_, file)) = &mut self.open {
-            file.append(data)
-                .map_err(|e| io_err(self.root.join(path).display(), &e))?;
+        match &mut self.store {
+            DumpStore::Dir { root, file, .. } => {
+                if let Some(f) = file {
+                    f.append(data)
+                        .map_err(|e| io_err(root.join(path).display(), &e))?;
+                    if end_of_file {
+                        f.sync_data()
+                            .map_err(|e| io_err(root.join(path).display(), &e))?;
+                        *file = None;
+                    }
+                }
+            }
+            DumpStore::Archive { builder, .. } => {
+                builder.write(data).map_err(|e| backup_err(&e))?;
+                if end_of_file {
+                    builder.finish_entry().map_err(|e| backup_err(&e))?;
+                }
+            }
         }
-        if end_of_file && let Some((name, file)) = self.open.take() {
-            file.sync_data()
-                .map_err(|e| io_err(self.root.join(&name).display(), &e))?;
+        if end_of_file && let Some(name) = self.open.take() {
             self.finished.insert(name);
         }
         Ok(())
     }
 
-    fn finish(self) -> CliResult<usize> {
-        if let Some((open, _)) = &self.open {
+    /// Completes the dump; returns the number of files and, for a `.dbck`, its backup id.
+    fn finish(self) -> CliResult<(usize, Option<BackupId>)> {
+        if let Some(open) = &self.open {
             return fail(format!("the dump ended inside file {open}"));
         }
         if !self.finished.contains(DUMP_MANIFEST) {
             return fail(format!("the dump has no {DUMP_MANIFEST}"));
         }
-        for dir in &self.dirs {
-            self.fs
-                .sync_dir(dir)
-                .map_err(|e| io_err(dir.display(), &e))?;
+        let files = self.finished.len();
+        match self.store {
+            DumpStore::Dir { dirs, .. } => {
+                for dir in &dirs {
+                    self.fs
+                        .sync_dir(dir)
+                        .map_err(|e| io_err(dir.display(), &e))?;
+                }
+                Ok((files, None))
+            }
+            DumpStore::Archive { out, id, builder } => {
+                let parent = parent_dir(&out);
+                let dest = LocalDestination::open(Arc::new(StdFileSystem), &parent)
+                    .map_err(|e| backup_err(&e))?;
+                let mtime = SystemClock::new()
+                    .wall()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |d| d.as_secs());
+                builder.store(&dest, mtime).map_err(|e| backup_err(&e))?;
+                // The archive is stored as `<id>.dbck`, then takes the name the operator chose.
+                let stored = parent.join(ArchiveKind::Database.key(&id));
+                if stored != out {
+                    self.fs
+                        .rename(&stored, &out)
+                        .map_err(|e| io_err(out.display(), &e))?;
+                    self.fs
+                        .sync_dir(&parent)
+                        .map_err(|e| io_err(parent.display(), &e))?;
+                }
+                Ok((files, Some(id)))
+            }
         }
-        Ok(self.finished.len())
+    }
+}
+
+/// The directory holding `path` (`.` for a bare file name).
+fn parent_dir(path: &Path) -> PathBuf {
+    match path.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p.to_path_buf(),
+        _ => PathBuf::from("."),
+    }
+}
+
+/// A `.dbck` target must not exist yet.
+fn ensure_new_file(fs: &dyn FileSystem, path: &Path) -> CliResult<()> {
+    match fs.open(path, OpenMode::Read) {
+        Ok(_) => fail(format!("{}: already exists", path.display())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(io_err(path.display(), &e)),
     }
 }
 
@@ -782,8 +899,13 @@ impl<'a> DumpWriter<'a> {
 /// inspection and must be removed before retrying.
 pub fn run_dump(args: &DumpArgs) -> CliResult<()> {
     let fs = StdFileSystem;
+    let archive = is_dbck(&args.out);
     // The target is checked before connecting, so a typo costs no server work.
-    ensure_empty_target(&fs, &args.out)?;
+    if archive {
+        ensure_new_file(&fs, &args.out)?;
+    } else {
+        ensure_empty_target(&fs, &args.out)?;
+    }
     with_client(&args.conn, |client| {
         let mut svc = BackupServiceClient::new(client.channel());
         let mut stream = client
@@ -792,7 +914,11 @@ pub fn run_dump(args: &DumpArgs) -> CliResult<()> {
                 collections: args.collections.clone(),
             })))?
             .into_inner();
-        let mut writer = DumpWriter::new(&fs, &args.out)?;
+        let mut writer = if archive {
+            DumpWriter::archive(&fs, &args.out)?
+        } else {
+            DumpWriter::new(&fs, &args.out)?
+        };
         let mut started = None;
         // One message at a time on the client's runtime; file writes happen here, on the
         // command's own thread, never on an async worker.
@@ -808,24 +934,72 @@ pub fn run_dump(args: &DumpArgs) -> CliResult<()> {
                 None => return fail("the server sent an empty dump message"),
             }
         }
-        let files = writer.finish()?;
+        let (files, id) = writer.finish()?;
+        let backup = id.map_or_else(String::new, |id| format!(" (database backup {id})"));
         out(&format!(
-            "dumped {files} files to {} at T={}",
+            "dumped {files} files to {}{backup} at T={}",
             args.out.display(),
             hlc_text(started.as_ref())
         ))
     })
 }
 
-/// The files of a dump directory in sending order: every file in path order, `dump.json` last.
-fn dump_files(dest: &dyn Destination) -> CliResult<Vec<String>> {
-    let mut keys = dest.list("").map_err(|e| backup_err(&e))?;
+/// The files under `dir` of `dest` (`""` for a dump directory, `dumps/<id>` in a `.dbck`),
+/// relative to it, in sending order: every file in path order, `dump.json` last.
+fn dump_files(dest: &dyn Destination, dir: &str) -> CliResult<Vec<String>> {
+    let prefix = if dir.is_empty() {
+        String::new()
+    } else {
+        format!("{dir}/")
+    };
+    let mut keys: Vec<String> = dest
+        .list(dir)
+        .map_err(|e| backup_err(&e))?
+        .into_iter()
+        .filter_map(|k| k.strip_prefix(&prefix).map(str::to_owned))
+        .collect();
+    keys.sort();
     let Some(pos) = keys.iter().position(|k| k == DUMP_MANIFEST) else {
-        return fail(format!("not a dump directory: no {DUMP_MANIFEST}"));
+        return fail(format!("not a dump: no {DUMP_MANIFEST}"));
     };
     let manifest = keys.remove(pos);
     keys.push(manifest);
     Ok(keys)
+}
+
+/// Opens `--from`: a dump directory, or a `.dbck` file. Returns the source, the key prefix of
+/// the dump inside it and its files in sending order.
+fn open_dump(from: &Path) -> CliResult<(Box<dyn Destination>, String, Vec<String>)> {
+    let fs: Arc<dyn FileSystem> = Arc::new(StdFileSystem);
+    if fs.read_dir(from).is_ok() {
+        let dir = LocalDestination::open(fs, from).map_err(|e| backup_err(&e))?;
+        let files = dump_files(&dir, "")?;
+        return Ok((Box::new(dir), String::new(), files));
+    }
+    let missing = || {
+        fail(format!(
+            "{}: no such dump directory or .dbck file",
+            from.display()
+        ))
+    };
+    let Some(name) = from.file_name().and_then(|n| n.to_str()) else {
+        return missing();
+    };
+    if fs.open(from, OpenMode::Read).is_err() {
+        return missing();
+    }
+    let parent = LocalDestination::open(fs, parent_dir(from)).map_err(|e| backup_err(&e))?;
+    let archive = BakDestination::open(&parent, name).map_err(|e| backup_err(&e))?;
+    if archive.kind() != ArchiveKind::Database {
+        return fail(format!(
+            "{}: a node backup (.{}), not a database backup; use `rustegon backup restore`",
+            from.display(),
+            archive.kind().extension()
+        ));
+    }
+    let dir = ArchiveKind::Database.prefix(archive.backup_id());
+    let files = dump_files(&archive, &dir)?;
+    Ok((Box::new(archive), format!("{dir}/"), files))
 }
 
 /// Runs `rustegon restore` (logical).
@@ -833,12 +1007,7 @@ fn dump_files(dest: &dyn Destination) -> CliResult<Vec<String>> {
 /// # Errors
 /// Option, connection, server and file errors.
 pub fn run_restore(args: &RestoreArgs) -> CliResult<()> {
-    let fs: Arc<dyn FileSystem> = Arc::new(StdFileSystem);
-    if fs.read_dir(&args.from).is_err() {
-        return fail(format!("{}: no such dump directory", args.from.display()));
-    }
-    let dir = LocalDestination::open(Arc::clone(&fs), &args.from).map_err(|e| backup_err(&e))?;
-    let files = dump_files(&dir)?;
+    let (dir, prefix, files) = open_dump(&args.from)?;
     with_client(&args.conn, |client| {
         let (tx, rx) = tokio::sync::mpsc::channel::<LogicalRestoreRequest>(4);
         let mut svc = BackupServiceClient::new(client.channel());
@@ -857,7 +1026,9 @@ pub fn run_restore(args: &RestoreArgs) -> CliResult<()> {
                 },
             ))?;
             for key in &files {
-                let reader = dir.open(key).map_err(|e| backup_err(&e))?;
+                let reader = dir
+                    .open(&format!("{prefix}{key}"))
+                    .map_err(|e| backup_err(&e))?;
                 let size = reader.size();
                 let mut offset = 0u64;
                 loop {
@@ -930,14 +1101,14 @@ mod tests {
         assert!(w.chunk("../evil", b"", true).is_err(), "traversal");
         w.chunk(DUMP_MANIFEST, b"{}", true)
             .unwrap_or_else(|e| panic!("{e}"));
-        assert_eq!(w.finish().unwrap_or_else(|e| panic!("{e}")), 3);
+        assert_eq!(w.finish().unwrap_or_else(|e| panic!("{e}")).0, 3);
         let data = std::fs::read(root.join("shop").join("a.ndjson")).unwrap_or_default();
         assert_eq!(data, b"{\"_id\":1}\n{\"_id\":2}\n");
         // The sending order of `restore`: path order, dump.json last.
         let dest = LocalDestination::open(Arc::new(StdFileSystem), &root)
             .unwrap_or_else(|e| panic!("{e}"));
         assert_eq!(
-            dump_files(&dest).unwrap_or_else(|e| panic!("{e}")),
+            dump_files(&dest, "").unwrap_or_else(|e| panic!("{e}")),
             ["shop/a.metadata.json", "shop/a.ndjson", DUMP_MANIFEST]
         );
         // A dump needs its manifest; interleaved files and a non-empty target are refused.
@@ -950,6 +1121,45 @@ mod tests {
         let mut w = DumpWriter::new(&fs, &without_manifest).unwrap_or_else(|e| panic!("{e}"));
         w.chunk("x", b"1", true).unwrap_or_else(|e| panic!("{e}"));
         assert!(w.finish().is_err(), "no dump.json");
+    }
+
+    #[test]
+    fn fr_bkp_007_dump_to_a_dbck_file_reads_back_in_sending_order() {
+        let dir = temp();
+        let out = dir.path().join("shop.dbck");
+        let fs = StdFileSystem;
+        assert!(is_dbck(&out) && is_dbck(Path::new("x.DBCK")) && !is_dbck(dir.path()));
+        let mut w = DumpWriter::archive(&fs, &out).unwrap_or_else(|e| panic!("{e}"));
+        w.chunk("shop/a.ndjson", b"{\"_id\":1}\n", false)
+            .unwrap_or_else(|e| panic!("{e}"));
+        w.chunk("shop/a.ndjson", b"{\"_id\":2}\n", true)
+            .unwrap_or_else(|e| panic!("{e}"));
+        w.chunk("shop/a.metadata.json", b"{}", true)
+            .unwrap_or_else(|e| panic!("{e}"));
+        assert!(w.chunk("shop/a.ndjson", b"", true).is_err(), "reopened");
+        w.chunk(DUMP_MANIFEST, b"{}", true)
+            .unwrap_or_else(|e| panic!("{e}"));
+        let (files, id) = w.finish().unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(files, 3);
+        assert!(id.is_some());
+        // Only the named file is left: no `<id>.dbck`, no spool.
+        let left: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap_or_else(|e| panic!("{e}"))
+            .filter_map(|e| e.ok().map(|e| e.file_name()))
+            .collect();
+        assert_eq!(left, ["shop.dbck"]);
+        let (source, prefix, keys) = open_dump(&out).unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(
+            keys,
+            ["shop/a.metadata.json", "shop/a.ndjson", DUMP_MANIFEST]
+        );
+        let data = source
+            .get_bytes(&format!("{prefix}shop/a.ndjson"), 1024)
+            .unwrap_or_else(|e| panic!("{e}"));
+        assert_eq!(data, b"{\"_id\":1}\n{\"_id\":2}\n");
+        // An existing target is refused; a missing source is reported.
+        assert!(DumpWriter::archive(&fs, &out).is_err());
+        assert!(open_dump(&dir.path().join("none.dbck")).is_err());
     }
 
     #[test]

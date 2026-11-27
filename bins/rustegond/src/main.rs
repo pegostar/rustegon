@@ -10,15 +10,19 @@
 //! membership arrive with M5. With `--service` the same node runs as the Windows service
 //! `Rustegon` (`service`, PD-206).
 
+mod allocator;
 mod config;
 mod from_env;
 mod gui;
+#[cfg(feature = "heap-stats")]
+mod heap_stats;
 mod maintenance;
 mod node;
 mod pitr;
 mod restore;
 mod service;
 mod signals;
+mod slow_io;
 mod tls;
 mod token_key;
 
@@ -166,11 +170,19 @@ pub(crate) fn run(args: Args, supervisor: Supervisor) -> Result<()> {
     let admin_password_file = args
         .admin_password_file
         .or_else(|| std::env::var_os(ADMIN_PASSWORD_FILE_ENV).map(PathBuf::from));
+    // Static settings changed in the console are written to the configuration file (PD-230);
+    // in the container mode the file is composed from the environment, so they stay read-only.
+    let config_file = if args.config_from_env {
+        None
+    } else {
+        args.config.clone()
+    };
     let result = node::run(
-        &config,
+        config,
         node::Options {
             registry,
             sources,
+            config_file,
             admin_password_file,
             stop_on_stdin_eof: args.stop_on_stdin_eof,
             stop: supervisor.stop,

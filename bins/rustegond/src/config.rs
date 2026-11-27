@@ -8,6 +8,7 @@
 //! - `[security]`: the TLS switch (`tls`, ADR-034), the default certificate directory and the
 //!   key file sealing cursor continuation tokens;
 //! - `[gui]`: whether the REST listener serves the embedded GUI under `/ui` (ADR-027, PD-130);
+//! - `[gc]`: how much MVCC history the background GC keeps (`ttl_secs`, PD-232);
 //! - `[tls]`: certificate, key and CA paths (defaulting to files in `security.certs_dir`), the
 //!   client-certificate policy, the minimum TLS version and the reload intervals.
 //!
@@ -44,6 +45,7 @@ pub fn registry() -> Result<Registry> {
         .register::<SecuritySettings>()?
         .register::<TlsFileSettings>()?
         .register::<GuiSettings>()?
+        .register::<GcSettings>()?
         .register::<rustegon_backup::BackupSettings>()?;
     register_security_settings(&mut registry)?;
     Ok(registry)
@@ -182,6 +184,52 @@ impl Settings for GuiSettings {
         "enabled",
         Kind::Bool,
         "Serve the embedded GUI under /ui of the REST listener; false = /ui is an unknown path.",
+    )];
+}
+
+/// Default `gc.ttl_secs`: 4 h of MVCC history (ADR-005, storage-engine.md §11).
+pub const DEFAULT_GC_TTL_SECS: u64 = 4 * 3600;
+/// Smallest `gc.ttl_secs`: 10 min (storage-engine.md §11), far above `txn.max_duration` (60 s),
+/// so GC never removes a version a read-write transaction can still read.
+const MIN_GC_TTL_SECS: i64 = 600;
+/// Largest `gc.ttl_secs`: 30 days.
+const MAX_GC_TTL_SECS: i64 = 30 * 86_400;
+
+/// `[gc]`: MVCC garbage collection (storage-engine.md §11, PD-232).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct GcSettings {
+    /// MVCC history kept, in seconds: versions shadowed for longer are collected, and reads
+    /// older than this fail with the retryable `RGN-2007`.
+    pub ttl_secs: u64,
+}
+
+impl Default for GcSettings {
+    fn default() -> Self {
+        Self {
+            ttl_secs: DEFAULT_GC_TTL_SECS,
+        }
+    }
+}
+
+impl GcSettings {
+    /// The TTL as a duration.
+    #[must_use]
+    pub fn ttl(&self) -> Duration {
+        Duration::from_secs(self.ttl_secs)
+    }
+}
+
+impl Settings for GcSettings {
+    const SECTION: &'static str = "gc";
+    const FIELDS: &'static [FieldSpec] = &[spec(
+        "ttl_secs",
+        Kind::Integer {
+            min: MIN_GC_TTL_SECS,
+            max: MAX_GC_TTL_SECS,
+        },
+        "Seconds of MVCC history kept (600..2592000): older overwritten or deleted versions \
+         are removed, and reads further in the past fail with RGN-2007.",
     )];
 }
 
@@ -462,6 +510,13 @@ mod tests {
         assert!(err.message().contains("outside"), "{err}");
         let err = load(&["security.unknown=1"]).unwrap_err();
         assert!(err.message().contains("unknown setting"), "{err}");
+        // PD-232: 4 h of MVCC history by default; never below 10 min (storage-engine.md §11).
+        let gc: GcSettings = load(&[]).unwrap().section().unwrap();
+        assert_eq!(gc.ttl(), Duration::from_hours(4));
+        let err = load(&["gc.ttl_secs=599"]).unwrap_err();
+        assert!(err.message().contains("outside"), "{err}");
+        let gc: GcSettings = load(&["gc.ttl_secs=600"]).unwrap().section().unwrap();
+        assert_eq!(gc.ttl_secs, 600);
     }
 
     #[test]

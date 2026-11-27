@@ -253,6 +253,9 @@ struct VersionState {
     running: Vec<(usize, KeyRange)>,
 }
 
+/// Called before memtables are flushed ([`LsmEngine::set_flush_barrier`]).
+pub type FlushBarrier = Arc<dyn Fn() -> Result<()> + Send + Sync>;
+
 /// The LSM engine over one store directory.
 pub struct LsmEngine {
     fs: Arc<dyn FileSystem>,
@@ -268,9 +271,22 @@ pub struct LsmEngine {
     /// `write` with `Release` after the memtable inserts, read with `Acquire`, so a reader that
     /// sees seqno `s` also sees every entry with seqno <= `s`.
     visible: AtomicU64,
+    /// [`Self::set_flush_barrier`].
+    flush_barrier: Mutex<Option<FlushBarrier>>,
 }
 
 impl LsmEngine {
+    /// Installs (or removes) the flush barrier: `barrier` runs before every memtable flush, with
+    /// no engine lock held, and a flush only persists writes made before the barrier started. A
+    /// failing barrier fails the flush.
+    ///
+    /// Why (ADR-038): the engine has no WAL; its owner logs writes elsewhere and may apply a
+    /// write here before its log entry is durable. The barrier is where the owner makes the log
+    /// durable, so that an SST never holds a write the log lost.
+    pub fn set_flush_barrier(&self, barrier: Option<FlushBarrier>) {
+        *lock(&self.flush_barrier) = barrier;
+    }
+
     /// Opens the store in `dir`, creating it when it has no `CURRENT` file. Recovery (§9):
     /// replay the MANIFEST, refuse missing SSTs, delete orphan files.
     ///
@@ -318,6 +334,7 @@ impl LsmEngine {
             snapshots: Arc::new(Mutex::new(BTreeMap::new())),
             counters: EngineCounters::default(),
             visible: AtomicU64::new(last),
+            flush_barrier: Mutex::new(None),
         })
     }
 
@@ -397,6 +414,31 @@ impl LsmEngine {
         self.view().iterator(seqno)
     }
 
+    /// An unpositioned user-key iterator at `snapshot` (latest when `None`) over the user keys
+    /// in `[lower, upper)`: it reads only the sources that may hold a key of the range and is
+    /// invalid outside it. `prefix`: the filter prefix shared by every key of the range, when
+    /// they share one ([`ReadView::iterator_within`], [`Self::prefix_extractor_name`]).
+    ///
+    /// # Errors
+    /// Corruption and I/O errors opening SSTs.
+    pub fn iterator_within(
+        &self,
+        lower: &[u8],
+        upper: &[u8],
+        prefix: Option<&[u8]>,
+        snapshot: Option<&Snapshot>,
+    ) -> Result<DbIterator> {
+        let seqno = self.read_seqno(snapshot);
+        self.view().iterator_within(lower, upper, prefix, seqno)
+    }
+
+    /// Name of the prefix extractor the SST filters are read with: what a caller of
+    /// [`Self::iterator_within`] checks before it claims a filter prefix for a range.
+    #[must_use]
+    pub fn prefix_extractor_name(&self) -> &str {
+        self.options.reader.prefix_extractor.name()
+    }
+
     /// Makes the active memtable immutable (if non-empty) and flushes every immutable memtable,
     /// oldest first. Afterwards every write acknowledged before the call is durable.
     ///
@@ -420,12 +462,25 @@ impl LsmEngine {
     /// # Errors
     /// As [`Self::flush`].
     pub fn flush_immutable(&self) -> Result<usize> {
+        // The memtables that are immutable now hold only writes made before this point, which
+        // the barrier (run next, before any engine lock: it may wait for a writer) covers. A
+        // memtable rotated later waits for the next call and its own barrier.
+        let Some(limit) = lock(&self.mem).immutable.first().map(|(_, seqno)| *seqno) else {
+            return Ok(0);
+        };
+        let barrier = lock(&self.flush_barrier).clone();
+        if let Some(barrier) = barrier {
+            barrier()?;
+        }
         let mut versions = checked(&self.versions)?;
         let mut flushed = 0;
         loop {
             let Some((memtable, flushed_seqno)) = lock(&self.mem).immutable.last().cloned() else {
                 return Ok(flushed);
             };
+            if flushed_seqno > limit {
+                return Ok(flushed);
+            }
             let flushed_seqno = flushed_seqno.max(versions.set.flushed_seqno());
             let written = flush_memtable(
                 self.fs.as_ref(),
@@ -750,6 +805,8 @@ impl LsmEngine {
             (Arc::clone(&mem.version), mem.immutable.len(), bytes)
         };
         m.memtable_bytes = u64::try_from(memtable_bytes).unwrap_or(u64::MAX);
+        // `lock`, not `checked`: a statistic must still read after a failed install.
+        m.running_compactions = lock(&self.versions).running.len();
         for level in 0..m.level_files.len() {
             m.level_files[level] = version.files(level).len();
             m.level_bytes[level] = version.level_size(level);

@@ -262,7 +262,8 @@ impl Txn {
             &self.shared.id,
             &self.record(RecordStatus::Pending),
         );
-        core.propose(writer)?;
+        // A lost heartbeat only matters after a crash, where the transaction is gone anyway.
+        core.propose_deferred(writer)?;
         self.heartbeat_persisted = now;
         Ok(())
     }

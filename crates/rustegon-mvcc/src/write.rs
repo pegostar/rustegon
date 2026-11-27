@@ -30,6 +30,7 @@ use crate::{
     gc::GcThreshold,
     hlc::Timestamp,
     key::{MvccKey, meta_key, next_logical_key, txn_record_key, version_key},
+    read::key_iterator,
     value::{Intent, IntentValue, SeqRange, TxnId, TxnMeta, TxnRecord, VersionValue},
 };
 
@@ -179,7 +180,8 @@ impl<'a> MvccWriter<'a> {
             .find(|(_, v)| v.is_some())
             .map(|(k, _)| k.clone());
         let prefix = meta_key(key);
-        let mut iter = self.engine.iterator(None)?;
+        // Only the files that hold a version of `key` (PD-233).
+        let mut iter = key_iterator(self.engine, key, &lo)?;
         iter.seek(&lo)?;
         let mut stored = None;
         while iter.valid() && iter.key().starts_with(&prefix) {

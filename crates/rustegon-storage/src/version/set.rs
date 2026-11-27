@@ -35,7 +35,7 @@ use std::{
     cmp::Reverse,
     collections::BTreeSet,
     path::{Path, PathBuf},
-    sync::{Arc, Weak},
+    sync::{Arc, OnceLock, Weak},
 };
 
 use rustegon_sim_api::{FileSystem, OpenMode};
@@ -51,13 +51,36 @@ use crate::{
     encryption::{FileCipher, KeyManager},
     error::{Result, StorageError},
     key::SeqNo,
+    range_del::RangeTombstone,
 };
 
 /// An immutable snapshot of the live files.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Version {
     levels: [Vec<Arc<FileMeta>>; NUM_LEVELS],
+    tombstones: TombstoneCache,
 }
+
+/// The range tombstones of a version's files, read from the files once
+/// ([`Version::range_tombstones`]). Derived from the file set, so not part of a version's
+/// identity: versions compare equal whatever they cached, and a clone, which `apply` edits
+/// into another file set, starts empty.
+#[derive(Debug, Default)]
+struct TombstoneCache(OnceLock<Arc<[RangeTombstone]>>);
+
+impl Clone for TombstoneCache {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl PartialEq for TombstoneCache {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl Eq for TombstoneCache {}
 
 impl Version {
     /// Files of `level` in lookup order (see module docs); empty for levels out of range.
@@ -70,6 +93,25 @@ impl Version {
     #[must_use]
     pub fn level_size(&self, level: usize) -> u64 {
         self.files(level).iter().map(|f| f.size).sum()
+    }
+
+    /// The range tombstones of every file: `collect` reads them from the files for the first
+    /// caller, the others share its result. Every iterator needs them, and collecting them
+    /// opens every SST of the version (PD-233: per iterator, that was a table-cache lookup
+    /// per live file for every read).
+    ///
+    /// # Errors
+    /// Those of `collect`.
+    pub(crate) fn range_tombstones(
+        &self,
+        collect: impl FnOnce() -> Result<Vec<RangeTombstone>>,
+    ) -> Result<Arc<[RangeTombstone]>> {
+        if let Some(cached) = self.tombstones.0.get() {
+            return Ok(Arc::clone(cached));
+        }
+        let collected: Arc<[RangeTombstone]> = collect()?.into();
+        // Racing first callers collect the same list; one of them is kept.
+        Ok(Arc::clone(self.tombstones.0.get_or_init(|| collected)))
     }
 
     /// All files as `(level, file)`.

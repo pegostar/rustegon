@@ -53,7 +53,10 @@
 use std::{
     io::{self, Write as _},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        Arc, Mutex, PoisonError,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Duration,
 };
 
@@ -82,8 +85,8 @@ use rustegon_server::{
         write_initial_password,
     },
     services::{
-        DataPlaneConfig, NodeIdentity, ServiceDeps, Services, backup::ScheduledRestore,
-        backup_engine::EngineBackupBackend,
+        DataPlaneConfig, NodeIdentity, ServiceDeps, Services, admin::NodeControl,
+        backup::ScheduledRestore, backup_engine::EngineBackupBackend,
     },
 };
 use rustegon_sim_api::{
@@ -112,6 +115,8 @@ const STORE_DIR: &str = "store";
 /// Default backup directory under the data directory, always allowed as a destination
 /// (PD-082).
 const DEFAULT_BACKUP_DIR: &str = "backups";
+/// Spool of the dumps the server writes to a destination (`POST /api/v1/dumps`, PD-226).
+const DUMP_SPOOL_DIR: &str = "dump-spool";
 /// Cluster id recorded in backup manifests until cluster membership assigns one (M5).
 const SINGLE_NODE_CLUSTER_ID: &str = "single-node";
 /// Largest accepted admin password file (a password is at most a few hundred bytes).
@@ -127,6 +132,9 @@ pub struct Options {
     pub registry: Arc<Registry>,
     /// The configuration layers (file, environment, flags).
     pub sources: Sources,
+    /// The configuration file `sources.file` was read from, when the console may write static
+    /// settings into it and a restart reads it again (PD-230).
+    pub config_file: Option<PathBuf>,
     /// The first admin's password file (`--admin-password-file` or
     /// `RUSTEGON_INITIAL_ADMIN_PASSWORD_FILE`); without one a password is generated.
     pub admin_password_file: Option<PathBuf>,
@@ -145,12 +153,91 @@ struct Node {
     listen: ListenSettings,
     gui: GuiSettings,
     reload_period: Duration,
+    /// `gc.ttl_secs` for the MVCC GC loop (PD-232).
+    gc_ttl: Duration,
     clock: Arc<dyn Clock>,
     engine: Arc<EmbeddedDb>,
     /// The PITR archiver, started with the maintenance loops (`None`: archiving off).
     pitr: Option<(PreparedPitr, Option<Arc<dyn KekProvider>>)>,
     /// Wakes the serving loop when an online restore is accepted (ADR-037).
     restore: oneshot::Receiver<ScheduledRestore>,
+    /// Wakes the serving loop when a restart is requested (PD-230).
+    restart: oneshot::Receiver<()>,
+    control: Arc<RestartControl>,
+}
+
+/// The node restart of `POST /node/restart` (PD-230): wakes the serving loop like an accepted
+/// online restore; [`run`] then reads the configuration file again.
+#[derive(Default)]
+struct RestartControl {
+    /// Armed by each serving period; taken by the first restart request.
+    wake: Mutex<Option<oneshot::Sender<()>>>,
+    /// The current serving period reached `rustegond ready`.
+    serving: AtomicBool,
+    /// Why the last restart fell back to the previous configuration.
+    error: Mutex<Option<String>>,
+}
+
+impl RestartControl {
+    fn arm(&self) -> oneshot::Receiver<()> {
+        let (tx, rx) = oneshot::channel();
+        *self.wake.lock().unwrap_or_else(PoisonError::into_inner) = Some(tx);
+        self.serving.store(false, Ordering::SeqCst);
+        rx
+    }
+
+    fn set_error(&self, error: Option<String>) {
+        *self.error.lock().unwrap_or_else(PoisonError::into_inner) = error;
+    }
+}
+
+impl NodeControl for RestartControl {
+    fn restart(&self) -> Result<()> {
+        match self
+            .wake
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
+        {
+            Some(tx) => {
+                // The serving loop may already be stopping for another reason: nothing to do.
+                let _ = tx.send(());
+                Ok(())
+            }
+            None => Err(Error::new(
+                ErrorCode::AlreadyExists,
+                "a restart is already under way",
+            )),
+        }
+    }
+
+    fn last_restart_error(&self) -> Option<String> {
+        self.error
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone()
+    }
+}
+
+/// The configuration a restart starts with: `config_file` read again over the other layers.
+fn reload(
+    registry: &Registry,
+    sources: &Sources,
+    config_file: Option<&Path>,
+) -> Result<(Config, Sources)> {
+    let mut sources = sources.clone();
+    if let Some(path) = config_file {
+        // Like the startup read in main: before any engine exists, not simulated I/O.
+        sources.file = Some(std::fs::read_to_string(path).map_err(|e| {
+            Error::new(
+                ErrorCode::InvalidArgument,
+                format!("cannot read {}", path.display()),
+            )
+            .with_source(e)
+        })?);
+    }
+    let config = registry.load(&sources)?;
+    Ok((config, sources))
 }
 
 fn io_error(what: &Path, e: &io::Error) -> Error {
@@ -161,7 +248,7 @@ fn io_error(what: &Path, e: &io::Error) -> Error {
 ///
 /// # Errors
 /// Any startup failure, with its reason.
-pub fn run(config: &Config, mut options: Options) -> Result<()> {
+pub fn run(mut config: Config, mut options: Options) -> Result<()> {
     let mut stop = if options.stop_on_stdin_eof {
         Some(crate::signals::stdin_eof().map_err(|e| {
             Error::new(ErrorCode::Internal, "cannot watch standard input").with_source(e)
@@ -173,10 +260,15 @@ pub fn run(config: &Config, mut options: Options) -> Result<()> {
     // Every serving period opens the node from these inputs again (online restore, ADR-037).
     // The startup wipes an `env` KEK from the copy it is given, so each period gets a fresh copy
     // of the captured environment; the process environment keeps the variable anyway (PD-057).
-    let sources = options.sources;
+    let mut sources = options.sources;
+    let control = Arc::new(RestartControl::default());
+    // The configuration served before a restart, kept until the new one serves (PD-230).
+    let mut previous: Option<(Config, Sources)> = None;
     loop {
+        // Set again once this period serves; a failure before that falls back (below).
+        control.serving.store(false, Ordering::SeqCst);
         // An online restore accepted before a stop or a crash finishes before the node serves.
-        let restored = crate::restore::run_pending(config, &sources)?;
+        let restored = crate::restore::run_pending(&config, &sources)?;
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .thread_name("rustegond")
@@ -194,20 +286,53 @@ pub fn run(config: &Config, mut options: Options) -> Result<()> {
             let period = Options {
                 registry: Arc::clone(&options.registry),
                 sources: sources.clone(),
+                config_file: options.config_file.clone(),
                 admin_password_file: options.admin_password_file.clone(),
                 stop_on_stdin_eof: false,
                 stop: None,
                 on_ready: None,
             };
-            open(config, period, restored).and_then(|node| {
+            open(&config, period, restored, &control).and_then(|node| {
                 runtime.block_on(serve(node, signals, stop.as_mut(), on_ready.take()))
             })
         };
         // Also lets go of the engine held by blocking tasks before a restore swaps the store.
         runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
-        match result? {
+        let served = match result {
+            Ok(served) => served,
+            // A restart whose new configuration did not get the node serving: serve again with
+            // the previous one and keep the reason for the console (PD-230).
+            Err(e) if !control.serving.load(Ordering::SeqCst) && previous.is_some() => {
+                tracing::error!(error = %e, "the node could not start with the changed configuration; serving with the previous one");
+                control.set_error(Some(format!(
+                    "the node could not start with the changed configuration: {e}"
+                )));
+                if let Some((c, s)) = previous.take() {
+                    config = c;
+                    sources = s;
+                }
+                continue;
+            }
+            Err(e) => return Err(e),
+        };
+        previous = None;
+        match served {
             Served::Stopped => return Ok(()),
             Served::Restore => tracing::info!("serving again after the online restore"),
+            Served::Restart => {
+                match reload(&options.registry, &sources, options.config_file.as_deref()) {
+                    Ok((c, s)) => {
+                        control.set_error(None);
+                        previous = Some((std::mem::replace(&mut config, c), sources));
+                        sources = s;
+                    }
+                    Err(e) => {
+                        tracing::error!(error = %e, "the configuration file does not load; restarting with the current configuration");
+                        control.set_error(Some(e.to_string()));
+                    }
+                }
+                tracing::info!("restarting the node");
+            }
         }
     }
 }
@@ -218,6 +343,8 @@ enum Served {
     Stopped,
     /// An online restore was accepted (ADR-037): restore, then serve again.
     Restore,
+    /// A restart was requested (PD-230): read the configuration file again, then serve again.
+    Restart,
 }
 
 /// Startup steps 1–6 and the services (module docs). Blocking.
@@ -225,7 +352,12 @@ enum Served {
 #[allow(clippy::too_many_lines)]
 /// `restored`: an online restore just replaced the store (ADR-037); its sessions are revoked
 /// before the node serves.
-fn open(config: &Config, options: Options, restored: bool) -> Result<Node> {
+fn open(
+    config: &Config,
+    options: Options,
+    restored: bool,
+    control: &Arc<RestartControl>,
+) -> Result<Node> {
     let node: NodeSettings = config.section()?;
     let storage: StorageSettings = config.section()?;
     let listen: ListenSettings = config.section()?;
@@ -233,8 +365,13 @@ fn open(config: &Config, options: Options, restored: bool) -> Result<Node> {
     let security_settings: SecuritySettings = config.section()?;
     let tls_settings: TlsFileSettings = config.section()?;
     let backup_settings: BackupSettings = config.section()?;
-    let fs: Arc<dyn FileSystem> = Arc::new(StdFileSystem);
+    let gc_settings: crate::config::GcSettings = config.section()?;
     let clock: Arc<dyn Clock> = Arc::new(SystemClock::new());
+    // Slow calls are logged (PD-233 stall diagnosis, slow_io.rs).
+    let fs: Arc<dyn FileSystem> = Arc::new(crate::slow_io::SlowFs::new(
+        Arc::new(StdFileSystem),
+        Arc::clone(&clock),
+    ));
     let rng: Arc<dyn Rng> = Arc::new(OsRng);
     let data_dir = node.data_dir;
 
@@ -302,7 +439,8 @@ fn open(config: &Config, options: Options, restored: bool) -> Result<Node> {
             format!("node{SINGLE_NODE_ID}"),
             options.registry,
             options.sources,
-        ),
+        )
+        .with_config_file(options.config_file),
         &deps,
     )?;
     bootstrap(
@@ -336,17 +474,23 @@ fn open(config: &Config, options: Options, restored: bool) -> Result<Node> {
     .with_backup_backend(backup_backend)
     .with_backup_destinations(backup_policy)
     .with_backup_s3(backup_settings.s3)
-    .with_restore_scheduler(restore_scheduler);
+    .with_dump_spool(data_dir.join(DUMP_SPOOL_DIR))
+    .with_restore_scheduler(restore_scheduler)
+    .with_node_control(Arc::clone(control) as Arc<dyn NodeControl>);
+    let restart = control.arm();
     Ok(Node {
         services,
         transport,
         listen,
         gui,
         reload_period: tls_settings.reload_period(),
+        gc_ttl: gc_settings.ttl(),
         clock,
         engine,
         pitr: pitr.map(|p| (p, kek)),
         restore,
+        restart,
+        control: Arc::clone(control),
     })
 }
 
@@ -735,10 +879,13 @@ async fn serve(
         listen,
         gui,
         reload_period,
+        gc_ttl,
         clock,
         engine,
         pitr,
         restore,
+        restart,
+        control,
     } = node;
     let grace = listen.shutdown_grace();
     let tls = transport.listener.is_tls();
@@ -792,7 +939,7 @@ async fn serve(
         None => tokio::spawn(tls::plain_text_warning_loop(Arc::clone(&clock))),
     };
     spawn_index_resume(Arc::clone(&engine));
-    let maintenance = Maintenance::start(&engine, &clock, default_max_subcompactions());
+    let maintenance = Maintenance::start(&engine, &clock, default_max_subcompactions(), gc_ttl);
     let pitr = pitr.map(|(prepared, kek)| {
         let (task, metrics) = PitrTask::start(prepared, &engine, &clock, kek);
         services.metrics().register_pitr(metrics);
@@ -805,6 +952,7 @@ async fn serve(
     let grpc_task = tokio::spawn(grpc.serve(wait_stop(stop_rx.clone())));
     let rest_task = tokio::spawn(rest.serve(wait_stop(stop_rx)));
     services.readiness().mark_serving();
+    control.serving.store(true, Ordering::SeqCst);
     tracing::info!(grpc = %grpc_addr, http = %http_addr, tls, "rustegond ready");
     {
         // One machine-readable line for supervisors and tests (the ports may be ephemeral).
@@ -822,6 +970,7 @@ async fn serve(
         }
         // The same graceful shutdown, without leaving the process (ADR-037).
         Ok(_) = restore => ("online restore", Served::Restore),
+        Ok(()) = restart => ("restart", Served::Restart),
     };
     report_draining(&services, listen.drain_delay(), clock.as_ref(), reason).await;
     tracing::info!(reason, "shutdown requested; draining listeners");
@@ -853,6 +1002,7 @@ async fn serve(
     match served {
         Served::Stopped => tracing::info!("rustegond stopped"),
         Served::Restore => tracing::info!("stopped serving for the online restore"),
+        Served::Restart => tracing::info!("stopped serving for the restart"),
     }
     Ok(served)
 }

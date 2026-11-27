@@ -95,6 +95,35 @@ impl Core {
         let cmd = ReplicaCommand::new(self.hlc.now(), writer.into_batch());
         self.replica.propose(cmd).map(Some)
     }
+
+    /// As [`Self::propose`] without its log sync ([`Replica::propose_unsynced`], ADR-040): for
+    /// the commands that decide a transaction (its commit, a fast-path write). The caller
+    /// releases the latch and acknowledges only after [`Replica::sync_through`] of the
+    /// returned state's index.
+    pub(crate) fn propose_unsynced(
+        &self,
+        writer: MvccWriter<'_>,
+    ) -> Result<Option<RangeAppliedState>, ReplicaError> {
+        if writer.is_empty() {
+            return Ok(None);
+        }
+        let cmd = ReplicaCommand::new(self.hlc.now(), writer.into_batch());
+        self.replica.propose_unsynced(cmd).map(Some)
+    }
+
+    /// As [`Self::propose`] without waiting for durability ([`Replica::propose_deferred`],
+    /// ADR-038). Only for the intents and the PENDING record of a transaction that has not
+    /// committed: its commit, or any other durable proposal, makes them durable first.
+    pub(crate) fn propose_deferred(
+        &self,
+        writer: MvccWriter<'_>,
+    ) -> Result<Option<RangeAppliedState>, ReplicaError> {
+        if writer.is_empty() {
+            return Ok(None);
+        }
+        let cmd = ReplicaCommand::new(self.hlc.now(), writer.into_batch());
+        self.replica.propose_deferred(cmd).map(Some)
+    }
 }
 
 /// The transaction coordinator of one range (crate docs). Cheap to clone; all clones share the
@@ -197,7 +226,11 @@ impl TxnCoordinator {
     /// As [`Txn::put`]; the write is atomic (one proposal).
     pub fn put_single_key(&self, key: &[u8], value: &VersionValue) -> Result<Timestamp> {
         let mut txn = self.begin(TxnOptions::default());
-        txn.fast_path_write(key, value)
+        match txn.fast_path_write(key, value) {
+            // The write waited for its own log record, or its outcome must stay unknown.
+            done @ (Ok(_) | Err(TxnError::CommitOutcomeUnknown(_))) => done,
+            failed => self.core.settled(failed),
+        }
     }
 
     /// Reads `key` at a fresh timestamp outside any transaction (an implicit read-only
@@ -294,6 +327,19 @@ impl TxnCoordinator {
         timeout: Duration,
         cancelled: &dyn Fn() -> bool,
     ) -> Result<Timestamp> {
+        let closed = self.close_unsettled(timeout, cancelled);
+        // Every commit at or below T is applied by now and must be durable before anyone
+        // reads at T (ADR-040). Never left to a `settled` scope: a backup streams what it
+        // reads at T while its engine call is still running.
+        self.core.settle_now()?;
+        closed
+    }
+
+    fn close_unsettled(
+        &self,
+        timeout: Duration,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<Timestamp> {
         let ts = {
             let _latch = self.core.write_latch();
             let ts = self.core.hlc.now();
@@ -366,7 +412,10 @@ impl TxnCoordinator {
     /// # Errors
     /// Storage, corruption and replica errors.
     pub fn orphan_status(&self, txn: &TxnId) -> Result<Option<crate::OrphanStatus>> {
-        self.core.orphan_status(txn)
+        let status = self.core.orphan_status(txn);
+        // What the record says (or its absence) may come from a commit not durable yet.
+        self.core.settle_now()?;
+        status
     }
 
     /// Whether `txn` is still registered (tests and observability).

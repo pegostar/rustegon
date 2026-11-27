@@ -106,7 +106,9 @@ fn key_gen() -> impl Strategy<Value = KeyGen> {
         });
     (
         any::<bool>(),
-        prop::collection::btree_map((1u64..30, 0u32..2), val(), 0..6),
+        // Up to 14 versions: more than the reader steps over before it seeks (PD-233), so both
+        // ways of skipping entries are exercised.
+        prop::collection::btree_map((1u64..30, 0u32..2), val(), 0..14),
         prop::option::of(intent),
     )
         .prop_map(|(counter, versions, intent)| KeyGen {

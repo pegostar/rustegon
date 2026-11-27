@@ -20,4 +20,5 @@ pub use embedded::{
 };
 pub use rustegon_txn::{
     AccessMode, CommitInfo, Isolation, OrphanStatus, Priority, TxnConfig, TxnOptions,
+    in_settled_scope, settled,
 };

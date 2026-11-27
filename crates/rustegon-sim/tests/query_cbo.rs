@@ -20,7 +20,7 @@
 
 mod common;
 
-use common::{DB, js, open, plan, q};
+use common::{DB, js, open, plan, q, rows_of};
 use rustegon_common::ErrorCode;
 use rustegon_engine::embedded::EmbeddedDb;
 use rustegon_query::{ExecOptions, Optimizer, Params, bind::IndexHint, stats::StatsConfig};
@@ -253,6 +253,41 @@ fn tc_ql_001_cbo_results_equal_collection_scan_randomized() {
         differs > 0,
         "the cost model never changed a rule-based plan"
     );
+}
+
+/// PD-233: without a sort between them, a `LIMIT` bounds what the source reads. Before, a
+/// source always read a full batch (1000 rows): `find(g = x).limit(20)` of the soak read and
+/// fetched the 100 documents of its group.
+#[test]
+fn tc_ql_001_limit_bounds_the_entries_read_from_the_source() {
+    let db = open(94);
+    q(&db, "CREATE INDEX ia ON t (a)");
+    let docs: Vec<String> = (0..60)
+        .map(|i| format!("{{_id: {i}, a: 1, b: {}}}", i % 2))
+        .collect();
+    q(&db, &format!("INSERT INTO t VALUES {}", docs.join(", ")));
+    let read = || db.index_stats(DB, "t", "ia").unwrap().usage.rows;
+
+    assert_eq!(q(&db, "FROM t WHERE a = 1 LIMIT 5").rows.len(), 5);
+    assert_eq!(read(), 5);
+    assert_eq!(q(&db, "FROM t WHERE a = 1 LIMIT 5 OFFSET 3").rows.len(), 5);
+    assert_eq!(read(), 5 + 8);
+    // A residual filter drops rows after the source, which then reads on (in growing
+    // batches) until the limit is met: more than the limit, less than everything.
+    assert_eq!(
+        rows_of(&db, "FROM t WHERE a = 1 AND b = 0 SELECT VALUE _id LIMIT 5"),
+        "0 2 4 6 8"
+    );
+    let filtered = read() - 13;
+    assert!((6..60).contains(&filtered), "{filtered} entries read");
+    // A sort needs every row whatever the limit.
+    assert_eq!(
+        q(&db, "FROM t WHERE a = 1 ORDER BY b LIMIT 5").rows.len(),
+        5
+    );
+    assert_eq!(read(), 13 + filtered + 60);
+    // A limit above the result size returns everything.
+    assert_eq!(q(&db, "FROM t WHERE a = 1 LIMIT 100").rows.len(), 60);
 }
 
 #[test]

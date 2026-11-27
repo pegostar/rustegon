@@ -11,7 +11,9 @@
 //! 1. fails fast with RGN-5006 when the request deadline has already passed;
 //! 2. waits for one of `max_in_flight` permits (a bounded queue: overload shows up as queueing
 //!    bounded by the deadline, not as an unbounded number of blocking threads);
-//! 3. runs the closure on Tokio's blocking pool with a [`CancelToken`];
+//! 3. runs the closure on Tokio's blocking pool with a [`CancelToken`], inside one
+//!    `rustegon_engine::settled` scope: what the closure read becomes durable before its result
+//!    leaves (the read rule of group commit, ADR-040), with one wait per request;
 //! 4. races it against the deadline and the caller dropping the request future.
 //!
 //! The engine has no preemption, so cancellation is cooperative: the token flips to cancelled
@@ -245,7 +247,11 @@ impl Executor {
             // so abandoned work still counts against the bound.
             let _permit = permit;
             task_token.check()?;
-            work(&task_token)
+            // One request, one wait for the log sync (ADR-040): the transaction operations of
+            // `work` do not wait for durability one by one; the scope waits when `work`
+            // returns, before its result can leave this thread. `work` must not hand results
+            // out earlier (the dump, which streams, reads at a closed timestamp).
+            rustegon_engine::settled(|| work(&task_token))
         });
 
         let joined = tokio::select! {
@@ -328,6 +334,22 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(err.code(), ErrorCode::NotFound);
+    }
+
+    /// ADR-040: an engine call is one `settled` scope, so the reads of a request wait for
+    /// the log sync once, when the call ends, and not after each of them.
+    #[tokio::test]
+    async fn fr_api_001_executor_runs_engine_calls_in_a_settled_scope() {
+        let exec = executor(1);
+        let ctx = ctx_with_timeout(&exec, Some(TEST_LIMIT));
+        assert!(!rustegon_engine::in_settled_scope());
+        let inside = exec
+            .run(&ctx, Completion::Await, |_| {
+                Ok(rustegon_engine::in_settled_scope())
+            })
+            .await
+            .unwrap();
+        assert!(inside, "the engine call ran outside a settled scope");
     }
 
     #[tokio::test]

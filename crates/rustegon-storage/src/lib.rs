@@ -33,7 +33,7 @@ pub use cache::{BlockCache, CacheStats};
 pub use checkpoint::{
     CHECKPOINT_KEYS_DIR, CheckpointInfo, CheckpointSource, checkpoint_keys_dir, create_checkpoint,
 };
-pub use engine::{BatchOp, EngineOptions, LsmEngine, Snapshot, WriteBatch};
+pub use engine::{BatchOp, EngineOptions, FlushBarrier, LsmEngine, Snapshot, WriteBatch};
 pub use error::{Result, StorageError};
 pub use flush::flush_memtable;
 pub use key::{InternalKey, MAX_SEQNO, ParsedKey, SeqNo, ValueKind};

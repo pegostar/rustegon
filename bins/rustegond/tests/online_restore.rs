@@ -2,7 +2,7 @@
 // Copyright The Rustegon Authors
 
 //! Online restore of a live `rustegond` (FR-BKP-001, ADR-037; TC-BKP-016):
-//! - a backup taken through `POST /api/v1/backups` is one `<id>.bak` file; after more writes and
+//! - a backup taken through `POST /api/v1/backups` is one `<id>.nbck` file; after more writes and
 //!   a new user, `POST /api/v1/backups/{id}/restore` makes the same process stop serving,
 //!   restore and serve again: every document is back to its backed-up value, the user created
 //!   later is gone (users and roles come from the backup), the replaced store is kept, and
@@ -430,7 +430,7 @@ fn tc_bkp_016_online_restore_replaces_the_node_without_stopping_the_process() {
         let id = created["backup"]["backupId"].as_str().unwrap().to_owned();
         assert_eq!(
             names_in(&env.data_dir().join("backups")),
-            [format!("{id}.bak")],
+            [format!("{id}.nbck")],
             "one file per backup"
         );
         // After the backup: other values and a new user.
@@ -483,7 +483,7 @@ fn tc_bkp_016_online_restore_replaces_the_node_without_stopping_the_process() {
     assert!(
         env.data_dir()
             .join("backups")
-            .join(format!("{id}.bak"))
+            .join(format!("{id}.nbck"))
             .is_file(),
         "the backup itself is untouched"
     );
@@ -545,5 +545,94 @@ fn tc_bkp_016_pending_restore_runs_at_start_and_a_failed_one_keeps_the_store() {
     });
     assert!(!env.data_dir().join("online-restore.json").exists());
     assert!(!env.data_dir().join("restore-in-progress.json").exists());
+    daemon.stop();
+}
+
+/// PD-230: a static setting changed through the API goes to the configuration file, shows as
+/// pending, and takes effect with `POST /node/restart` without the process ending; a change
+/// that keeps the node from starting falls back to the previous configuration and says why.
+#[test]
+fn tc_ops_002_restart_applies_static_settings_and_falls_back_on_a_bad_one() {
+    let env = Env::new();
+    let config = env.root.path().join("rustegon.toml");
+    std::fs::write(&config, "# written by the test\n").unwrap();
+    let rt = runtime();
+    let mut daemon = Daemon::spawn(env.command(&["--config".into(), config.display().to_string()]));
+    let api = rt.block_on(async {
+        let api = Api::login(&env, &daemon).await;
+        let changed = api
+            .ok(
+                "PATCH",
+                "/api/v1/settings",
+                Some(&json!({"values": {"lockout.max_failures": "4"}})),
+            )
+            .await;
+        let s = &changed["settings"][0];
+        assert_eq!(
+            (s["value"].as_str(), s["pendingValue"].as_str()),
+            (Some("10"), Some("4")),
+            "{s}"
+        );
+        // A setting a --set flag owns cannot be changed here.
+        let (code, body) = api
+            .call(
+                "PATCH",
+                "/api/v1/settings",
+                Some(&json!({"values": {"listen.shutdown_grace_secs": "7"}})),
+            )
+            .await;
+        assert_eq!(code, 400, "{body}");
+        let restarting = api.ok("POST", "/api/v1/node/restart", None).await;
+        assert_eq!(restarting["restarting"], true);
+        api
+    });
+    daemon.wait_ready_again();
+    let api = rt.block_on(async {
+        // Sessions are in the store: the same token works after the restart.
+        let api = Api { addr: daemon.http, ..api };
+        let got = api
+            .ok("GET", "/api/v1/settings?names=lockout.max_failures", None)
+            .await;
+        let s = &got["settings"][0];
+        assert_eq!(s["value"], "4", "{got}");
+        assert!(s.get("pendingValue").is_none(), "{got}");
+        assert!(got.get("lastRestartError").is_none(), "{got}");
+
+        // A file where the audit directory should be: valid for the registry, fatal at start.
+        api.ok(
+            "PATCH",
+            "/api/v1/settings",
+            Some(&json!({"values": {"audit.dir": serde_json::to_string(&config.display().to_string()).unwrap()}})),
+        )
+        .await;
+        api.ok("POST", "/api/v1/node/restart", None).await;
+        api
+    });
+    daemon.wait_ready_again();
+    rt.block_on(async {
+        let api = Api {
+            addr: daemon.http,
+            ..api
+        };
+        let got = api
+            .ok("GET", "/api/v1/settings?names=audit.dir", None)
+            .await;
+        let error = got["lastRestartError"].as_str().unwrap_or_default();
+        assert!(error.contains("changed configuration"), "{got}");
+        assert!(
+            got["settings"][0].get("pendingValue").is_some(),
+            "still pending: {got}"
+        );
+        // The node still serves with the previous configuration.
+        let lockout = api
+            .ok("GET", "/api/v1/settings?names=lockout.max_failures", None)
+            .await;
+        assert_eq!(lockout["settings"][0]["value"], "4");
+    });
+    assert!(
+        std::fs::read_to_string(&config)
+            .unwrap()
+            .contains("# written by the test")
+    );
     daemon.stop();
 }

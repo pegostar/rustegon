@@ -14,6 +14,7 @@ use rustegon_mvcc::{
 };
 use rustegon_raft::LogStoreOptions;
 use rustegon_sim::SimFileSystem;
+use rustegon_sim_api::FileSystem;
 use rustegon_storage::{
     EngineOptions, LsmEngine, WriteBatch, compaction::CompactionOptions, sst::SstWriterOptions,
 };
@@ -57,13 +58,18 @@ pub struct Store {
 
 /// Opens the engine in `lsm_dir` and the replica over it (replaying the log).
 pub fn open_in(fs: &Arc<SimFileSystem>, lsm_dir: &str) -> Result<Store, Box<dyn Error>> {
+    open_on(fs.clone(), lsm_dir)
+}
+
+/// As [`open_in`], on any file system (tests that wrap the simulated one).
+pub fn open_on(fs: Arc<dyn FileSystem>, lsm_dir: &str) -> Result<Store, Box<dyn Error>> {
     let engine = Arc::new(LsmEngine::open(
         fs.clone(),
         std::path::Path::new(lsm_dir),
         engine_options(),
     )?);
     let replica = LocalReplica::open(LocalReplicaConfig {
-        fs: fs.clone(),
+        fs,
         log_dir: PathBuf::from(LOG_DIR),
         log_options: LogStoreOptions {
             segment_size: SEGMENT_SIZE,
@@ -178,6 +184,13 @@ pub fn observe(store: &Store) -> Result<Model, String> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Step {
     Propose(Vec<Op>),
+    /// A deferred proposal (ADR-038): applied, durable only with a later step.
+    Defer(Vec<Op>),
+    /// An unsynced proposal (ADR-040): applied, durable only with a later step, and reported by
+    /// `Replica::unsynced_index` until then.
+    Unsynced(Vec<Op>),
+    /// `Replica::sync_through` of everything applied.
+    Sync,
     Flush,
     Compact,
     Purge,
@@ -225,7 +238,10 @@ pub fn workload(seed: u64, len: usize) -> Vec<Step> {
     let mut rng = Rng(seed);
     (0..len)
         .map(|i| match rng.below(100) {
-            0..=69 => Step::Propose(random_ops(&mut rng, i)),
+            0..=34 => Step::Propose(random_ops(&mut rng, i)),
+            35..=49 => Step::Unsynced(random_ops(&mut rng, i)),
+            50..=59 => Step::Defer(random_ops(&mut rng, i)),
+            60..=69 => Step::Sync,
             70..=79 => Step::Flush,
             80..=84 => Step::Compact,
             85..=91 => Step::Purge,

@@ -377,13 +377,16 @@ fn tc_bkp_001_e2e_online_backup_under_writers_restores_a_consistent_cut() {
     assert_eq!(got_lines.next(), Some(line));
     let file_lines: Vec<&str> = got_lines.collect();
     assert_eq!(file_lines.len(), files, "{}", got.stdout);
-    // ADR-037: the node writes one `<id>.bak`; every listed file is an entry of it.
-    let bak = std::fs::read(env.data_dir().join("backups").join(format!("{id}.bak"))).unwrap();
+    // ADR-037, PD-227: the node writes one `<id>.nbck`; every listed file is an entry of it,
+    // whose uncompressed size the marker records.
+    let bak = std::fs::read(env.data_dir().join("backups").join(format!("{id}.nbck"))).unwrap();
+    let sizes = nbck_sizes(&bak);
     for f in &file_lines {
         let cols: Vec<&str> = f.split('\t').collect();
         assert_eq!(cols.len(), 3, "{f}");
-        let (_, size) = bak_entry(&bak, &format!("backups/{id}/{}", cols[0]))
-            .unwrap_or_else(|| panic!("{f} not in the .bak"));
+        let size = sizes
+            .get(&format!("backups/{id}/{}", cols[0]))
+            .unwrap_or_else(|| panic!("{f} not in the .nbck"));
         assert_eq!(size.to_string(), cols[1], "{f}");
         assert!(
             cols[2].len() == 64 && cols[2].bytes().all(|b| b.is_ascii_hexdigit()),
@@ -468,8 +471,8 @@ fn tc_bkp_010_e2e_verify_detects_corrupt_and_missing_files() {
     };
     verify(true).ok();
 
-    // A byte in the middle of a table file inside the `.bak` (ADR-037).
-    let bak_path = env.data_dir().join("backups").join(format!("{id}.bak"));
+    // A byte in the middle of a (compressed) table file inside the `.nbck` (PD-227).
+    let bak_path = env.data_dir().join("backups").join(format!("{id}.nbck"));
     let mut bytes = std::fs::read(&bak_path).unwrap();
     let (offset, size) = bak_entries(&bytes)
         .into_iter()
@@ -486,11 +489,7 @@ fn tc_bkp_010_e2e_verify_detects_corrupt_and_missing_files() {
     std::fs::write(&bak_path, &bytes).unwrap();
     verify(false).ok();
     let deep = verify(true).failed();
-    assert!(
-        deep.stderr.contains("RGN-5002") && deep.stderr.contains("checksum"),
-        "{}",
-        deep.stderr
-    );
+    assert!(deep.stderr.contains("RGN-5002"), "{}", deep.stderr);
     let into = env.path("restored").display().to_string();
     let refused = env
         .cli(
@@ -503,7 +502,7 @@ fn tc_bkp_010_e2e_verify_detects_corrupt_and_missing_files() {
     assert!(refused.stderr.contains("5002"), "{}", refused.stderr);
     assert!(!env.path("restored").join("store").exists());
 
-    // A truncated `.bak` (the single-file form of a missing file) is refused.
+    // A truncated `.nbck` (the single-file form of a missing file) is refused.
     std::fs::write(&bak_path, &bytes[..bytes.len() / 2]).unwrap();
     let missing = verify(false).failed();
     assert!(
@@ -670,9 +669,9 @@ fn tc_bkp_005_e2e_encrypted_backup_needs_its_kek_and_holds_no_plaintext() {
     assert!(!created.stderr.contains("plaintext"), "{}", created.stderr);
     let mut daemon_output = daemon.stop();
 
-    // The single-file backup (ADR-037) holds no plaintext either.
+    // The single-file backup (ADR-037, PD-227) holds no plaintext either.
     let backup_dir = env.data_dir().join("backups");
-    assert!(backup_dir.join(format!("{id}.bak")).is_file());
+    assert!(backup_dir.join(format!("{id}.nbck")).is_file());
     assert_ne!(files_under(&backup_dir).len(), 0);
     let leaked = files_containing(&backup_dir, CANARY);
     assert!(leaked.is_empty(), "plaintext in {leaked:?}");
@@ -844,8 +843,15 @@ fn tc_bkp_013_e2e_dump_under_writes_restores_into_another_server() {
 
     // A second dump of the now quiet source: its state at T is the live state, so the target
     // must equal the source document for document after `restore --drop`.
-    let dump2 = src.path("dump2").display().to_string();
-    online(&src, &daemon, &["dump", "--out", &dump2]).ok();
+    // The single-file form (PD-228): the same restore rules apply to a `.dbck`.
+    let dump2 = src.path("dump2.dbck").display().to_string();
+    let dumped2 = online(&src, &daemon, &["dump", "--out", &dump2]).ok();
+    assert!(
+        dumped2.stdout.contains("(database backup "),
+        "{}",
+        dumped2.stdout
+    );
+    assert!(std::path::Path::new(&dump2).is_file());
     let source_acct = docs(&src, &daemon, "FROM shop.acct ORDER BY _id");
     let source_log = ids(&src, &daemon, "shop.log");
     src.assert_never_printed(ADMIN_PASSWORD);
@@ -1126,7 +1132,7 @@ fn tc_bkp_009_e2e_destination_allowlist_privileges_and_secrets() {
     assert_not_in_node_output(&env, &daemon_output, &[ADMIN_PASSWORD, BOB_PASSWORD]);
 }
 
-/// The entries of a `.bak` (ustar, ADR-037): (name, data offset, size). Reads the archive
+/// The entries of a `.nbck` (ustar, ADR-037, PD-227): (name, data offset, size). Reads the archive
 /// headers directly, independently of `rustegon-backup`.
 fn bak_entries(bak: &[u8]) -> Vec<(String, u64, u64)> {
     let text = |f: &[u8]| {
@@ -1150,10 +1156,13 @@ fn bak_entries(bak: &[u8]) -> Vec<(String, u64, u64)> {
     out
 }
 
-/// (data offset, size) of the entry `name` of a `.bak`.
-fn bak_entry(bak: &[u8], name: &str) -> Option<(u64, u64)> {
-    bak_entries(bak)
-        .into_iter()
-        .find(|(n, _, _)| n == name)
-        .map(|(_, offset, size)| (offset, size))
+/// The uncompressed size of every entry of a `.nbck`, from its marker (the first entry).
+fn nbck_sizes(nbck: &[u8]) -> std::collections::BTreeMap<String, u64> {
+    let (name, offset, size) = bak_entries(nbck).into_iter().next().expect("a marker");
+    assert_eq!(name, "rustegon-bak.json");
+    let at = usize::try_from(offset).unwrap();
+    let marker: serde_json::Value =
+        serde_json::from_slice(&nbck[at..at + usize::try_from(size).unwrap()]).unwrap();
+    assert_eq!(marker["format"], "rustegon-nbck");
+    serde_json::from_value(marker["entries"].clone()).unwrap()
 }

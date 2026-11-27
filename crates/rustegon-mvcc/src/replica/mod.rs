@@ -18,6 +18,15 @@
 //! (coding-standards.md §3.3 "no blocking in async"); deterministic simulation drives it
 //! directly. A Raft implementation blocks the same way until its entry is committed and applied.
 //!
+//! **Group commit** (ADR-040). [`Replica::propose_unsynced`] applies a command without waiting
+//! for its durability and [`Replica::sync_through`] waits for it later, so that the caller can
+//! release its latches in between and several commands share one log sync. Until then the
+//! command is visible to readers and may still be lost by a crash, together with everything
+//! applied after it. The rule that keeps the guarantees of transaction-management.md §1:
+//! **nothing computed from the replica's state may leave the node before
+//! `sync_through(unsynced_index())` returned** ([`Replica::unsynced_index`]). The transaction
+//! layer applies it; code that reads a replica directly must do the same.
+//!
 //! **Apply path** ([`apply_command`]): the command's operations and the new
 //! [`RangeAppliedState`] go to the engine in one atomic batch — the invariant that makes log
 //! replay after a crash exact (storage-engine.md §9).
@@ -112,6 +121,63 @@ pub trait Replica: Send + Sync {
     /// [`ReplicaError::Log`] for log failures; storage errors; [`ReplicaError::Poisoned`] once
     /// an apply failed (every later proposal fails until reopened).
     fn propose(&self, cmd: ReplicaCommand) -> Result<RangeAppliedState, ReplicaError>;
+
+    /// As [`Replica::propose`], but `Ok` does **not** promise durability: the command is applied
+    /// and may become durable only with the next [`Replica::propose`] (which then makes every
+    /// earlier deferred command durable with it, in order). A crash may lose it together with
+    /// every command proposed after it, never a later command without it.
+    ///
+    /// Only for commands whose loss is harmless as long as nothing after them survived: the
+    /// intents and record heartbeats of a transaction that has not committed (ADR-038). The
+    /// default is a durable proposal.
+    ///
+    /// # Errors
+    /// As [`Replica::propose`].
+    fn propose_deferred(&self, cmd: ReplicaCommand) -> Result<RangeAppliedState, ReplicaError> {
+        self.propose(cmd)
+    }
+
+    /// As [`Replica::propose`], but `Ok` does **not** promise durability: the command is applied
+    /// (readers see it) and becomes durable with a later [`Replica::sync_through`] of its index
+    /// (`applied_index` of the returned state), in log order with every command before it.
+    /// Until then [`Replica::unsynced_index`] reports it, and a crash may lose it together with
+    /// every command proposed after it, never a later command without it.
+    ///
+    /// Unlike a deferred command, this one matters to whoever saw it: the caller acknowledges
+    /// it only after `sync_through` returned, and observers follow the rule of the module docs
+    /// ("Group commit", ADR-040). The default is a durable proposal.
+    ///
+    /// # Errors
+    /// As [`Replica::propose`].
+    fn propose_unsynced(&self, cmd: ReplicaCommand) -> Result<RangeAppliedState, ReplicaError> {
+        self.propose(cmd)
+    }
+
+    /// Blocks until the command applied at log index `index`, and every command before it, is
+    /// durable. Returns at once when it already is. The default suits a replica whose
+    /// proposals are all durable on return.
+    ///
+    /// # Errors
+    /// [`ReplicaError::Log`] when the log cannot be written: `index` may or may not be durable,
+    /// the log decides at the next open, and the replica is poisoned (the engine holds commands
+    /// the log may lack); [`ReplicaError::Poisoned`] for an index that an earlier failure left
+    /// undecided; [`MvccError::InvalidArgument`] for an index that was never applied.
+    fn sync_through(&self, index: u64) -> Result<(), ReplicaError> {
+        let _ = index;
+        Ok(())
+    }
+
+    /// The log index of the newest command that is applied and not durable yet, among those
+    /// proposed with [`Replica::propose_unsynced`] or [`Replica::propose`]; `None` when there
+    /// is none. Deferred commands ([`Replica::propose_deferred`]) do not count: nobody was
+    /// promised them. Whoever read the replica's state waits for
+    /// `sync_through(unsynced_index())` before its result leaves (module docs, "Group commit").
+    ///
+    /// The index is the one to wait for if it is read *after* the state was read: a command
+    /// reports here before it becomes visible.
+    fn unsynced_index(&self) -> Option<u64> {
+        None
+    }
 
     /// The applied state of the last applied command (in memory, equal to the persisted one).
     fn applied_state(&self) -> RangeAppliedState;

@@ -70,6 +70,11 @@ fn run(fs: &Arc<SimFileSystem>, out: &mut Outcome) -> Result<(), Box<dyn Error>>
             t.put(&key(k), int(i))?;
         }
         out.ids[usize::try_from(i - 1)?] = Some(t.id());
+        // Another transaction commits in between: its log record carries the intents written
+        // above (ADR-038), so a crash from here to the commit leaves them to resolve.
+        let mut other = co.begin(TxnOptions::default());
+        other.put(&key(KEYS), int(i))?;
+        other.commit()?;
         out.in_flight = Some(i);
         t.commit()?;
         out.acked = i;

@@ -22,15 +22,15 @@
 //! a read that passes the check cannot miss a version GC removed (gc.rs, "threshold ordering").
 
 use bytes::Bytes;
-use rustegon_storage::{DbIterator, LsmEngine, merge::full_merge};
+use rustegon_storage::{DbIterator, LsmEngine, merge::full_merge, sst::PrefixExtractor};
 
 use crate::{
     error::{MvccError, Result},
     gc::GcThreshold,
     hlc::Timestamp,
     key::{
-        LOCAL_PREFIX, MvccKey, TXN_RECORD_MARKER, meta_key, next_logical_key, txn_record_anchor,
-        txn_record_key, version_key,
+        LOCAL_PREFIX, MvccKey, MvccPrefixExtractor, TXN_RECORD_MARKER, meta_key, next_logical_key,
+        txn_record_anchor, txn_record_key, version_key,
     },
     value::{Intent, IntentValue, SeqRange, TxnId, TxnRecord, VersionValue},
 };
@@ -100,14 +100,19 @@ impl<'a> MvccReader<'a> {
         Self { engine, gc }
     }
 
-    /// Pins an engine view, then checks the GC threshold (module docs).
-    fn open(&self, opts: &ReadOptions<'_>) -> Result<DbIterator> {
+    /// Pins an engine view, then checks the GC threshold (module docs). With `key`, the view
+    /// holds the entries of that logical key only: a point read then touches the files that
+    /// hold the key, not every L0 file and every level (PD-233).
+    fn open(&self, opts: &ReadOptions<'_>, key: Option<&[u8]>) -> Result<DbIterator> {
         if opts.uncertainty_limit < opts.read_ts {
             return Err(MvccError::InvalidArgument(
                 "uncertainty limit below read timestamp".into(),
             ));
         }
-        let iter = self.engine.iterator(None)?;
+        let iter = match key {
+            Some(key) => key_iterator(self.engine, key, &meta_key(key))?,
+            None => self.engine.iterator(None)?,
+        };
         if let Some(gc) = self.gc {
             gc.check(opts.read_ts)?;
         }
@@ -121,7 +126,7 @@ impl<'a> MvccReader<'a> {
     /// [`MvccError::BelowGcThreshold`] (`RGN-2007`), corruption and storage errors (including
     /// `RGN-1009` from merging).
     pub fn get(&self, key: &[u8], opts: &ReadOptions<'_>) -> Result<Option<Bytes>> {
-        let mut iter = self.open(opts)?;
+        let mut iter = self.open(opts, Some(key))?;
         let meta = meta_key(key);
         iter.seek(&meta)?;
         // Every entry of `key` starts with `key ‖ 0x00`, and no other logical key does
@@ -148,7 +153,7 @@ impl<'a> MvccReader<'a> {
         opts: &ReadOptions<'_>,
         max_keys: usize,
     ) -> Result<Vec<(Vec<u8>, Bytes)>> {
-        let mut iter = self.open(opts)?;
+        let mut iter = self.open(opts, None)?;
         let mut out = Vec::new();
         let mut conflicts = Vec::new();
         iter.seek(start)?;
@@ -162,8 +167,7 @@ impl<'a> MvccReader<'a> {
                 KeyOutcome::Value(None) => {}
                 KeyOutcome::Conflict(intent) => conflicts.push(intent),
             }
-            // Past every entry of `key` (key.rs ordering argument).
-            iter.seek(&next_logical_key(&key))?;
+            skip_key(&mut iter, &key)?;
         }
         if conflicts.is_empty() {
             Ok(out)
@@ -193,7 +197,7 @@ impl<'a> MvccReader<'a> {
         max_keys: usize,
     ) -> Result<Vec<(Vec<u8>, Bytes)>> {
         let opts = ReadOptions::at(read_ts);
-        let mut iter = self.open(&opts)?;
+        let mut iter = self.open(&opts, None)?;
         let mut out = Vec::new();
         iter.seek(start)?;
         while iter.valid() && out.len() < max_keys {
@@ -204,7 +208,7 @@ impl<'a> MvccReader<'a> {
             if let KeyOutcome::Value(Some(v)) = resolve_key(&mut iter, &key, &opts, true)? {
                 out.push((key.clone(), v));
             }
-            iter.seek(&next_logical_key(&key))?;
+            skip_key(&mut iter, &key)?;
         }
         Ok(out)
     }
@@ -216,7 +220,7 @@ impl<'a> MvccReader<'a> {
     /// As [`MvccReader::scan_committed`].
     pub fn get_committed(&self, key: &[u8], read_ts: Timestamp) -> Result<Option<Bytes>> {
         let opts = ReadOptions::at(read_ts);
-        let mut iter = self.open(&opts)?;
+        let mut iter = self.open(&opts, Some(key))?;
         let meta = meta_key(key);
         iter.seek(&meta)?;
         if !iter.valid() || !iter.key().starts_with(&meta) {
@@ -320,8 +324,65 @@ fn apply_intent(
     }
 }
 
-/// Resolves `key` (module docs). `iter` is on the first entry of `key`; it is left anywhere.
-/// `committed_only`: skip the intent, whoever holds it ([`MvccReader::scan_committed`]).
+/// An iterator over entries of the logical key `key` only: the engine keys in
+/// `[lower, key ‖ 0x01)`, where `lower` is an engine key of `key` (key.rs ordering argument).
+/// With the MVCC prefix extractor installed (`mvcc_engine_options`) every one of them has the
+/// filter prefix `key`, so the files whose filter excludes `key` are left out as well.
+pub(crate) fn key_iterator(engine: &LsmEngine, key: &[u8], lower: &[u8]) -> Result<DbIterator> {
+    let by_logical_key = engine.prefix_extractor_name() == MvccPrefixExtractor.name();
+    Ok(engine.iterator_within(
+        lower,
+        &next_logical_key(key),
+        by_logical_key.then_some(key),
+        None,
+    )?)
+}
+
+/// Entries stepped over with `next` before paying for a seek (PD-233). A seek repositions
+/// every source of the iterator (each memtable, L0 file and level) and costs two block
+/// lookups per SST source; a step moves one source inside the block it already holds. A key
+/// usually has a handful of entries, so stepping reaches the target first.
+const STEPS_BEFORE_SEEK: usize = 8;
+
+/// Leaves `iter` on the newest version of `key` at or below `limit`, or past the entries of
+/// `key` when it has none. `iter` is on a version of `key` or already past its entries.
+fn skip_newer_versions(
+    iter: &mut DbIterator,
+    key: &[u8],
+    meta: &[u8],
+    limit: Timestamp,
+) -> Result<()> {
+    for _ in 0..STEPS_BEFORE_SEEK {
+        if !iter.valid() || !iter.key().starts_with(meta) {
+            return Ok(());
+        }
+        match MvccKey::decode(iter.key())? {
+            MvccKey::Version(_, ts) if ts > limit => iter.next()?,
+            _ => return Ok(()),
+        }
+    }
+    Ok(iter.seek(&version_key(key, limit))?)
+}
+
+/// Leaves `iter` past every entry of `key` (key.rs ordering argument). `iter` is on an entry
+/// of `key` or already past them.
+fn skip_key(iter: &mut DbIterator, key: &[u8]) -> Result<()> {
+    let meta = meta_key(key);
+    for _ in 0..STEPS_BEFORE_SEEK {
+        if !iter.valid() || !iter.key().starts_with(&meta) {
+            return Ok(());
+        }
+        iter.next()?;
+    }
+    if iter.valid() && iter.key().starts_with(&meta) {
+        iter.seek(&next_logical_key(key))?;
+    }
+    Ok(())
+}
+
+/// Resolves `key` (module docs). `iter` is on the first entry of `key`; it is left on an entry
+/// of `key` or past them. `committed_only`: skip the intent, whoever holds it
+/// ([`MvccReader::scan_committed`]).
 fn resolve_key(
     iter: &mut DbIterator,
     key: &[u8],
@@ -331,15 +392,19 @@ fn resolve_key(
     // Merge operands seen so far, newest first.
     let mut operands: Vec<Bytes> = Vec::new();
     let meta = meta_key(key);
-    if !committed_only && iter.key() == meta.as_slice() {
-        let intent = IntentValue::decode(&iter.value())?;
-        if let Some(outcome) = apply_intent(intent, key, opts, &mut operands)? {
-            return Ok(outcome);
+    if iter.key() == meta.as_slice() {
+        if !committed_only {
+            let intent = IntentValue::decode(&iter.value())?;
+            if let Some(outcome) = apply_intent(intent, key, opts, &mut operands)? {
+                return Ok(outcome);
+            }
         }
+        // The meta entry sorts before every version of `key`.
+        iter.next()?;
     }
 
-    // Versions newer than the uncertainty limit are irrelevant: skip them with one seek.
-    iter.seek(&version_key(key, opts.uncertainty_limit))?;
+    // Versions newer than the uncertainty limit are irrelevant.
+    skip_newer_versions(iter, key, &meta, opts.uncertainty_limit)?;
     let mut base: Option<Bytes> = None;
     while iter.valid() && iter.key().starts_with(&meta) {
         let MvccKey::Version(_, ts) = MvccKey::decode(iter.key())? else {

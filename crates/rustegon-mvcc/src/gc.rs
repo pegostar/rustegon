@@ -262,13 +262,21 @@ impl CompactionFilter for MvccGcFilter {
     }
 }
 
-/// `base` with the MVCC prefix extractor (SST filters on logical keys) and the GC filter
-/// installed. Use it for every engine holding MVCC data.
+/// `base` with the MVCC prefix extractor: SST filters on logical keys, so a read of any entry
+/// of a key tests the filter of that key (storage-engine.md §4, ADR-039). Use it for every
+/// engine holding MVCC data.
 #[must_use]
-pub fn mvcc_engine_options(mut base: EngineOptions, threshold: Arc<GcThreshold>) -> EngineOptions {
+pub fn mvcc_filter_options(mut base: EngineOptions) -> EngineOptions {
     let extractor = Arc::new(MvccPrefixExtractor);
     base.reader.prefix_extractor = extractor.clone();
     base.compaction.writer.prefix_extractor = extractor;
+    base
+}
+
+/// [`mvcc_filter_options`] and the GC compaction filter.
+#[must_use]
+pub fn mvcc_engine_options(base: EngineOptions, threshold: Arc<GcThreshold>) -> EngineOptions {
+    let mut base = mvcc_filter_options(base);
     base.compaction_filter = Some(Arc::new(MvccGcFilter::new(threshold)));
     base
 }

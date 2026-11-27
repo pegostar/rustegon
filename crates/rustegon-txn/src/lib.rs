@@ -31,16 +31,21 @@
 //! The range latch is a reader-writer lock: reads (with their timestamp-cache registration) take
 //! it shared; evaluating and proposing a write batch takes it exclusively, so the state a batch
 //! is evaluated against cannot change before it applies (the `rustegon-mvcc` concurrency
-//! contract). This serialises writes of the range — including their `fsync` — which is the M2
-//! simplification; per-key latches of the M3 concurrency manager replace it without changing
-//! the rules above.
+//! contract). This serialises writes of the range, which is the M2 simplification; per-key
+//! latches of the M3 concurrency manager replace it without changing the rules above. A commit
+//! and a fast-path write are applied under the latch and wait for their log `fsync` after
+//! releasing it (group commit, ADR-040); rollbacks, aborts by pushers and intent resolutions
+//! still hold it across theirs. Because the range may then hold commits that are not durable
+//! yet, every operation that read it waits for them before it returns (`settle.rs`;
+//! [`settled`] makes that one wait per request).
 //!
 //! # Lock order
 //! 1. range latch (never held while waiting for another transaction);
 //! 2. one transaction's state mutex (`registry::TxnShared`), never two at once;
 //! 3. leaves: the registry map, the timestamp cache, the wait queues.
 //!
-//! The replica's own locks are below all of them (`propose` is called under the latch only).
+//! The replica's own locks are below all of them (proposals are made under the latch;
+//! `Replica::sync_through` is called with or without it, never with a state mutex held).
 //! Condition-variable waits hold only the mutex they wait on.
 //!
 //! # Time
@@ -54,6 +59,7 @@ pub mod error;
 pub mod lock_table;
 pub mod read_set;
 pub mod registry;
+mod settle;
 pub mod stats;
 pub mod ts_cache;
 mod txn;
@@ -62,5 +68,6 @@ pub use config::{AccessMode, Isolation, Priority, TxnConfig, TxnOptions};
 pub use conflict::OrphanStatus;
 pub use coordinator::{CommitInfo, TxnCoordinator};
 pub use error::{AbortReason, Result, TxnError};
+pub use settle::{in_settled_scope, settled};
 pub use stats::{RestartReason, TxnStatsSnapshot};
 pub use txn::Txn;

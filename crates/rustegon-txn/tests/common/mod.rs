@@ -128,13 +128,12 @@ pub fn open_replica(
 
 /// A coordinator over `replica` driven by `clock`.
 pub fn coordinator(
-    replica: Arc<LocalReplica>,
+    replica: Arc<dyn Replica>,
     clock: Arc<dyn Clock>,
     config: TxnConfig,
     seed: u64,
 ) -> TxnCoordinator {
     let hlc = Arc::new(Hlc::new(Arc::clone(&clock)));
-    let replica: Arc<dyn Replica> = replica;
     TxnCoordinator::new(replica, hlc, clock, TestRng::new(seed), config)
 }
 

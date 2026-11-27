@@ -17,12 +17,16 @@
 //! transaction's own) and above the newest committed version (write-too-old), and the intent is
 //! proposed — together with the `PENDING` record for the first write (anchor key, §3). SNAPSHOT
 //! first refuses keys committed after its read timestamp (first-committer-wins, `RGN-2001`).
+//!
+//! # The read rule (ADR-040)
+//! Every public operation here ends with `Core::settled`: what it returns, an error included,
+//! was computed from the range, where a commit may be applied and not durable yet.
 
 use std::sync::Arc;
 
 use bytes::Bytes;
 use rustegon_mvcc::{
-    Intent, MvccError, ReadOptions, Timestamp, TxnContext, TxnId, TxnMeta,
+    Intent, MvccError, RangeAppliedState, ReadOptions, Timestamp, TxnContext, TxnId, TxnMeta,
     TxnStatus as RecordStatus, VersionValue,
 };
 
@@ -58,6 +62,11 @@ impl Txn {
     /// Abort, timeout and deadlock errors while waiting for conflicting intents; `RGN-2007`
     /// below the GC threshold; storage errors.
     pub fn get(&mut self, key: &[u8]) -> Result<Option<Bytes>> {
+        let read = self.get_unsettled(key);
+        self.core.settled(read)
+    }
+
+    fn get_unsettled(&mut self, key: &[u8]) -> Result<Option<Bytes>> {
         self.check_active()?;
         let read_ts = self.statement_read_ts();
         let mut read_past = None;
@@ -82,6 +91,16 @@ impl Txn {
     /// # Errors
     /// As [`Txn::get`].
     pub fn scan(
+        &mut self,
+        start: &[u8],
+        end: &[u8],
+        max_keys: usize,
+    ) -> Result<Vec<(Vec<u8>, Bytes)>> {
+        let rows = self.scan_unsettled(start, end, max_keys);
+        self.core.settled(rows)
+    }
+
+    fn scan_unsettled(
         &mut self,
         start: &[u8],
         end: &[u8],
@@ -142,6 +161,11 @@ impl Txn {
     /// # Errors
     /// As [`Txn::put`].
     pub fn write(&mut self, key: &[u8], value: &VersionValue) -> Result<()> {
+        let written = self.write_unsettled(key, value);
+        self.core.settled(written)
+    }
+
+    fn write_unsettled(&mut self, key: &[u8], value: &VersionValue) -> Result<()> {
         self.check_active()?;
         self.check_writable()?;
         if self.options.isolation == Isolation::ReadCommitted {
@@ -172,7 +196,15 @@ impl Txn {
     /// # Errors
     /// As [`Txn::put`]; `RGN-2008` when a READ COMMITTED statement was re-evaluated more than
     /// `rc_statement_retries` times.
-    pub fn update<F>(&mut self, key: &[u8], mut f: F) -> Result<Option<Bytes>>
+    pub fn update<F>(&mut self, key: &[u8], f: F) -> Result<Option<Bytes>>
+    where
+        F: FnMut(Option<&Bytes>) -> Option<VersionValue>,
+    {
+        let read = self.update_unsettled(key, f);
+        self.core.settled(read)
+    }
+
+    fn update_unsettled<F>(&mut self, key: &[u8], mut f: F) -> Result<Option<Bytes>>
     where
         F: FnMut(Option<&Bytes>) -> Option<VersionValue>,
     {
@@ -201,7 +233,9 @@ impl Txn {
 
     /// Single-key fast path (§6, used by [`crate::TxnCoordinator::put_single_key`]): commits
     /// `value` as a version above the timestamp cache and the newest version, without intent or
-    /// record, then finishes the (implicit) transaction.
+    /// record, then finishes the (implicit) transaction. As a commit, the version is applied
+    /// under the latch and its log record is waited for after it (ADR-040); `Ok` and an unknown
+    /// outcome need no further wait, any other error is an observation the caller settles.
     pub(crate) fn fast_path_write(
         &mut self,
         key: &[u8],
@@ -221,7 +255,13 @@ impl Txn {
                 }
                 other => other?,
             };
-            if let Some(ts) = self.handle_step(step, Access::Write)? {
+            if let Some((ts, applied)) = self.handle_step(step, Access::Write)? {
+                if let Some(state) = applied
+                    && let Err(e) = core.replica.sync_through(state.applied_index)
+                {
+                    self.phase = Phase::Unknown;
+                    return Err(TxnError::CommitOutcomeUnknown(e));
+                }
                 self.finish_committed(ts);
                 return Ok(ts);
             }
@@ -424,7 +464,9 @@ impl Txn {
         self.anchor = Some(anchor);
         self.seq = seq;
         self.write_bytes = write_bytes;
-        core.propose(writer)?;
+        // An intent (and the PENDING record) needs no fsync of its own: the commit's makes it
+        // durable first (ADR-038).
+        core.propose_deferred(writer)?;
         {
             let mut st = self.shared.lock();
             st.write_ts = st.write_ts.max(ts);
@@ -467,9 +509,14 @@ impl Txn {
         }
     }
 
-    /// Evaluates and proposes a committed version directly (single-key fast path). Must hold
-    /// the exclusive latch.
-    fn fast_write_locked(&mut self, key: &[u8], value: &VersionValue) -> Result<Step<Timestamp>> {
+    /// Evaluates and proposes a committed version directly (single-key fast path), without its
+    /// log sync. Must hold the exclusive latch. Returns the version's timestamp and the applied
+    /// state to wait for.
+    fn fast_write_locked(
+        &mut self,
+        key: &[u8],
+        value: &VersionValue,
+    ) -> Result<Step<(Timestamp, Option<RangeAppliedState>)>> {
         let mut ts = self.core.hlc.now();
         let cached = self.core.ts_cache().max_point(key);
         if cached.ts >= ts {
@@ -485,9 +532,10 @@ impl Txn {
                 Err(e) => return Err(e.into()),
             }
         }
-        core.propose(writer)
+        let applied = core
+            .propose_unsynced(writer)
             .map_err(TxnError::CommitOutcomeUnknown)?;
         core.hlc.update(ts);
-        Ok(Step::Done(ts))
+        Ok(Step::Done((ts, applied)))
     }
 }

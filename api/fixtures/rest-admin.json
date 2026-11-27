@@ -1131,6 +1131,12 @@
           "# HELP rustegon_storage_memtable_bytes Storage engine statistic.",
           "# TYPE rustegon_storage_sst_files gauge",
           "# HELP rustegon_storage_sst_files Storage engine statistic.",
+          "# TYPE rustegon_storage_running_compactions gauge",
+          "# HELP rustegon_storage_running_compactions Storage engine statistic.",
+          "# TYPE rustegon_storage_block_cache_hits counter",
+          "# HELP rustegon_storage_block_cache_hits Storage engine statistic.",
+          "# TYPE rustegon_storage_block_cache_misses counter",
+          "# HELP rustegon_storage_block_cache_misses Storage engine statistic.",
           "# EOF"
         ],
         "headers": {

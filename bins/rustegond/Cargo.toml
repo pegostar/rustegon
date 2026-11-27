@@ -11,12 +11,18 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+# PD-233 diagnostics: a counting allocator logs the live heap by allocation size
+# (`heap_stats.rs`). Not for production builds: every allocation pays two atomic updates.
+heap-stats = []
+
 [dependencies]
 clap.workspace = true
 rustegon-backup.workspace = true
 rustegon-common.workspace = true
 rustegon-engine.workspace = true
 rustegon-index.workspace = true
+rustegon-mvcc.workspace = true
 rustegon-net.workspace = true
 rustegon-security.workspace = true
 rustegon-server.workspace = true
@@ -36,13 +42,18 @@ zeroize.workspace = true
 
 # SCM integration of `--service` (windows.md §3, PD-054, PD-206).
 [target.'cfg(windows)'.dependencies]
+# Global allocator on Windows (`allocator.rs`, PD-010, PD-233).
+mimalloc.workspace = true
 windows-service.workspace = true
+
+[target.'cfg(windows)'.dev-dependencies]
+# `mi_is_in_heap_region` in the test that the node allocates from mimalloc (PD-010).
+libmimalloc-sys.workspace = true
 
 [dev-dependencies]
 http.workspace = true
 hyper-util = { workspace = true, features = ["tokio"] }
 rustegon-doc.workspace = true
-rustegon-mvcc.workspace = true
 rustegon-proto.workspace = true
 rustegon-query.workspace = true
 serde_json.workspace = true

@@ -286,9 +286,16 @@ impl tower_service::Service<http::Request<Incoming>> for RgnService {
         Box::pin(async move {
             let path = request.uri().path().to_owned();
             let timer = services.metrics().start(Route::grpc(&path), &clock);
+            let started = clock.monotonic();
             let admitted = gate::admit(&services, &path, request.headers(), conn.as_ref()).await;
+            let admit_took = clock.monotonic().saturating_sub(started);
+            let mut slow_log = None;
             let response = match admitted {
                 Ok(ctx) => {
+                    slow_log = Some((
+                        ctx.trace_id_hex(),
+                        ctx.principal().map(|p| p.user.clone()).unwrap_or_default(),
+                    ));
                     request.extensions_mut().insert(ctx);
                     // The clone was not polled for readiness; tonic's router is always ready,
                     // but the tower contract is honoured anyway.
@@ -303,8 +310,37 @@ impl tower_service::Service<http::Request<Incoming>> for RgnService {
                 }
                 Err(status) => status.into_http(),
             };
+            if let Some((trace_id, user)) = slow_log {
+                let total = clock.monotonic().saturating_sub(started);
+                log_slow(&path, &trace_id, &user, admit_took, total);
+            }
             Ok(with_trailers(response, node_id, clock.as_ref(), timer))
         })
+    }
+}
+
+/// `query.slow_threshold_ms` default (query-engine.md §10, NFR-OBS-001).
+// shortcut: fixed at the spec default and gRPC only; the setting, the REST front end, the
+// in-memory ring, plan hash and examined/returned counts come with the full slow-query log
+// (PD-234).
+pub const SLOW_QUERY: Duration = Duration::from_millis(100);
+
+/// Logs an admitted request that took [`SLOW_QUERY`] or longer to the `slow_query` channel,
+/// split into the security gate (`admit_ms`: authentication, rate limit, privileges) and the
+/// whole call up to the response headers (`duration_ms`; a unary handler has finished by then,
+/// a streaming one has produced its first message). PD-233: tells server time from the time a
+/// client measures. Method names and user names only, never document contents.
+fn log_slow(method: &str, trace_id: &str, user: &str, admit: Duration, total: Duration) {
+    if total >= SLOW_QUERY {
+        tracing::warn!(
+            target: "slow_query",
+            method,
+            trace_id,
+            user,
+            admit_ms = u64::try_from(admit.as_millis()).unwrap_or(u64::MAX),
+            duration_ms = u64::try_from(total.as_millis()).unwrap_or(u64::MAX),
+            "slow request"
+        );
     }
 }
 

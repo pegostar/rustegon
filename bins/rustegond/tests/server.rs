@@ -767,7 +767,7 @@ fn tc_txn_006_rustegond_status_after_kill_restart_reports_coordinator_lost() {
     std::fs::write(&password_file, format!("{PASSWORD}\n")).unwrap();
     let pw_arg = password_file.display().to_string();
     let mut daemon = env.start(&["--admin-password-file", &pw_arg]);
-    let (committed, pending, written_at) = runtime().block_on(async {
+    let (committed, pending, before_write, written_at) = runtime().block_on(async {
         let channel = tls_channel(&env.pki, daemon.grpc).await;
         let (token, _) = login(&channel, "admin", PASSWORD).await;
         SchemaServiceClient::new(channel.clone())
@@ -802,8 +802,20 @@ fn tc_txn_006_rustegond_status_after_kill_restart_reports_coordinator_lost() {
             .await
             .unwrap();
         let pending = begin().await;
+        // The server stamps the record's heartbeat while the insert runs: between these two
+        // instants.
+        let before_write = Instant::now();
         insert_in(&channel, &token, &pending, 2).await;
-        (committed, pending, Instant::now())
+        let written_at = Instant::now();
+        // The intents and the record of an open transaction reach the log with the next
+        // durable command (ADR-038): another transaction commits before the crash.
+        let other = begin().await;
+        insert_in(&channel, &token, &other, 3).await;
+        TransactionServiceClient::new(channel.clone())
+            .commit(authed(pb::CommitRequest { txn_id: other }, &token))
+            .await
+            .unwrap();
+        (committed, pending, before_write, written_at)
     });
     // A crash: no graceful shutdown, so nothing rolls the open transaction back.
     daemon.child.kill().unwrap();
@@ -825,12 +837,17 @@ fn tc_txn_006_rustegond_status_after_kill_restart_reports_coordinator_lost() {
         loop {
             let polled_at = written_at.elapsed();
             let st = txn_status(&mut txns, &token, &pending).await.unwrap();
+            // An upper bound of the server's age of the record when it answered: from before
+            // the write to after the answer. `polled_at` is no bound: it starts after the
+            // write's reply and ends before this request, so a correct server may already see
+            // more than the timeout (the flake at 4.995 s under load).
+            let max_age = before_write.elapsed();
             assert_unknown(txn_status(&mut txns, &token, &committed).await);
             first_poll.get_or_insert((polled_at, st.state));
             if st.state == pb::TransactionState::Aborted as i32 {
                 assert_eq!(st.abort_reason.as_deref(), Some("coordinator_lost"));
                 // The record's heartbeat is its last write: never aborted before it expired.
-                assert!(polled_at > LIVENESS, "aborted after only {polled_at:?}");
+                assert!(max_age > LIVENESS, "aborted after only {max_age:?}");
                 break;
             }
             assert_eq!(st.state, pb::TransactionState::Committing as i32, "{st:?}");

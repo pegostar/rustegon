@@ -532,12 +532,23 @@ impl QueryService {
         &self,
         ctx: &RequestContext,
         mut cursor: OwnedCursor,
-    ) -> Result<(OwnedCursor, Result<rustegon_query::CursorBatch, Error>), Error> {
+    ) -> Result<
+        (
+            OwnedCursor,
+            Result<rustegon_query::CursorBatch, Error>,
+            Duration,
+        ),
+        Error,
+    > {
+        let clock = Arc::clone(&self.deps.clock);
         self.deps
             .executor
             .run(ctx, Completion::Abandon, move |_| {
+                let start = clock.monotonic();
                 let batch = cursor.next_batch();
-                Ok((cursor, batch))
+                // PD-233: the time on the executor thread, without the wait for one.
+                let ran = clock.monotonic().saturating_sub(start);
+                Ok((cursor, batch, ran))
             })
             .await
     }
@@ -581,7 +592,7 @@ impl QueryService {
         let kill = CancelOnDrop(Some(entry.cancel.clone()));
         let outcome = self.next_batch(ctx, cursor).await;
         let (cursor, batch) = match outcome {
-            Ok(v) => v,
+            Ok((cursor, batch, _)) => (cursor, batch),
             Err(e) => {
                 // Abandoned at the deadline: the batch is lost, so is the cursor.
                 self.plane.cursors.remove(cursor_id);
@@ -708,6 +719,37 @@ struct Producer {
     txn_id: Option<String>,
 }
 
+/// Logs a read query's stream that took `SLOW_QUERY` or longer when its producer ends
+/// (PD-233/PD-234; the gRPC layer times `Execute` only up to the response headers):
+/// `open_ms` up to the open cursor, `scan_ms` on executor threads, `queue_ms` waiting for one,
+/// the rest of `duration_ms` waiting for the client to take batches.
+struct ScanTimer {
+    clock: Arc<dyn rustegon_sim_api::Clock>,
+    trace_id: String,
+    started: Duration,
+    opened: Duration,
+    wall: Duration,
+    ran: Duration,
+}
+
+impl Drop for ScanTimer {
+    fn drop(&mut self) {
+        let total = self.clock.monotonic().saturating_sub(self.started);
+        if total >= crate::grpc::SLOW_QUERY {
+            let ms = |d: Duration| u64::try_from(d.as_millis()).unwrap_or(u64::MAX);
+            tracing::warn!(
+                target: "slow_query",
+                trace_id = %self.trace_id,
+                open_ms = ms(self.opened.saturating_sub(self.started)),
+                scan_ms = ms(self.ran),
+                queue_ms = ms(self.wall.saturating_sub(self.ran)),
+                duration_ms = ms(total),
+                "slow query stream"
+            );
+        }
+    }
+}
+
 /// Counts a running producer in `DataPlane::streams`.
 struct StreamCount(Arc<DataPlane>);
 
@@ -729,9 +771,24 @@ impl Producer {
         let _count = StreamCount::new(&self.service.plane);
         let mut cursor = Some(cursor);
         let mut sent: u32 = 0;
+        let clock = Arc::clone(&self.service.deps.clock);
+        let mut timer = ScanTimer {
+            clock: Arc::clone(&clock),
+            trace_id: self.ctx.trace_id_hex(),
+            started: self.started,
+            opened: clock.monotonic(),
+            wall: Duration::ZERO,
+            ran: Duration::ZERO,
+        };
         while let Some(current) = cursor.take() {
-            let (current, batch) = match self.service.next_batch(&self.ctx, current).await {
-                Ok(v) => v,
+            let before = clock.monotonic();
+            let next = self.service.next_batch(&self.ctx, current).await;
+            timer.wall += clock.monotonic().saturating_sub(before);
+            let (current, batch) = match next {
+                Ok((current, batch, ran)) => {
+                    timer.ran += ran;
+                    (current, batch)
+                }
                 Err(e) => {
                     // Abandoned (deadline): the closure drops the cursor; stop it early.
                     self.cancel();

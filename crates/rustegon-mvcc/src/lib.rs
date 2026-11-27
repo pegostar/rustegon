@@ -24,7 +24,10 @@ pub mod value;
 pub mod write;
 
 pub use error::{MvccError, Result};
-pub use gc::{GcPin, GcThreshold, MvccGcFilter, gc_batch, gc_batch_limited, mvcc_engine_options};
+pub use gc::{
+    GcPin, GcThreshold, MvccGcFilter, gc_batch, gc_batch_limited, mvcc_engine_options,
+    mvcc_filter_options,
+};
 pub use hlc::{Hlc, HlcBoundStore, Timestamp};
 pub use key::{MvccKey, MvccPrefixExtractor, meta_key, txn_record_key, version_key};
 pub use read::{MvccReader, ReadOptions, TxnContext};

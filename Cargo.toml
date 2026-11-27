@@ -52,7 +52,12 @@ http-body = "1.0"
 http-body-util = "0.1"
 hyper = { version = "1.10", default-features = false }
 hyper-util = { version = "0.1.21", default-features = false }
+# Global allocator of the node on Windows (database-engine.md §5, PD-010, PD-233): mimalloc v3.
+# `libmimalloc-sys` directly only in the test that the node allocates from it (`extended`:
+# `mi_is_in_heap_region`).
+libmimalloc-sys = { version = "0.1.49", features = ["extended"] }
 lz4_flex = { version = "0.14", default-features = false, features = ["std", "safe-encode", "safe-decode"] }
+mimalloc = { version = "0.1.52", default-features = false }
 pbkdf2 = { version = "0.13", default-features = false, features = ["hmac"] }
 proptest = "1.12"
 # gRPC/protobuf (ADR-014, PD-045). tonic without TLS features: TLS is configured through

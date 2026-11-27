@@ -11,7 +11,7 @@
 use std::{
     collections::HashMap,
     path::PathBuf,
-    sync::{Arc, Mutex, PoisonError},
+    sync::{Arc, PoisonError, RwLock},
 };
 
 use rustegon_sim_api::{FileSystem, OpenMode};
@@ -29,8 +29,10 @@ pub struct TableCache {
     fs: Arc<dyn FileSystem>,
     dir: PathBuf,
     options: SstReaderOptions,
-    /// Protects only the map; readers are opened outside the lock.
-    readers: Mutex<HashMap<u64, SstReader>>,
+    /// Protects only the map; readers are opened outside the lock. A read-write lock: every
+    /// read of the engine looks its files up here, and lookups must not queue behind each
+    /// other (PD-233: one mutex made 16 concurrent queries 6x slower).
+    readers: RwLock<HashMap<u64, SstReader>>,
 }
 
 impl TableCache {
@@ -42,7 +44,7 @@ impl TableCache {
             fs,
             dir,
             options,
-            readers: Mutex::new(HashMap::new()),
+            readers: RwLock::new(HashMap::new()),
         }
     }
 
@@ -51,8 +53,16 @@ impl TableCache {
     /// # Errors
     /// I/O errors and corruption from opening the file.
     pub fn get(&self, number: u64) -> Result<SstReader> {
-        if let Some(reader) = self.lock().get(&number) {
-            return Ok(reader.clone());
+        // Every critical section is a single map operation, so a panic cannot leave the map
+        // half-updated; the poison flag carries no information here.
+        let found = self
+            .readers
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&number)
+            .cloned();
+        if let Some(reader) = found {
+            return Ok(reader);
         }
         // Opened without the lock (it does I/O). Two racing opens are harmless: the first
         // inserted reader wins and the other is dropped.
@@ -68,9 +78,7 @@ impl TableCache {
         self.lock().remove(&number);
     }
 
-    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<u64, SstReader>> {
-        // Every critical section is a single map operation, so a panic cannot leave the map
-        // half-updated; the poison flag carries no information here.
-        self.readers.lock().unwrap_or_else(PoisonError::into_inner)
+    fn lock(&self) -> std::sync::RwLockWriteGuard<'_, HashMap<u64, SstReader>> {
+        self.readers.write().unwrap_or_else(PoisonError::into_inner)
     }
 }

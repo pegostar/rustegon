@@ -19,6 +19,13 @@
 //!   runs `compact_once` until the picker finds nothing, then waits for a flush or
 //!   [`COMPACTION_POLL`]. Concurrent workers are safe: the picker skips files that a running
 //!   compaction holds (storage-engine.md, compaction implementation).
+//! - **MVCC GC loop** (one, PD-232; storage-engine.md §11): every [`GC_POLL`] advances the GC
+//!   threshold to `wall clock − gc.ttl` and deletes the versions no read at or above it can see
+//!   (`EmbeddedDb::collect_garbage`, held back by backup pins); compactions then drop them
+//!   physically. Without it every overwritten or deleted version stayed on disk forever (first
+//!   24 h soak: 6 GB for ~100 MB of live data). The physical clock is never ahead of the HLC,
+//!   so the threshold is at most `HLC now − gc.ttl`; `gc.ttl ≥ 10 min` is far above
+//!   `txn.max_duration` (60 s), so no read-write transaction reads below it.
 //! - **Errors** (I/O, ENOSPC, corruption): logged, then the loop waits [`ERROR_BACKOFF`]
 //!   before retrying (storage-engine.md §11, "retries every 10 s"); a failed flush or
 //!   compaction loses nothing (the log keeps every acknowledged commit, a failed compaction's
@@ -34,6 +41,7 @@
 use std::{sync::Arc, time::Duration};
 
 use rustegon_engine::EmbeddedDb;
+use rustegon_mvcc::Timestamp;
 use rustegon_sim_api::Clock;
 use tokio::{sync::Notify, sync::watch, task::JoinHandle};
 
@@ -42,6 +50,10 @@ pub const FLUSH_POLL: Duration = Duration::from_millis(100);
 /// Longest idle wait of a compaction worker without a flush waking it (picks up compactions
 /// that become due without a flush, e.g. after a snapshot was released).
 pub const COMPACTION_POLL: Duration = Duration::from_secs(5);
+/// Period of the MVCC GC loop: the history kept is `gc.ttl` plus at most this much.
+// shortcut: each run scans the whole store (`collect_garbage` over every key), fine for one
+// node's data; a per-range garbage score (storage-engine.md §11) replaces it with ranges (M6).
+pub const GC_POLL: Duration = Duration::from_secs(300);
 /// Wait after a failed flush or compaction before the next attempt.
 pub const ERROR_BACKOFF: Duration = Duration::from_secs(10);
 /// Longest wait of [`Maintenance::stop`] for a running flush or compaction.
@@ -64,12 +76,32 @@ enum Step {
 }
 
 impl Maintenance {
-    /// Starts the flush loop and `workers` compaction workers (at least one) on the current
-    /// tokio runtime.
-    pub fn start(engine: &Arc<EmbeddedDb>, clock: &Arc<dyn Clock>, workers: usize) -> Self {
+    /// Starts the flush loop, `workers` compaction workers (at least one) and the MVCC GC loop
+    /// keeping `gc_ttl` of history, on the current tokio runtime.
+    pub fn start(
+        engine: &Arc<EmbeddedDb>,
+        clock: &Arc<dyn Clock>,
+        workers: usize,
+        gc_ttl: Duration,
+    ) -> Self {
         let (stop, stop_rx) = watch::channel(false);
         let flushed = Arc::new(Notify::new());
-        let mut tasks = Vec::with_capacity(1 + workers.max(1));
+        let mut tasks = Vec::with_capacity(3 + workers.max(1));
+        tasks.push(tokio::spawn(crate::slow_io::stall_probe(
+            Arc::clone(clock),
+            stop_rx.clone(),
+        )));
+        {
+            let (engine, gc_clock) = (Arc::clone(engine), Arc::clone(clock));
+            tasks.push(tokio::spawn(run_loop(
+                "gc",
+                Arc::clone(clock),
+                stop_rx.clone(),
+                None,
+                GC_POLL,
+                move || gc_step(&engine, gc_clock.as_ref(), gc_ttl),
+            )));
+        }
         {
             let (engine, clock, flushed) =
                 (Arc::clone(engine), Arc::clone(clock), Arc::clone(&flushed));
@@ -130,6 +162,41 @@ fn flush_step(engine: &EmbeddedDb, flushed: &Notify) -> Step {
         Err(e) => {
             // Storage and log errors carry paths and codes, never document contents.
             tracing::error!(code = %e.code(), error = %e, "background flush failed; retrying");
+            Step::Failed
+        }
+    }
+}
+
+/// Collects the MVCC versions shadowed for longer than `ttl` (module docs, "MVCC GC loop").
+fn gc_step(engine: &EmbeddedDb, clock: &dyn Clock, ttl: Duration) -> Step {
+    let now = clock
+        .wall()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let Some(cutoff) = now.checked_sub(ttl) else {
+        // The clock is less than `ttl` past the epoch: nothing is old enough.
+        return Step::Idle;
+    };
+    let wall = u64::try_from(cutoff.as_nanos()).unwrap_or(u64::MAX);
+    match engine.collect_garbage(Timestamp::new(wall, 0)) {
+        Ok(outcome) => {
+            // Info, one line per GC_POLL: the duration of the full-store scan is what PD-233
+            // matches against the soak's latency bursts.
+            let took = clock
+                .wall()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .saturating_sub(now);
+            tracing::info!(
+                threshold = %outcome.threshold,
+                versions = outcome.versions_removed,
+                took_ms = u64::try_from(took.as_millis()).unwrap_or(u64::MAX),
+                "MVCC garbage collected"
+            );
+            Step::Idle
+        }
+        Err(e) => {
+            tracing::error!(code = %e.code(), error = %e, "MVCC garbage collection failed; retrying");
             Step::Failed
         }
     }
@@ -252,7 +319,7 @@ mod tests {
             .query("shop", "CREATE COLLECTION orders", &none)
             .unwrap();
 
-        let maintenance = Maintenance::start(&engine, &clock, 2);
+        let maintenance = Maintenance::start(&engine, &clock, 2, Duration::from_secs(3600));
         let pad = "x".repeat(1024);
         for i in 0..1500 {
             let statement = format!("INSERT INTO orders VALUE {{_id: {i}, pad: '{pad}'}}");
@@ -285,5 +352,73 @@ mod tests {
         let reopened = open();
         let rows = reopened.query("shop", "FROM orders", &none).unwrap().rows;
         assert_eq!(rows.len(), 1500, "every write survives the reopen");
+    }
+
+    fn wall_ns() -> u64 {
+        u64::try_from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        )
+        .unwrap()
+    }
+
+    /// PD-232: the GC step moves the threshold to `now − ttl` (never past the HLC), removes the
+    /// shadowed versions of an updated document and keeps its latest value readable.
+    #[test]
+    fn pd_232_gc_step_collects_versions_older_than_the_ttl() {
+        let dir = tempfile::tempdir().unwrap();
+        let clock: Arc<dyn Clock> = Arc::new(SystemClock::new());
+        let engine = EmbeddedDb::open_with_options(
+            Arc::new(StdFileSystem),
+            dir.path(),
+            Arc::clone(&clock),
+            Arc::new(OsRng),
+            small_options(),
+        )
+        .unwrap();
+        let none = Params::default();
+        engine.query("shop", "CREATE DATABASE shop", &none).unwrap();
+        engine
+            .query("shop", "CREATE COLLECTION orders", &none)
+            .unwrap();
+        engine
+            .query("shop", "INSERT INTO orders VALUE {_id: 1, n: 0}", &none)
+            .unwrap();
+        for n in 1..=20 {
+            let statement = format!("UPDATE orders SET n = {n} WHERE _id = 1");
+            engine.query("shop", statement.as_str(), &none).unwrap();
+        }
+
+        // A TTL of one hour: the threshold lands one hour back, below every write.
+        let hour = Duration::from_secs(3600);
+        let before = wall_ns();
+        assert!(matches!(gc_step(&engine, clock.as_ref(), hour), Step::Idle));
+        let after = wall_ns();
+        let t = engine.gc_threshold().wall;
+        let hour_ns = u64::try_from(hour.as_nanos()).unwrap();
+        assert!(
+            (before - hour_ns..=after - hour_ns).contains(&t),
+            "threshold {t}"
+        );
+
+        // A zero TTL (below the setting's minimum, test only): every write is old enough; after
+        // the step nothing is left for a second pass at the same threshold (the deletion itself
+        // is `collect_garbage`'s, covered in rustegon-sim tests/backup.rs).
+        assert!(matches!(
+            gc_step(&engine, clock.as_ref(), Duration::ZERO),
+            Step::Idle
+        ));
+        let threshold = engine.gc_threshold();
+        assert!(threshold.wall >= after);
+        let again = engine.collect_garbage(threshold).unwrap();
+        assert_eq!(again.versions_removed, 0);
+        let rows = engine
+            .query("shop", "FROM orders WHERE _id = 1", &none)
+            .unwrap()
+            .rows;
+        assert_eq!(rows.len(), 1);
+        assert!(format!("{:?}", rows[0]).contains("20"), "{:?}", rows[0]);
     }
 }

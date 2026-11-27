@@ -57,7 +57,7 @@ use rustegon_doc::{
     Document, ObjectIdGenerator, Value, keyspace::document_key, limits::validate_user_document,
     rdoc,
 };
-use rustegon_mvcc::{GcThreshold, Hlc, MvccGcFilter, Replica, Timestamp};
+use rustegon_mvcc::{GcThreshold, Hlc, MvccGcFilter, Replica, Timestamp, mvcc_filter_options};
 use rustegon_sim_api::{Clock, FileSystem, Rng};
 use rustegon_storage::{EngineOptions, LsmEngine};
 use rustegon_txn::{Txn, TxnConfig, TxnCoordinator, TxnError, TxnOptions};
@@ -291,6 +291,11 @@ impl EmbeddedDb {
         if options.compaction_filter.is_none() {
             options.compaction_filter = Some(Arc::new(MvccGcFilter::new(Arc::clone(&gc))));
         }
+        // SST filters on logical keys (storage-engine.md §4): a read of any version of a key
+        // tests the filter of that key, so a point read skips the files without it (PD-233:
+        // with the default full-key extractor no version read could use a filter). Files
+        // written with another extractor stay readable, their filter is ignored (`SstReader`).
+        let mut options = mvcc_filter_options(options);
         // A caller-built key manager (tests) is used as is for the LSM.
         let store_keys = if options.encryption.is_some() && kek.is_none() {
             None

@@ -14,7 +14,10 @@
 //! Asserted after every crash:
 //! - the reopen succeeds;
 //! - the data is exactly the acknowledged state, or that state plus the whole in-flight
-//!   proposal: no acknowledged proposal lost, no proposal partially applied;
+//!   proposal: no acknowledged proposal lost, no proposal partially applied. Deferred proposals
+//!   (ADR-038) and unsynced ones (ADR-040) are acknowledged by the next durable step (a
+//!   proposal, a `sync_through`, an engine flush, a clean close); until then a crash may keep
+//!   any prefix of them, never one without its predecessors;
 //! - the persisted `RangeAppliedState` equals the replica's and names the last log entry, and
 //!   the log still holds every entry after the engine's flushed applied state (`observe`);
 //! - the store accepts a new proposal, and a further restart (memtables lost, replay again)
@@ -53,7 +56,24 @@ fn env(name: &str, default: u64) -> u64 {
 #[derive(Default)]
 struct Outcome {
     acked: Model,
+    /// The states after each deferred or unsynced proposal since `acked`, oldest first.
+    deferred: Vec<Model>,
     in_flight: Option<Model>,
+}
+
+impl Outcome {
+    /// The state the store is in now.
+    fn current(&self) -> &Model {
+        self.deferred.last().unwrap_or(&self.acked)
+    }
+
+    /// A durable step succeeded: the deferred proposals are acknowledged.
+    fn settle(&mut self) {
+        if let Some(last) = self.deferred.pop() {
+            self.acked = last;
+            self.deferred.clear();
+        }
+    }
 }
 
 fn run(fs: &Arc<SimFileSystem>, steps: &[Step], out: &mut Outcome) -> Result<(), Box<dyn Error>> {
@@ -61,12 +81,35 @@ fn run(fs: &Arc<SimFileSystem>, steps: &[Step], out: &mut Outcome) -> Result<(),
     for (i, step) in steps.iter().enumerate() {
         match step {
             Step::Propose(ops) => {
-                out.in_flight = Some(out.acked.after(ops));
+                out.in_flight = Some(out.current().after(ops));
                 let state = store.replica.propose(command(ops, i as u64))?;
                 out.acked = out.in_flight.take().unwrap();
+                out.deferred.clear();
                 assert_eq!(state.applied_index, out.acked.applied);
             }
-            Step::Flush => store.engine.flush()?,
+            Step::Defer(ops) => {
+                let next = out.current().after(ops);
+                let state = store.replica.propose_deferred(command(ops, i as u64))?;
+                assert_eq!(state.applied_index, next.applied);
+                out.deferred.push(next);
+            }
+            Step::Unsynced(ops) => {
+                let next = out.current().after(ops);
+                let state = store.replica.propose_unsynced(command(ops, i as u64))?;
+                assert_eq!(state.applied_index, next.applied);
+                // Whoever saw this command is told to wait for it.
+                assert_eq!(store.replica.unsynced_index(), Some(next.applied));
+                out.deferred.push(next);
+            }
+            Step::Sync => {
+                store.replica.sync_through(store.replica.applied_index())?;
+                out.settle();
+                assert_eq!(store.replica.unsynced_index(), None);
+            }
+            Step::Flush => {
+                store.engine.flush()?;
+                out.settle();
+            }
             Step::Compact => {
                 store.engine.compact()?;
             }
@@ -74,8 +117,10 @@ fn run(fs: &Arc<SimFileSystem>, steps: &[Step], out: &mut Outcome) -> Result<(),
                 store.replica.purge_flushed()?;
             }
             Step::Restart => {
+                // A clean close writes the deferred proposals.
                 drop(store);
                 store = open(fs)?;
+                out.settle();
                 assert_eq!(observe(&store).unwrap(), out.acked, "restart without crash");
             }
         }
@@ -86,13 +131,13 @@ fn run(fs: &Arc<SimFileSystem>, steps: &[Step], out: &mut Outcome) -> Result<(),
 /// The recovered state must be the acknowledged one or it plus the in-flight proposal.
 fn check_state(store: &Store, out: &Outcome, ctx: &str) -> Model {
     let got = observe(store).unwrap_or_else(|e| panic!("{ctx}: {e}"));
-    if got == out.acked || out.in_flight.as_ref() == Some(&got) {
+    if got == out.acked || out.in_flight.as_ref() == Some(&got) || out.deferred.contains(&got) {
         return got;
     }
     panic!(
         "{ctx}: recovered state is neither the acknowledged one nor the in-flight one\n\
-         got {got:?}\nacked {:?}\nin flight {:?}",
-        out.acked, out.in_flight
+         got {got:?}\nacked {:?}\ndeferred {:?}\nin flight {:?}",
+        out.acked, out.deferred, out.in_flight
     );
 }
 
@@ -227,6 +272,10 @@ fn tc_txn_004_local_replica_workload_completes_and_reopens_without_crash() {
     for seed in [0x5EED_0000, 0x5EED_0001, 0x5EED_1000, 0x5EED_1001] {
         let steps = workload(seed, STEPS);
         assert!(steps.contains(&Step::Purge) && steps.contains(&Step::Restart));
+        assert!(
+            steps.contains(&Step::Sync) && steps.iter().any(|s| matches!(s, Step::Unsynced(_))),
+            "workload {seed:#x} has no unsynced proposal or no sync"
+        );
         assert!(
             steps.contains(&Step::Flush),
             "workload {seed:#x} never flushes"
